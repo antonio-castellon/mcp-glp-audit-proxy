@@ -4,7 +4,7 @@ mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
 Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.1.0.
 
-It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, Part 11 electronic signatures, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository.
+It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU GMP Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, Part 11 electronic signatures, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository.
 
 ```
 host (Claude, Cursor, Grok, self-hosted LLM)
@@ -82,8 +82,8 @@ mcp-glp-audit-proxy is designed to support the audit-trail requirements below. M
 | Framework | What the proxy helps with | Edition |
 |---|---|---|
 | OECD GLP No. 17 (3.4) / Swiss GLPV Annex 2 | Always-on, append-only audit trail; who/what/when/why; admin-only settings; QA read-only role; 10-year Swiss retention profile | Community core; WORM retention and PDF reports in Pro |
-| FDA 21 CFR Part 11 | Computer-generated, time-stamped, hash-chained audit trail (11.10(e)); tamper detection; complete copies; authority checks; Part 11-style approval e-signatures (11.50, 11.70, 11.200) | Community core; signatures, reports, signing, SSO in Pro |
-| EU GMP Annex 11 (2011; 2025 draft) | Audit trail of changes with reason; role, time zone; locked audit trail; searchable complete export; access log | Community core; review tooling and inactivity logout in Pro or still undecided |
+| FDA 21 CFR Part 11 | Computer-generated, time-stamped, hash-chained audit trail (11.10(e)); tamper detection; complete copies; authority checks. Part 11 approval e-signatures (11.50, 11.70, 11.200) are Pro only: the Community `approval` is not an electronic signature | Community core; e-signatures (Pro only), reports, signing, SSO in Pro |
+| EU GMP Annex 11 (2011; 2025 draft) | Audit trail of changes with reason; role, time zone; locked audit trail; searchable complete export; access log | Community core; review tooling and inactivity logout in Pro |
 | MHRA / PIC/S PI 041-1 / WHO TRS 1033 | ALCOA+ data integrity, segregation of duties, metadata with each record, true-copy exports | Community core; signed manifests and validation pack in Pro |
 | ISPE GAMP 5 / FDA CSA | Supplier documentation, proposed Cat. 4 configured components, machine-readable test evidence | Pro (validation pack) |
 | EU AI Act Art. 12, 19, 26(6) | Automatic event logging, minimum 6-month retention | Community |
@@ -108,6 +108,9 @@ Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamp
 | Verify CLI and searchable JSON export | yes | |
 | Plain-text verify listing | yes | |
 | PDF / CSV auditor reports | | yes |
+| Audit-trail review tooling (flags, reviewer sign-off) | search, filter, export | yes |
+| DE / FR / EN report templates | | later |
+| Old/new value capture for write tools | planned | change highlighting in reports |
 | Tool allowlist / denylist | yes | |
 | Local roles (operator, approver, qa, admin) | yes | |
 | Human approval before writes | yes (label: approval) | |
@@ -116,6 +119,11 @@ Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamp
 | RFC 3161 timestamps | | yes |
 | IQ/OQ validation pack | | yes |
 | SSO / OAuth | | yes |
+| Syslog (RFC 5424) / SIEM export | | yes |
+| Key management (KMS/HSM), field-level encryption and redaction | | yes |
+| FIPS 140-3 mode | | on request |
+| Merkle log with inclusion / consistency proofs | | later |
+| OpenTelemetry spans (technical telemetry, not the audit record) | planned | |
 | GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument templates, advanced LOD/LOQ and molar units, batch processing, Ed25519 signed output) | | yes |
 | TLS 1.3 to remote upstreams, no token passthrough | yes | |
 | Offline licence file, no phone-home | yes | reads the same file |

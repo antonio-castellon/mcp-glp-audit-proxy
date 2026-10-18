@@ -1,0 +1,40 @@
+{
+  "principal": {
+    "id": "operator-1",
+    "name": "Ada Analyst",
+    "role": "operator"
+  },
+  "retention": {
+    "profile": "swiss_glp",
+    "min_months": 6,
+    "years_after_study": 10,
+    "legal_hold": false,
+    "study_completion": null
+  },
+  "policy": {
+    "allow": ["excel__*"],
+    "deny": ["excel__drop_*"],
+    "write_tools": ["excel__write_*", "excel__delete_*"],
+    "require_approval_for_writes": false,
+    "require_reason_for_writes": true
+  },
+  "audit": {
+    "path": "./data/audit.jsonl",
+    "fail_closed": true,
+    "checkpoint_every": 100
+  },
+  "approval_ttl_seconds": 3600,
+  "require_ntp": false,
+  "export_dir": "./data/exports",
+  "licence_path": null,
+  "upstreams": [
+    {
+      "name": "excel",
+      "transport": "stdio",
+      "protocol": "auto",
+      "command": "python",
+      "args": ["-m", "your_excel_mcp_server"],
+      "env": {}
+    }
+  ]
+}

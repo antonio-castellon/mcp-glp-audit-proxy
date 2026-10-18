@@ -1,0 +1,8 @@
+# Runtime (mirrors pyproject.toml; prefer: pip install -e ".[dev]")
+# mcp floor is 2.2.0: GHSA-84m7-p3x7-pcfv affects 1.8.0-1.29.1 and 2.0.0-2.1.1.
+mcp>=2.2.0,<3
+rfc8785==0.1.4
+
+# Dev / test (optional)
+pytest>=8.3
+jsonschema>=4.21

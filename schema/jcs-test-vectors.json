@@ -1,0 +1,43 @@
+[
+  {
+    "name": "sorted-keys",
+    "input": {
+      "b": 1,
+      "a": {
+        "d": true,
+        "c": null
+      }
+    },
+    "canonical": "{\"a\":{\"c\":null,\"d\":true},\"b\":1}",
+    "sha256": "c6bcd213f27729acf865ace85779165d187ed34a6b109ec0d251a86115a3c587"
+  },
+  {
+    "name": "literals-and-numbers",
+    "input": {
+      "literals": [
+        null,
+        true,
+        false
+      ],
+      "numbers": [
+        333333333.3333333,
+        1e+30,
+        4.5,
+        0.002,
+        1e-27,
+        0
+      ],
+      "string": "\u20ac$\u000f\nA'B\"\\\\\\\"/"
+    },
+    "canonical": "{\"literals\":[null,true,false],\"numbers\":[333333333.3333333,1e+30,4.5,0.002,1e-27,0],\"string\":\"\u20ac$\\u000f\\nA'B\\\"\\\\\\\\\\\\\\\"/\"}",
+    "sha256": "9cf4f1363ff49017bb2f5b2edbcae910d51e44f126785303089311ef38277489"
+  },
+  {
+    "name": "controls",
+    "input": {
+      "unicode": "\u0000\u001f\u007f \u00e9"
+    },
+    "canonical": "{\"unicode\":\"\\u0000\\u001f\u007f \u00e9\"}",
+    "sha256": "2e16257f9c15d9e12debb968b4227547ee045ec4d798cb2f154e03d7cc244efa"
+  }
+]

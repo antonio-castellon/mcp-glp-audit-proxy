@@ -1,0 +1,265 @@
+# Standards Context: GLP Audit-Trail MCP Proxy (`mcp-glp-audit-proxy`)
+
+Compiled 2026-10-18 from STANDARDS_CONTEXT.md; primary sources re-checked 2026-10-18 (see "Verification log" at the end).
+Merged 2026-10-18 with STANDARDS_ADDENDUM.md (Antonio's verification of sources not reachable in the first pass).
+Requirement-by-requirement coverage (features, Community/Pro edition, status, priority): see COVERAGE.md (to become docs/COVERAGE.md).
+Purpose: design context so the proxy is designed to support GLP/GxP audit-trail expectations.
+
+Legend:
+- **MUST** = hard design requirement; **SHOULD** = strong recommendation; **MAY** = optional.
+- `[VERIFY: reason]` = not confirmed against the primary text; do not cite to customers until checked.
+- Items without a marker were checked against the source linked next to them on 2026-10-18.
+
+Note: no software product is "GLP compliant" or "Part 11 compliant" by itself. Compliance comes from the
+validated system plus the customer's SOPs. The proxy is *designed to support* compliance (marketing wording!).
+Never write "certified compliant".
+
+---
+## 1. Regulations & guidance
+
+### 1.1 OECD GLP Principles + Advisory Document No. 17 (Application of GLP Principles to Computerised Systems, ENV/JM/MONO(2016)13)
+- Section 3.4 "Audit trails", paragraphs 80-83 (checked):
+  - para 80: audit trail available and convertible to human-readable form; any change must not obscure the original entry, must be time and date stamped and traceable to the person who made it.
+  - para 81: audit trail enabled, configured to reflect study roles; changing audit trail settings restricted to authorised personnel; personnel involved in a study (study directors, analysts, etc.) should NOT be authorised to change audit trail settings.
+  - para 82: risk-based review of audit trail functions, settings and records; GLP QA personnel should be involved.
+  - para 83: system should highlight alterations to previously entered data on screen and in printed copies; original and modified entries retained.
+- Related OECD GLP documents: OECD Advisory Document on GLP Data Integrity (released 20 Sept 2021; per MHRA it takes precedence over the MHRA guidance for UK GLP). The Swiss AGIT V4.0 guideline refers to it as OECD Advisory Document No. 22 and also cites "No. 17 Supplement 1". `[VERIFY: open the OECD No. 22 and No. 17 Supplement 1 texts directly; not read in this pass]`
+- "Reissued 2022" claim from the earlier draft: `[VERIFY: not confirmed; the PDF read is ENV/JM/MONO(2016)13, which "cancels & replaces the same document of 22 April 2016"]`
+- Proxy: MUST record who/what/when for every tool call; MUST make audit settings changeable only by an admin role distinct from operators/study personnel (and log the settings change itself); MUST provide human-readable export (PDF/CSV/HTML report); MUST never update/delete entries; SHOULD provide review tooling (filters, flags, highlighting of changes) and a QA read-only role.
+- Source: https://www.oecd.org/content/dam/oecd/en/publications/reports/2016/04/application-of-glp-principles-to-computerised-systems_7d05366e/e3c9cda5-en.pdf
+
+### 1.2 Swiss context: OGLP (SR 813.112.1), Swissmedic/FOPH/FOEN
+- GLPV/OGLP (SR 813.112.1, of 18 May 2005; consolidation of 1 Dec 2012), checked on fedlex:
+  - Art. 4(1): the GLP Principles are listed in Annex 2 (Annex 2 reproduces the OECD GLP Principles). Art. 4(2): FOPH, FOEN and Swissmedic may issue joint interpretation guidelines. Art. 8(2): competence - FOPH and Swissmedic for toxicological studies, FOEN for ecotoxicological/environmental-behaviour studies, by mutual agreement for other studies. Art. 6(2): re-inspection every two to three years.
+  - Annex 2 sec. 8.3 para. 4: changes to raw data should indicate the reason and be dated and signed/initialled. Para. 5: "Computerised system design should always provide for the retention of full audit trails to show all changes to the data without obscuring the original data. It should be possible to associate all changes to data with the persons having made those changes, for example, by use of timed and dated (electronic) signatures. Reason for changes should be given."
+  - Annex 2 sec. 10 para. 1: study plan, raw data, final report, validation documentation for computerised systems etc. "should be retained in the archives for at least ten years after study completion" (Swiss addition; the OECD text leaves the period to national authorities). Para. 4: movement of material in and out of the archives should be properly recorded.
+- SPAQA GLP Roundtable 2017 Q&A (questions addressed to Swissmedic; roundtable Q&A, not binding guidance): Q5 - new OECD 17 requirements apply "in due time for new studies and for systems in use, but not retroactively"; Q9 - during study-based inspections QA should have direct read-only access to the data, including the audit trail.
+- Swiss AGIT guidance: current version found is "Good Laboratory Practice (GLP) AGIT - Validation of Computerised Systems, Version 4.0" (2025), published on admin.ch; it is not legally binding and should be read with OECD Advisory Documents No. 17, No. 17 Supplement 1 and No. 22. AGIT guideline on archiving electronic raw data: audit trail must record original and modified data, reason for change, date and time, and identity of the person (from the admin.ch PDF summary; full text not re-read).
+- Proxy: same as OECD 17; SHOULD ship a QA read-only role; default retention profile for Swiss GLP customers MUST be >= 10 years after study completion (audit trail entries are raw-data metadata), per-study configurable, with legal hold; SHOULD log exports/retrievals of archived audit segments (Annex 2 sec. 10 para. 4); SHOULD support German/French reports (nice to have).
+- Sources: GLPV (fedlex, EN information only / DE authoritative): https://fedlex.data.admin.ch/filestore/fedlex.data.admin.ch/eli/cc/2005/467/20121201/en/html/fedlex-data-admin-ch-eli-cc-2005-467-20121201-en-html-9.html ; https://fedlex.data.admin.ch/filestore/fedlex.data.admin.ch/eli/cc/2005/467/20121201/de/html/fedlex-data-admin-ch-eli-cc-2005-467-20121201-de-html-8.html ; earlier mirror: https://lawbrary.ch/gesetz/cc/813_112_1/GLPV/v2012.12/en/ ; https://www.spaqa-gxp.ch/fileadmin/public/Diskussionsrunde/2017/Questions_and_Answers_GLP_Roundtable_2017_final.pdf ; AGIT V4.0: https://www.anmeldestelle.admin.ch/dam/fr/sd-web/J4vLWuiKpaQY/2025_Good%20Laboratory%20Practice%20(GLP)%20AGIT%20%E2%80%93%20Validation%20of%20Computerised%20Systems%20V4.0.pdf ; AGIT raw data: https://www.anmeldestelle.admin.ch/dam/en/sd-web/TCGhn0KvQrYV/agit-guidelines-archiv-electr-raw-data.pdf
+
+### 1.3 FDA 21 CFR Part 11 (checked against eCFR, current text)
+- Sec. 11.10(e): use of secure, computer-generated, time-stamped audit trails to independently record the date and time of operator entries and actions that create, modify, or delete electronic records; record changes shall not obscure previously recorded information; audit trail documentation retained at least as long as required for the subject electronic records and available for agency review and copying.
+- Sec. 11.10(a) validation incl. ability to discern invalid or altered records; (b) accurate and complete copies in human readable and electronic form; (c) protection of records for accurate and ready retrieval throughout the retention period; (d) limiting system access to authorized individuals; (f) operational system checks to enforce permitted sequencing; (g) authority checks (use the system, sign, alter a record, perform the operation); (k) controls over systems documentation.
+- Sec. 11.30: open systems need the 11.10 controls plus measures such as document encryption and appropriate digital signature standards.
+- Subpart C / signatures: Sec. 11.50 signature manifestation (printed name, date and time, meaning such as review/approval/responsibility/authorship), also shown in any human-readable form; Sec. 11.70 signature/record linking (signatures cannot be excised, copied or transferred); Sec. 11.100(a) each e-signature unique to one individual, not reused or reassigned; Sec. 11.200(a)(1) non-biometric signatures use at least two distinct identification components (e.g. ID code + password), with rules for series of signings within one continuous session; Sec. 11.300 controls for ID codes/passwords.
+- Proxy: MUST generate entries itself (computer-generated, not client-supplied); MUST timestamp server-side; MUST link retention to subject records (configurable, default long); MUST export complete copies (machine + human readable). If the human-approval-before-write feature is used as a *signature*: MUST capture printed name, date/time, meaning ("approved/reviewed"), bind it cryptographically to the logged record (11.70), and re-authenticate the approver per 11.200. Otherwise label it "approval", not "e-signature".
+- Source: https://www.ecfr.gov/current/title-21/chapter-I/subchapter-A/part-11
+
+### 1.4 EU GMP Annex 11 (2011) + 2025 revision draft + proposed Annex 22 (AI)
+- 2011 Annex 11 (in force; EudraLex Vol. 4 lists "Annex 11 Computerised Systems (revision January 2011)" as of 2026-10-18): Sec. 9 Audit Trails: based on risk assessment, a system-generated record of all GMP-relevant changes and deletions; reason documented; audit trails available, convertible to a generally intelligible form, regularly reviewed. Sec. 7 Data Storage; Sec. 12 Security; Sec. 14 Electronic Signature; Sec. 17 Archiving.
+- 2025 revision draft (consultation closed 7 Oct 2025; NOT in force; EudraLex Vol. 4 still lists only the 2011 text and no Annex 22 as of 2026-10-18):
+  - Sec. 12.1 audit trail automatically logs all manual user interactions.
+  - Sec. 12.2 who (incl. role if users may hold more than one), what (data changed, old and new value), when (date/time incl. time zone if applicable); recorded at the time of the event, not at the end of a process; system automatically prompts for and registers the reason for a change.
+  - Sec. 12.3 audit trail enabled and locked at all times; no user may edit audit trail data; changes to audit trail settings or system time, or deactivation, must themselves create an audit trail entry and be possible only for a system administrator not involved in GMP activities.
+  - Sec. 12.4 sort/search by all users or export to a tool; 12.5-12.8 documented, independent (peer), risk-based and timely reviews.
+  - Sec. 12.9 "Electronic copy": a complete electronic copy of system data incl. audit trail data must be obtainable; "Flat and locked files are not acceptable, it should be possible to search and sort data." (context: the electronic copy, i.e. a PDF-only export is not enough).
+  - Inactivity logout is Sec. 11.8 (not 12.3); access log (separate or part of audit trail) is Sec. 11.9.
+  - ISPE comments (submission of 7 Oct 2025): "data audit trails should be clearly distinguished from system technical logs, access logs, and other event logs"; logging of settings/access privileges and alarm acknowledgement is "separate from, and different to, data audit trail functionality" (on 12.1); "the why may not be necessary for each data change" (on 12.2); suggests amending 11.8 and removing 11.9 as too prescriptive; notes the ALCOA+ (Annex 11 glossary) vs ALCOA++ (Chapter 4) inconsistency.
+  - 12.3's segregation rule cross-references 11.10 "Guiding principles" (access privileges).
+- Proposed Annex 22 (AI, draft of July 2025, not in force): Sec. 1 Scope (checked in the EC draft PDF): applies to static models with deterministic output used in critical GMP applications; dynamic models, probabilistic models, generative AI and LLMs are not covered and "should not be used in critical GMP applications"; in non-critical applications qualified personnel must remain responsible for outputs (human-in-the-loop). EMA held a stakeholder workshop on 30 Jun - 1 Jul 2026 reconsidering the GenAI position; outcome open `[VERIFY: workshop info is from secondary sources only]`. Positioning: proxy provides human-in-the-loop + traceability.
+- Proxy: MUST log role, time zone (store UTC + offset), old/new values where the tool call modifies data (capture tool args + result; optionally pre-image via read-before-write); MUST support a "reason" field (agent rationale + optional human reason), required for write tools and optional for reads; MUST tag each entry with a record class - GxP data audit trail entry (create/modify/delete of a GxP record via a tool call) vs. access/technical/config event - while keeping both classes in the tamper-evident log so either final Annex 11 wording is satisfied; MUST provide a searchable/sortable complete electronic export (not only PDF); MUST separate *audit trail* (GxP record events) from *technical logs* (debug/OTel).
+- Sources: 2011 Annex 11: https://health.ec.europa.eu/document/download/8d305550-dd22-4dad-8463-2ddb4a1345f1_en?filename=annex11_01-2011_en.pdf ; EudraLex Vol. 4: https://health.ec.europa.eu/medicinal-products/eudralex/eudralex-volume-4_en ; consultation: https://health.ec.europa.eu/consultations/stakeholders-consultation-eudralex-volume-4-good-manufacturing-practice-guidelines-chapter-4-annex_en ; Annex 11 draft: https://health.ec.europa.eu/document/download/40231f18-e564-4043-94de-c031f813d38b_en?filename=mp_vol4_chap4_annex11_consultation_guideline_en.pdf ; Annex 22 draft: https://health.ec.europa.eu/document/download/5f38a92d-bb8e-4264-8898-ea076e926db6_en ; ISPE comments: https://ispewebassets.org/files/regulatory/ISPE-Commenting/2025/ISPE_Comments_-_Annex_11_EMA_PICs_Final%20.pdf
+
+### 1.5 MHRA "'GXP' Data Integrity Guidance and Definitions", Revision 1, March 2018
+- GOV.UK page: published 9 March 2018, last updated 27 Sept 2021 (added GLP note: the OECD Advisory Document on Data Integrity of 20 Sept 2021 takes precedence for UK GLP; MHRA guidance continues to supplement it).
+- Checked content: Sec. 3.10 ALCOA vs ALCOA+ (no difference in expectations); Sec. 6.3 metadata are an integral part of the original record; Sec. 6.11.2 true copy: verified copy (dated signature or validated process) with same information incl. metadata and audit trail; true copies of electronic data should include meaning of the data and the full GXP audit trail; Sec. 6.13 audit trail: "who, what, when and why", changes dated and time stamped (time and time zone where applicable), reason recorded, audit trail switched on, users cannot amend or switch it off, admin changes to it recorded, risk-based audit trail review; Sec. 6.16 system administrator access restricted, unique credentials, admin rights not assigned to people with a direct interest in the data.
+- Proxy: MUST preserve metadata with each record; SHOULD support true-copy export (complete export incl. audit trail + hash manifest + signature, produced by a validated process).
+- Sources: https://www.gov.uk/government/publications/guidance-on-gxp-data-integrity ; PDF: https://assets.publishing.service.gov.uk/media/5aa2b9ede5274a3e391e37f3/MHRA_GxP_data_integrity_guide_March_edited_Final.pdf
+
+### 1.6 PIC/S PI 041-1 (1 July 2021) "Good Practices for Data Management and Integrity in Regulated GMP/GDP Environments"
+- Adopted 1 June 2021, in force 1 July 2021; still the current version as listed by PIC/S. Scope: GMP/GDP inspections (not GLP, though principles apply more widely, Sec. 4.3). Not legally binding (Sec. 3.7).
+- Checked content: Sec. 5.3-5.5 risk-based data governance (data criticality and data risk); Sec. 7.5 ALCOA+ table; Sec. 9.2-9.3 qualification/validation of computerised systems incl. URS, IQ/OQ/PQ, segregation of duties defined before validation, restrictions so users cannot amend audit trail functions; Sec. 9.5 system security: least-privilege roles, administrator rights not given to normal users (segregation of duties), lists of users and login attempts; Sec. 9.6 audit trails; Sec. 9.8 review of data; Sec. 9.10 hybrid systems.
+- Proxy: MUST segregate admin vs user roles; SHOULD include validation evidence pack (IQ/OQ test scripts, traceability matrix).
+- Source: https://picscheme.org/docview/4234 (link confirmed: serves PI 041-1)
+
+### 1.7 WHO TRS 1033 (2021) Annex 4 - Guideline on data integrity
+- Replaces WHO TRS 996 Annex 5 (2016). Covers GxP for medical products, electronic/paper/hybrid systems.
+- Checked content: Sec. 1.2 and glossary ALCOA+; Sec. 3 glossary: audit trail as metadata for reconstruction, data life cycle; Sec. 11.10 audit trails should reflect users, dates, times, original data and results, changes and reasons (when required), and enabling/disabling of audit trails; Sec. 11.11 audit trails enabled at install and at all times, with periodic verification; Sec. 11.13 e-signatures attributable, unalterable, permanently linked to the record, date- and time-stamped; Sec. 12.3 routine data review includes audit trails, frequency based on criticality.
+- Proxy: log enable/disable of auditing as an event; periodic self-check that auditing is active.
+- Sources: https://www.who.int/publications/m/item/annex-4-trs-1033 ; PDF: https://cdn.who.int/media/docs/default-source/medicines/norms-and-standards/guidelines/inspections/trs1033-annex4-guideline-on-data-integrity.pdf
+
+### 1.8 ALCOA+ / ALCOA++ (cross-cutting; ALCOA+ definitions confirmed in MHRA 3.10, PIC/S 7.4-7.5, WHO glossary)
+Attributable, Legible, Contemporaneous, Original, Accurate + Complete, Consistent, Enduring, Available.
+ALCOA++: the EU GMP Chapter 4 revision draft (2025, para. 4.63, Table 1; NOT in force - EudraLex Vol. 4 still lists "Chapter 4 - Documentation (January 2011)") adds a 10th attribute, Traceable: "the ability to trace the history, modification or location of data by means of recorded identifications". Draft paras. 4.64-4.70 on signatures: date and time, identifiable signatory, clear meaning (review, approval, responsibility, or authorship), traceable to signatory and signed document.
+
+| Principle | Proxy design |
+|---|---|
+| Attributable | authenticated human principal + agent/client id + MCP session id (if the protocol version has one) per entry |
+| Legible | human-readable reports; documented schema |
+| Contemporaneous | entry written synchronously before response returned (fail-closed) |
+| Original | store raw request/response (or hash + pointer) |
+| Accurate | canonical serialization, hashing, chain verify tool |
+| Complete | log denied/failed/blocked calls too; sequence numbers detect gaps |
+| Consistent | UTC timestamps, monotonic sequence |
+| Enduring | WORM storage, retention, backups |
+| Available | search/export, retrievable for retention period |
+| Traceable (ALCOA++, EU Chapter 4 draft 2025, not in force) | hash chain + sequence numbers + stable record ids give history, modification and location of each entry |
+
+### 1.9 ISPE GAMP 5 2nd ed. (July 2022) + GAMP Guide: Artificial Intelligence (July 2025) + FDA CSA
+- GAMP 5 2nd ed. (official product page + public TOC): published July 2022, 404 pages; emphasises critical thinking and supplier involvement; Appendix D11 "Artificial Intelligence and Machine Learning (AI/ML)". Other appendices relevant to the validation pack: S2 "Electronic Production Records" (47.2.2 Audit Trail Terminology, 47.2.3 Data Audit Trail Review), O13 "Archiving and Retrieval", D10 "Distributed Ledger Systems (Blockchain)" incl. 30.4.2 "Reliance on Cryptography and Proofs in Place of Trusted Systems". `[VERIFY: paywalled; headings confirmed from the official TOC, clause content not read]`
+- Software categories (Appendix M4, 2nd ed.): Cat. 1 Infrastructure Software, Tools, and IT Services; Cat. 2 Not Used; Cat. 3 Standard System Components; Cat. 4 Configured Components; Cat. 5 Custom Applications and Components.
+- GAMP AI Guide (official TOC + ISPE articles): July 2025, 290 pages, stand-alone guide used in parallel with GAMP 5 2nd ed.; headings include EU AI Act (1.3), AI-specific security measures (7.5), system monitoring (10.5), data and model governance (M7), model monitoring and drift detection (19.11), trustworthy AI incl. human autonomy and control, transparency, accountability (M9), model categories (22.4), explainable AI (S4), cybersecurity challenges (S5). It considers ISO/IEC 42001:2023. `[VERIFY: paywalled; topics confirmed at heading level only]`
+- FDA Computer Software Assurance (CSA): final guidance "Computer Software Assurance for Production and Quality System Software" (24 Sept 2025) was superseded on 3 Feb 2026 by "Computer Software Assurance for Production and Quality Management System Software" (docket FDA-2022-D-0795; scope: medical device production/QMS software under 21 CFR Part 820, NOT GLP labs - cite as supporting practice only). It refers to GAMP 5 2nd ed. (fn. 25); mentions "secure, computer-generated, time-stamped audit trails"; recommends digital records (system logs, audit trails) over paper/screenshots as assurance evidence; risk tiers "high process risk" / "not high process risk".
+- Proxy: SHOULD propose a classification of "Category 4 - Configured Components" `[VERIFY: customer decides; categorisation is the regulated company's call]`; MUST provide supplier documentation (URS template, risk assessment, test evidence, release notes, SBOM), with machine-readable test evidence (CSA-style digital records); SHOULD log model identifier/version of the AI host when available (supports AI monitoring).
+- Sources: https://ispe.org/publications/guidance-documents/gamp-5-guide-2nd-edition ; TOC: https://guidance-docs.ispe.org/doi/book/10.1002/9781946964571 ; https://ispe.org/publications/guidance-documents/gamp-guide-artificial-intelligence ; AI Guide TOC: https://ispewebassets.org/files/publications/guidance-documents/2025-TOC/GAMP_Guide-AI_TOC.pdf ; https://ispe.org/pharmaceutical-engineering/september-october-2025/new-gampr-guide-addresses-challenges-posed-ai ; FDA CSA: https://www.fda.gov/regulatory-information/search-fda-guidance-documents/computer-software-assurance-production-and-quality-management-system-software (PDF https://www.fda.gov/media/188844/download)
+
+### 1.10 EU AI Act (Reg. (EU) 2024/1689) Art. 12, 19, 26(6) (checked against the EC AI Act Service Desk text, based on the EUR-Lex consolidated version as at 27 July 2026)
+- Art. 12(1): high-risk AI systems shall technically allow automatic recording of events (logs) over the lifetime of the system. Art. 12(2): logs enable (a) identifying situations presenting a risk (Art. 79(1)) or a substantial modification, (b) post-market monitoring (Art. 72), (c) monitoring of operation by deployers (Art. 26(5)).
+- Art. 19(1): providers keep the Art. 12(1) logs under their control for a period appropriate to the intended purpose, at least six months, unless Union/national law provides otherwise.
+- Art. 26(6): deployers keep the logs under their control for at least six months (numbering confirmed in the consolidated text).
+- Applicability (Art. 113 as amended by the Digital Omnibus on AI): Chapter III Sections 1-3 apply from 2 Dec 2027 for Annex III high-risk systems and 2 Aug 2028 for Annex I high-risk systems.
+- Proxy: lab AI use is often not "high-risk" under the Act, but the proxy SHOULD be marketed as designed to support Art. 12-style logging: MUST min retention >= 6 months configurable; SHOULD log events for risk situations (policy denials, anomalies, errors).
+- Sources: https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-12 ; https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-19 ; https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-26 ; https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-113 ; EUR-Lex consolidated: https://eur-lex.europa.eu/eli/reg/2024/1689/2026-07-27/eng (blocks automated fetch; text read via the EC Service Desk)
+
+---
+## 2. Technical standards
+
+### 2.1 Tamper evidence
+- **Hash chain** (each entry contains hash of previous) - simple, MUST.
+- **Merkle tree / RFC 9162 (Certificate Transparency Version 2.0, Dec 2021, category: Experimental; obsoletes RFC 6962)**: append-only log, Signed Tree Head (Sec. 4.10), Merkle consistency proofs (Sec. 2.1.4, 4.11) and inclusion proofs (Sec. 2.1.3, 4.12). SHOULD (phase 2) for efficient proofs and external checkpointing. Note: Experimental status; cite as "design pattern", not as a mandated standard. https://www.rfc-editor.org/rfc/rfc9162
+- **Signed checkpoints**: periodically sign (head hash, seq, time) with the proxy key. MUST.
+- **RFC 3161 Time-Stamp Protocol (Aug 2001, Proposed Standard; updated by RFC 5816 "ESSCertIDv2 Update for RFC 3161", Apr 2010)**: anchor checkpoints with a TSA token - evidence that the datum existed before the time in the token, independent of the proxy clock. SHOULD. Implement with RFC 5816 (ESSCertIDv2, SHA-256) support. https://www.rfc-editor.org/rfc/rfc3161 ; https://www.rfc-editor.org/rfc/rfc5816
+- **eIDAS qualified electronic time stamps**: Reg. (EU) 910/2014 Art. 3(33)-(34), 41(1)-(2), 42, as amended by Reg. (EU) 2024/1183 (Art. 41(3) cross-border recognition was DELETED by 2024/1183 - do not cite it). Art. 41(2): a qualified electronic time stamp enjoys the presumption of accuracy of the date and time and of the integrity of the bound data. Art. 42(1): binds date/time to data so undetectable change is reasonably precluded; accurate time source linked to UTC; signed/sealed with an advanced signature/seal of the qualified TSP. New Art. 42(1a): presumption of compliance with the reference standards. Standards per Commission Implementing Regulation (EU) 2025/1929 (OJ 30.9.2025): ETSI EN 319 421 V1.3.1 + ETSI EN 319 422 V1.1.1 (RFC 3161 profile) with adaptations: algorithms/key lengths per the ENISA/ECCG "Agreed Cryptographic Mechanisms"; client and server support RFC 3161 over HTTPS (RFC 3161 clause 3.4, RFC 9110); a qualified token contains one qcStatements extension with statement esi4-qtstStatement-1 (non-critical). Do not assume Ed25519 for TSA tokens; the proxy only verifies them.
+- Swiss equivalent: ZertES (Bundesgesetz ueber die elektronische Signatur, SR 943.03, of 18 March 2016; fedlex consolidation of 1 Jan 2020) Art. 2 lit. i (electronic time stamp), Art. 2 lit. j (qualified electronic time stamp: issued by a recognised certification service provider and sealed with a regulated electronic seal), Art. 13 (recognised providers must issue qualified time stamps on request).
+- MAY (option to use a qualified TSA, e.g. Swisscom); detect qualified tokens by the esi4-qtstStatement-1 qcStatement.
+- Sources: eIDAS consolidated (02014R0910-20241018): https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02014R0910-20241018 ; amending act: https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1183 ; Impl. Reg. 2025/1929: https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32025R1929 ; ETSI EN 319 422: https://www.etsi.org/deliver/etsi_en/319400_319499/319422/01.01.01_60/en_319422v010101p.pdf ; ETSI EN 319 421: https://www.etsi.org/deliver/etsi_en/319400_319499/319421/01.03.01_60/en_319421v010301p.pdf ; ZertES: https://fedlex.data.admin.ch/filestore/fedlex.data.admin.ch/eli/cc/2016/752/20200101/de/html/fedlex-data-admin-ch-eli-cc-2016-752-20200101-de-html-7.html (landing: https://www.fedlex.admin.ch/eli/cc/2016/752/de)
+- Precedent: Sigstore Rekor / Trillian transparency logs.
+
+### 2.2 Hashing, signatures, crypto modules
+- SHA-256 (FIPS 180-4) MUST default; SHA-3 (FIPS 202) MAY; algorithm id stored per entry for crypto-agility (MUST).
+- Ed25519 (RFC 8032, Jan 2017, Informational; approved in FIPS 186-5) SHOULD default for signing; ECDSA P-256 (FIPS 186-5) as alternative for FIPS/HSM environments.
+- FIPS 140-3 validated modules: SHOULD allow (e.g. OpenSSL 3 FIPS provider, cloud KMS/HSM) - required by some US customers. https://csrc.nist.gov/pubs/fips/140-3/final
+- Post-quantum (ML-DSA, FIPS 204) - MAY, design for agility.
+
+### 2.3 Canonicalization
+- RFC 8785 JSON Canonicalization Scheme (JCS) (June 2020, category: Informational, Independent Submission - not an IETF standards-track document): data constrained to I-JSON (RFC 7493), ECMAScript-compatible serialization of primitives, deterministic property sorting. MUST canonicalize each entry before hashing/signing so verification is reproducible across languages. Pin the implementation and add cross-language test vectors. https://www.rfc-editor.org/rfc/rfc8785
+
+### 2.4 Encryption & key management
+- In transit: TLS 1.3 MUST for remote transports (Streamable HTTP, DB, S3); mTLS SHOULD between proxy and backend servers. Note: RFC 8446 was obsoleted in July 2026 by RFC 9846 (still "TLS Protocol Version 1.3"; also obsoletes RFC 5246/TLS 1.2 and sets new TLS 1.2 requirements). Cite RFC 9846. https://www.rfc-editor.org/rfc/rfc9846 (historic: https://www.rfc-editor.org/rfc/rfc8446)
+- At rest: AES-256-GCM (NIST SP 800-38D) SHOULD for payload fields / files; rely on DB TDE / S3 SSE-KMS where available.
+- Key management: NIST SP 800-57 Pt 1 Rev 5 - key lifecycle, cryptoperiods, rotation, separation of signing vs encryption keys. MUST: keys never in log store; rotation recorded as audit event; old public keys retained for verification for full retention period. Support KMS/HSM (AWS KMS, Azure Key Vault, PKCS#11). https://csrc.nist.gov/pubs/sp/800/57/pt1/r5/final
+- Privacy (GDPR / Swiss nFADP): payloads may contain personal data -> SHOULD support field-level redaction/pseudonymization *with hash of original preserved* (crypto-shredding pattern; tension with GxP "original" record - make configurable and documented).
+
+### 2.5 Log formats & interoperability
+- Native record: JSON (JSONL) with documented JSON Schema - MUST.
+- RFC 5424 syslog export SHOULD (SIEM); CEF MAY. https://www.rfc-editor.org/rfc/rfc5424
+- OpenTelemetry GenAI + MCP semantic conventions (status: Development): spans use span kind CLIENT (client side) / SERVER (server side), name `{mcp.method.name} {target}` (e.g. `tools/call get_weather`), falling back to `{mcp.method.name}`. `mcp.client.*` / `mcp.server.*` are METRICS (`mcp.client.operation.duration`, `mcp.server.operation.duration`, `mcp.client.session.duration`, `mcp.server.session.duration`), not span names. Attributes: `mcp.method.name` (Required), `error.type` (Cond. Required), `gen_ai.tool.name` (Cond. Req.), `gen_ai.prompt.name`, `mcp.resource.uri`, `jsonrpc.request.id`, `jsonrpc.protocol.version`, `rpc.response.status_code` (Cond. Req.), `gen_ai.operation.name=execute_tool` (Recommended), `mcp.protocol.version` (Recommended), `mcp.session.id` (Recommended, when part of a session); `gen_ai.tool.call.arguments` / `gen_ai.tool.call.result` Opt-In. Context propagation: inject W3C `traceparent`/`tracestate`/`baggage` into `params._meta` (unprefixed, SEP-414). If an outer GenAI instrumentation already traces the tool call, MCP instrumentation should add attributes instead of a separate span. SHOULD reuse these field names in the audit schema and emit OTel spans as *technical telemetry* (not the GxP record). Note: the semconv has no 2026-07-28 handling yet; absence of `mcp.session.id` on 2026-07-28 is our inference. https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/mcp.md
+- W3C PROV-O / PROV-DM: provenance model (Entity, Activity, Agent; wasAssociatedWith, actedOnBehalfOf). SHOULD offer PROV JSON-LD export - fits "agent acted on behalf of human". https://www.w3.org/TR/prov-o/
+- W3C Trace Context (traceparent) SHOULD propagate for correlation, carried in `params._meta` (MCP 2026-07-28 and OTel MCP semconv).
+
+### 2.6 Time
+- UTC storage MUST, ISO 8601 / RFC 3339 format with offset; NTP sync (RFC 5905, NTPv4) MUST be documented/checked (log clock-sync status at startup); PTP (IEEE 1588) MAY for instrument-level. Monotonic sequence number MUST (ordering independent of clock). Changes to system time should themselves be audited (Annex 11 draft Sec. 12.3).
+
+### 2.7 Storage immutability & retention
+- S3 Object Lock **Compliance mode** (not Governance): Cohasset Associates (May 2019) assessed Amazon S3 with Object Lock in Compliance mode as meeting SEC 17 CFR 240.17a-4(f), FINRA 4511(c) and CFTC 17 CFR 1.31(c)-(d): records retained "in non-rewriteable and non-erasable format" until the retention period expires and any legal hold is released. Caveat: financial-regulation assessment, not GxP; it predates the SEC's 2022 Rule 17a-4 amendments. AWS docs: in compliance mode no user, including root, can overwrite or delete a protected version, the mode can't be changed and the period can't be shortened; the only way to delete early is to delete the AWS account (Governance mode can be bypassed with special permissions). Design: document the account-deletion residual risk; recommend a dedicated AWS account / organisation SCP for the audit bucket. Similar: Azure Immutable Blob (Cohasset assessed), MinIO object lock for on-prem.
+  https://d1.awsstatic.com/r2018/b/S3-Object-Lock/Amazon-S3-Compliance-Assessment.pdf ; https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html
+- PostgreSQL/MSSQL: append-only via REVOKE UPDATE/DELETE/TRUNCATE + triggers rejecting changes; separate owner role; MSSQL **Ledger tables** (SQL Server 2022, append-only ledger with digests) SHOULD be used when available; Postgres: hash chain + periodic external digest.
+- Local JSONL: chattr +a / WORM FS optional; pilot only; MUST still be hash-chained.
+- Retention: configurable; GLP archive retention per national law: Switzerland GLPV Annex 2 sec. 10 para. 1 = at least 10 years after study completion -> default 10-year profile for Swiss customers; other countries `[VERIFY: national period not checked; OECD text leaves it to national authorities]`; Part 11 Sec. 11.10(e): audit trail kept at least as long as the subject records; AI Act Art. 19/26(6): >= 6 months. Legal hold support SHOULD.
+- Backups & DR: MUST document; verify chain after restore.
+
+### 2.8 Identity & access
+- MCP Authorization spec. Current protocol revision is **2026-07-28** (per the MCP versioning page on 2026-10-18; earlier revisions 2025-11-25 and 2025-06-18 remain published). Checked content of the current authorization page:
+  - Authorization is OPTIONAL; HTTP-based transports SHOULD conform; STDIO transports SHOULD NOT follow it and should take credentials from the environment.
+  - Based on OAuth 2.1 (draft-ietf-oauth-v2-1-13), RFC 6750, RFC 8414, RFC 7591, RFC 8707, RFC 9728, RFC 9207, OAuth Client ID Metadata Documents, OpenID Connect Discovery 1.0.
+  - Protected MCP server = OAuth 2.1 resource server; MUST implement Protected Resource Metadata (RFC 9728); clients MUST use RFC 8707 `resource` parameter; servers MUST validate token audience; servers "MUST NOT accept or transit any other tokens" (no token passthrough; also covered in Security Best Practices).
+  - 2026-07-28 changes: Dynamic Client Registration (RFC 7591) deprecated in favour of Client ID Metadata Documents; clients MUST validate `iss` (RFC 9207) when present.
+- Other 2026-07-28 protocol changes that affect the proxy design: protocol-level sessions and `Mcp-Session-Id` removed; `initialize` handshake removed (version + capabilities now in each request's `_meta`); new mandatory `server/discover`; `subscriptions/listen`; Multi Round-Trip Requests (`input_required`) replace server-initiated requests; `ping` and `logging/setLevel` removed. The proxy MUST support both handshake-based revisions (2025-11-25 and earlier) and 2026-07-28, and record the negotiated protocol version per entry.
+- OIDC (OpenID Connect Core 1.0) for human identity; SHOULD support enterprise IdP (Entra ID, Keycloak).
+- Proxy: MUST attribute each call to an authenticated human (sub, name, role) + client/agent id; MUST NOT pass through client tokens to upstream servers (separate credentials per backend); RBAC: operator / approver / QA-reviewer (read-only) / admin; MUST log auth events & config changes; SHOULD enforce inactivity logout + re-authentication for interactive approval UIs (Annex 11 draft Sec. 11.8).
+- Sources: https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization ; https://modelcontextprotocol.io/specification/versioning ; https://modelcontextprotocol.io/specification/2026-07-28/changelog ; https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices ; previous: https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization ; RFC 9728: https://www.rfc-editor.org/rfc/rfc9728 ; RFC 8707: https://www.rfc-editor.org/rfc/rfc8707
+
+---
+## 3. AI-agent / MCP audit standards & proposals
+- No formal standard for AI-agent audit trails found. Closest:
+  - OTel GenAI/MCP semconv (status: Development).
+  - EU AI Act Art. 12 (see 1.10).
+  - ISO/IEC 42001:2023 "Information technology - Artificial intelligence - Management system": the ISO catalogue page confirms it is a management system standard (Edition 1, published 2023-12, 51 pages, ISO/IEC JTC 1/SC 42) specifying requirements for establishing, implementing, maintaining and continually improving an AI management system (AIMS), (PDCA) and lists "traceability, transparency and reliability" among its benefits. As an organisational MSS, a product cannot be "compliant"; the proxy can provide evidence toward Annex A control A.6.2.8 "AI system recording of event logs" (organisation determines life-cycle phases for event logging, at minimum when the AI system is in use). `[VERIFY: A.6.2.8 wording from two secondary sources only; official clause/Annex A list not checked (paywall; ISO OBP behind bot protection, not circumvented); verify against a licensed copy before citing to a client]` https://www.iso.org/standard/81230.html
+  - NIST AI RMF 1.0 (NIST AI 100-1, 26 Jan 2023): Core has four functions GOVERN, MAP, MEASURE, MANAGE. "Traceability" is not a named category; the relevant parts are trustworthiness characteristic Sec. 3.4 "Accountable and Transparent", MEASURE 2.4 (functionality and behavior monitored in production), MEASURE 2.8 (transparency and accountability risks examined and documented), MANAGE 4.1 (post-deployment monitoring incl. override, incident response, change management) and MANAGE 4.3 (incidents and errors tracked and documented). Companion: NIST AI 600-1 Generative AI Profile (26 Jul 2024). NIST states AI RMF 1.0 is being revised. https://www.nist.gov/itl/ai-risk-management-framework ; https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf
+  - OWASP: Top 10 for LLM Applications 2025, LLM06:2025 Excessive Agency (root causes: excessive functionality, permissions, autonomy; mitigations: minimise extensions and permissions, execute in user's context, require user approval for high-impact actions, complete mediation; logging/monitoring and rate limiting listed as damage-limiting, not preventive). OWASP Top 10 for Agentic Applications 2026 (published Dec 2025): ASI01 Agent Goal Hijack, ASI02 Tool Misuse & Exploitation, ASI03 Identity & Privilege Abuse, ASI04 Agentic Supply Chain Vulnerabilities, etc. https://genai.owasp.org/llmrisk/llm062025-excessive-agency/ ; https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/
+- Several community "MCP gateway" products offer audit logs but none GxP-specific `[VERIFY: as of research date, not exhaustive]`.
+- Opportunity: define and publish the proxy's open audit-record schema (JSON Schema + PROV mapping + OTel field alignment).
+
+---
+## 4. Prioritized requirements checklist
+
+**P0 - MUST (MVP)**
+- [ ] Log every MCP message of interest (tools/call, resources/read, prompts/get, list calls; `initialize` for handshake-based revisions up to 2025-11-25 and `server/discover` for 2026-07-28) incl. denied/failed calls; synchronous write before response (fail-closed if store unavailable, configurable).
+- [ ] Record: seq no., UTC timestamp (+tz), human principal (id, name, role), agent/client id (incl. `clientInfo` from `_meta` where sent), AI model id if known, MCP protocol version, MCP session id (only where the revision has sessions), server, tool, args, result (or hash+pointer), status/error, policy decision, record class (GxP data audit trail vs. access/technical/config event), reason/rationale field (required for write tools).
+- [ ] RFC 8785 canonical JSON -> SHA-256 hash chain (prev_hash, entry_hash, algo id).
+- [ ] Signed checkpoints (Ed25519/ECDSA P-256), keys outside store; public keys retained.
+- [ ] Append-only on all backends: JSONL; Postgres/MSSQL with revoked UPDATE/DELETE + triggers (MSSQL Ledger when available); S3 Object Lock Compliance mode.
+- [ ] `verify_chain` tool + human-readable audit report export (PDF/CSV) + complete, searchable/sortable electronic export (JSON/CSV, not PDF-only) with hash manifest.
+- [ ] RBAC with segregation: audit settings only by an admin not involved in the regulated work; QA read-only; config changes and audit enable/disable events themselves audited.
+- [ ] TLS 1.3 (RFC 9846) for remote transports; no token passthrough; OAuth 2.1/OIDC identity per MCP auth spec (2026-07-28) on HTTP transports.
+- [ ] Configurable retention (min 6 months; Swiss GLP default profile >= 10 years after study completion per GLPV Annex 2 sec. 10(1)), legal hold; documented time sync.
+- [ ] Separate GxP audit trail from technical/debug logs (OTel/debug output is never the GxP record; access/config events are classed separately but stay in the tamper-evident log).
+
+**P1 - SHOULD**
+- [ ] Human approval before write tools, with Part 11-style signature manifestation (Sec. 11.50 name, time, meaning; Sec. 11.200 re-auth; Sec. 11.70 bound to record hash).
+- [ ] RFC 3161 (+ RFC 5816) timestamp anchoring of checkpoints over HTTPS (option: eIDAS/ZertES qualified TSA per ETSI EN 319 421/422 and Impl. Reg. (EU) 2025/1929; detect qualified tokens via qcStatement esi4-qtstStatement-1; accept ENISA-agreed algorithms).
+- [ ] Old/new value capture for write tools (read-before-write hook).
+- [ ] Field-level AES-256-GCM encryption & redaction policy (GDPR/nFADP), KMS/HSM via PKCS#11 / cloud KMS; NIST SP 800-57 key rotation logged.
+- [ ] OTel MCP semconv spans + syslog RFC 5424 export; W3C Trace Context.
+- [ ] Audit-trail review UI/tool (filters, flagging, highlighting of changes, reviewer sign-off recorded).
+- [ ] Validation pack: URS template, risk assessment, IQ/OQ scripts, traceability matrix, SBOM, release notes, proposed GAMP Cat. 4 "Configured Components" classification, machine-readable test evidence (GAMP 5 2nd ed.; FDA CSA digital-records practice).
+- [ ] Log exports/retrievals of archived audit segments (GLPV Annex 2 sec. 10(4)); document S3 account-deletion residual risk.
+
+**P2 - MAY**
+- [ ] RFC 9162-style Merkle tree with inclusion/consistency proofs; external witness.
+- [ ] W3C PROV-O JSON-LD export.
+- [ ] FIPS 140-3 mode; SHA-3 / ML-DSA crypto agility.
+- [ ] Multilingual reports (DE/FR/EN).
+
+**Positioning note:** say "designed to support OECD GLP / 21 CFR Part 11 / EU Annex 11 audit-trail requirements", never "certified compliant".
+
+---
+## Verification log
+
+All checks performed 2026-10-18 against the URL listed.
+
+| Source | URL | Date checked | Result |
+|---|---|---|---|
+| 21 CFR Part 11 (eCFR) | https://www.ecfr.gov/current/title-21/chapter-I/subchapter-A/part-11 | 2026-10-18 | corrected: 11.10(e), (b), (d), (g) confirmed verbatim; "unique per person" re-attributed to 11.100(a), manifestation to 11.50; added 11.10(a), (c), (f), (k), 11.30, 11.300 |
+| MHRA GXP Data Integrity Guidance Rev.1 | https://www.gov.uk/government/publications/guidance-on-gxp-data-integrity | 2026-10-18 | corrected: title/date confirmed (Rev.1 March 2018); added 2021 page update (OECD data integrity doc takes precedence for UK GLP); added section numbers 3.10, 6.3, 6.11.2, 6.13, 6.16 |
+| PIC/S PI 041-1 | https://picscheme.org/docview/4234 | 2026-10-18 | confirmed: link valid and serves PI 041-1 (adopted 1 Jun 2021, in force 1 Jul 2021); added section numbers (5.3-5.5, 7.5, 9.2-9.3, 9.5, 9.6, 9.8, 9.10); noted GMP/GDP scope |
+| WHO TRS 1033 Annex 4 | https://www.who.int/publications/m/item/annex-4-trs-1033 | 2026-10-18 | confirmed; added section numbers 11.10, 11.11, 11.13, 12.3 and the fact it replaces TRS 996 Annex 5 |
+| ISO/IEC 42001:2023 (catalogue page only; first pass) | https://www.iso.org/standard/81230.html | 2026-10-18 | partly confirmed: title, edition 1, published 2023-12, AIMS requirements, management system standard; unverified: "requires operational records" (paywalled; catalogue lists no clauses) - marker kept |
+| NIST AI RMF 1.0 (AI 100-1) | https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.100-1.pdf | 2026-10-18 | corrected: "traceability under Govern/Map/Measure" replaced by four functions incl. MANAGE and the specific items 3.4, MEASURE 2.4, 2.8, MANAGE 4.1, 4.3; added AI 600-1 and "under revision" note |
+| OWASP LLM06:2025 Excessive Agency | https://genai.owasp.org/llmrisk/llm062025-excessive-agency/ | 2026-10-18 | corrected: named exact item (LLM06:2025); logging is listed as damage-limiting, not preventive; approvals confirmed |
+| OWASP Top 10 for Agentic Applications 2026 | https://genai.owasp.org/2025/12/09/owasp-top-10-for-agentic-applications-the-benchmark-for-agentic-security-in-the-age-of-autonomous-ai/ | 2026-10-18 | corrected: vague "Agentic AI security guidance" replaced by the named list (Dec 2025) and ASI01-ASI04 |
+| RFC 8785 (JCS) | https://www.rfc-editor.org/rfc/rfc8785 | 2026-10-18 | corrected: added status Informational / Independent Submission (not standards track), June 2020; I-JSON constraint confirmed |
+| RFC 3161 (TSP) | https://www.rfc-editor.org/rfc/rfc3161 | 2026-10-18 | corrected: Proposed Standard, Aug 2001, updated by RFC 5816 (ESSCertIDv2) - added; wording "existed before time T" |
+| RFC 9162 (CT v2) | https://www.rfc-editor.org/rfc/rfc9162 | 2026-10-18 | corrected: added status Experimental, Dec 2021, obsoletes RFC 6962; STH/inclusion/consistency proof sections confirmed |
+| RFC 8446 / RFC 9846 (TLS 1.3) | https://www.rfc-editor.org/rfc/rfc9846 | 2026-10-18 | corrected: RFC 8446 obsoleted by RFC 9846 (July 2026); citation updated |
+| RFC 9728, RFC 8707, RFC 8032, RFC 5424, RFC 5905 | https://www.rfc-editor.org/rfc/rfc9728 (and /rfc8707, /rfc8032, /rfc5424, /rfc5905) | 2026-10-18 | confirmed: titles and status; none obsoleted |
+| MCP Authorization spec | https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization | 2026-10-18 | corrected: current revision is 2026-07-28 (not 2025-06-18); OAuth 2.1 / RFC 9728 / RFC 8707 / no token passthrough confirmed; added DCR deprecation, RFC 9207 iss check, STDIO note |
+| MCP versioning + 2026-07-28 changelog | https://modelcontextprotocol.io/specification/2026-07-28/changelog | 2026-10-18 | corrected: sessions and `initialize` removed in 2026-07-28; P0 logging list and record fields updated |
+| OECD Advisory Doc No. 17 | https://www.oecd.org/content/dam/oecd/en/publications/reports/2016/04/application-of-glp-principles-to-computerised-systems_7d05366e/e3c9cda5-en.pdf | 2026-10-18 | confirmed: Sec. 3.4, paras 80-83; added para 83 detail; unverified: "reissued 2022" |
+| EU GMP Annex 11 (2011) | https://health.ec.europa.eu/document/download/8d305550-dd22-4dad-8463-2ddb4a1345f1_en?filename=annex11_01-2011_en.pdf | 2026-10-18 | confirmed: Sec. 7, 9, 12, 14 headings and Sec. 9 text; still the listed version in EudraLex Vol. 4 |
+| EU GMP Annex 11 2025 draft | https://health.ec.europa.eu/document/download/40231f18-e564-4043-94de-c031f813d38b_en?filename=mp_vol4_chap4_annex11_consultation_guideline_en.pdf | 2026-10-18 | corrected: 12.1-12.3 confirmed; inactivity logout moved to 11.8 (was attributed to 12.3); "flat and locked files" context is 12.9 Electronic copy; still a draft (EudraLex check) |
+| EU GMP Annex 22 draft | https://health.ec.europa.eu/document/download/5f38a92d-bb8e-4264-8898-ea076e926db6_en | 2026-10-18 | confirmed: scope static + deterministic models; GenAI/LLMs excluded from critical use; still a draft; 2026 workshop info from secondary sources only |
+| EU AI Act Art. 12, 19, 26(6), 113 | https://ai-act-service-desk.ec.europa.eu/en/ai-act/article-26 (and article-12, -19, -113) | 2026-10-18 | confirmed: Art. 26(6) numbering, 6-month minimum, application dates 2 Dec 2027 / 2 Aug 2028 (EC text based on EUR-Lex consolidated version 27 Jul 2026) |
+| Swiss AGIT guidance | https://www.anmeldestelle.admin.ch/dam/fr/sd-web/J4vLWuiKpaQY/2025_Good%20Laboratory%20Practice%20(GLP)%20AGIT%20%E2%80%93%20Validation%20of%20Computerised%20Systems%20V4.0.pdf | 2026-10-18 | corrected: current version identified as V4.0 (2025); full text not read |
+| eIDAS 910/2014 Art. 3(33)-(34), 41, 42 (consolidated 18.10.2024) | https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:02014R0910-20241018 | 2026-10-18 | confirmed Art. 41-42; corrected: Art. 41(3) deleted by 2024/1183; added 42(1a), new 42(2) |
+| Implementing Reg. (EU) 2025/1929 | https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32025R1929 | 2026-10-18 | added: ETSI EN 319 421 V1.3.1 + EN 319 422 V1.1.1, ENISA crypto, HTTPS, qcStatement esi4-qtstStatement-1 |
+| ZertES SR 943.03 Art. 2 lit. i/j, Art. 13 | https://fedlex.data.admin.ch/filestore/fedlex.data.admin.ch/eli/cc/2016/752/20200101/de/html/fedlex-data-admin-ch-eli-cc-2016-752-20200101-de-html-7.html | 2026-10-18 | confirmed on primary source (Stand 1.1.2020); replace mirror link |
+| GLPV/OGLP SR 813.112.1 | https://fedlex.data.admin.ch/filestore/fedlex.data.admin.ch/eli/cc/2005/467/20121201/en/html/fedlex-data-admin-ch-eli-cc-2005-467-20121201-en-html-9.html | 2026-10-18 | confirmed Art. 4, 8; added Annex 2 8.3(5) audit trail and 10(1) retention >= 10 years after study completion |
+| SPAQA GLP Roundtable 2017 Q&A | https://www.spaqa-gxp.ch/fileadmin/public/Diskussionsrunde/2017/Questions_and_Answers_GLP_Roundtable_2017_final.pdf | 2026-10-18 | confirmed: not retroactive (Q5); QA read-only access incl. audit trail (Q9) |
+| GAMP 5 2nd ed. (TOC) | https://guidance-docs.ispe.org/doi/book/10.1002/9781946964571 | 2026-10-18 | confirmed D11 AI/ML, July 2022; corrected Cat. 4 = "Configured Components"; content unverified (paywall) |
+| GAMP AI Guide (TOC + ISPE articles) | https://ispewebassets.org/files/publications/guidance-documents/2025-TOC/GAMP_Guide-AI_TOC.pdf | 2026-10-18 | confirmed July 2025, 290 pp, topics at heading level; content unverified (paywall) |
+| FDA CSA guidance | https://www.fda.gov/media/188844/download | 2026-10-18 | corrected: final 24 Sep 2025, superseded 3 Feb 2026; cites GAMP 5 2nd ed.; audit-trail/digital-record quotes |
+| ISO/IEC 42001:2023 | https://www.iso.org/standard/81230.html | 2026-10-18 | catalogue confirmed; OBP blocked by Cloudflare bot check; A.6.2.8 text from secondary sources only |
+| S3 Object Lock / Cohasset | https://d1.awsstatic.com/r2018/b/S3-Object-Lock/Amazon-S3-Compliance-Assessment.pdf | 2026-10-18 | confirmed (May 2019, Compliance mode, CFTC 1.31(c)-(d)); added account-deletion caveat |
+| OTel MCP semconv | https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/mcp.md | 2026-10-18 | confirmed attrs/status; corrected: span names `{mcp.method.name} {target}`, kind CLIENT/SERVER; mcp.client/server.* are metrics |
+| ISPE comments Annex 11 draft | https://ispewebassets.org/files/regulatory/ISPE-Commenting/2025/ISPE_Comments_-_Annex_11_EMA_PICs_Final%20.pdf | 2026-10-18 | confirmed (7 Oct 2025): separate data audit trails from technical/access/event logs |
+| Annex 11 2025 draft | (see 5d) | 2026-10-18 | confirmed 11.8, 11.9, 12.1-12.3, 12.9; still a draft |
+| Chapter 4 2025 draft | https://health.ec.europa.eu/document/download/fa336a6e-753b-46fc-b53b-9178bacd8878_en?filename=mp_vol4_chap4_consultation_guideline_en.pdf | 2026-10-18 | added: ALCOA++ incl. "Traceable" (4.63), signatures 4.64-4.70; still a draft |
+| GLP retention periods (non-Swiss) | n/a | 2026-10-18 | unverified: national periods outside Switzerland not checked; marker kept |
+| OECD No. 17 "reissued 2022"; OECD No. 22 / No. 17 Suppl. 1 | (see 1.1) | 2026-10-18 | unverified: not in scope of either pass; markers kept |
+| EU GMP Annex 22 2026 workshop outcome | n/a | 2026-10-18 | unverified: secondary sources only; marker kept |
+| Spot-check: Reg. (EU) 2024/1183 point (41) | https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32024R1183 | 2026-10-18 | confirmed independently with curl: "(41) in Article 41, paragraph 3 is deleted" |
+| Spot-check: GLPV Annex 2 sec. 8.3(5) and 10(1) | https://fedlex.data.admin.ch/filestore/fedlex.data.admin.ch/eli/cc/2005/467/20121201/en/html/fedlex-data-admin-ch-eli-cc-2005-467-20121201-en-html-9.html | 2026-10-18 | confirmed independently with curl: "full audit trails" text (8.3 para. 5) and "at least ten years after study completion" (10 para. 1) |
+
+Rows from the "eIDAS 910/2014" row down to "Chapter 4 2025 draft" were verified by Antonio (STANDARDS_ADDENDUM.md, 2026-10-18) and replace the first-pass rows for eIDAS, ZertES, GAMP, S3/Cohasset, OTel, ISPE, OGLP/SPAQA and Swiss GLP retention.

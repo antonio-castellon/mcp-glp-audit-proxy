@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "glp-audit": {
+      "command": "mcp-glp-audit-proxy",
+      "args": ["--config", "/absolute/path/config.json"],
+      "env": {
+        "GLP_PRINCIPAL_ID": "operator-1",
+        "GLP_PRINCIPAL_NAME": "Ada Analyst",
+        "GLP_PRINCIPAL_ROLE": "operator"
+      }
+    }
+  }
+}

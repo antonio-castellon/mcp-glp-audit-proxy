@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-glp-audit-proxy"
+version = "0.1.0"
+description = "Local MCP proxy that writes a tamper-evident audit trail. Designed to support GLP traceability."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [
+  { name = "Antonio Castellon", email = "hello@castellon.ch" },
+]
+keywords = ["mcp", "glp", "audit", "proxy", "part-11", "alcoa"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
+dependencies = [
+  # 2.2.0 is the first 2.x release outside GHSA-84m7-p3x7-pcfv
+  # (affected: mcp >=1.8.0,<1.30.0 and >=2.0.0,<2.2.0).
+  "mcp>=2.2.0,<3",
+  # Pinned: audit hashes must be reproducible. See schema/jcs-test-vectors.json.
+  "rfc8785==0.1.4",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "jsonschema>=4.21",
+]
+
+[project.scripts]
+mcp-glp-audit-proxy = "mcp_glp_audit_proxy.__main__:main"
+mcp-glp-audit-proxy-verify = "mcp_glp_audit_proxy.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/antonio-castellon/mcp-glp-audit-proxy"
+Issues = "https://github.com/antonio-castellon/mcp-glp-audit-proxy/issues"
+Documentation = "https://github.com/antonio-castellon/mcp-glp-audit-proxy/blob/main/docs/STANDARDS.md"
+
+# Pro package mcp-glp-audit-proxy-pro registers additional names in these
+# groups. This repo ships only the Community implementations.
+[project.entry-points."mcp_glp_audit_proxy.storage"]
+jsonl = "mcp_glp_audit_proxy.storage.jsonl:JsonlAuditStore"
+
+[project.entry-points."mcp_glp_audit_proxy.signers"]
+unsigned = "mcp_glp_audit_proxy.signers.unsigned:UnsignedSigner"
+
+[project.entry-points."mcp_glp_audit_proxy.reporters"]
+json = "mcp_glp_audit_proxy.reporters.json_export:JsonReporter"
+text = "mcp_glp_audit_proxy.reporters.text_export:TextReporter"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]

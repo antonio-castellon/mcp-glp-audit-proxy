@@ -1,0 +1,49 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.antonio-castellon/mcp-glp-audit-proxy",
+  "title": "GLP Audit Proxy",
+  "description": "Local MCP proxy with a tamper-evident audit trail for GLP traceability.",
+  "repository": {
+    "url": "https://github.com/antonio-castellon/mcp-glp-audit-proxy",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "mcp-glp-audit-proxy",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GLP_CONFIG",
+          "description": "Path to the proxy JSON config (upstreams, policy, audit file).",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "GLP_PRINCIPAL_ID",
+          "description": "Authenticated human id for this process. Stdio identity comes from the environment.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "GLP_PRINCIPAL_NAME",
+          "description": "Printed name of the human principal.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "GLP_PRINCIPAL_ROLE",
+          "description": "One of operator, approver, qa, admin.",
+          "isRequired": true,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

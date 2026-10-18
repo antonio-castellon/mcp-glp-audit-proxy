@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/antonio-castellon/mcp-glp-audit-proxy/blob/main/schema/audit-record.schema.json",
+  "title": "GLP audit record",
+  "description": "One append-only entry in the mcp-glp-audit-proxy hash chain. The record is designed to support GLP, 21 CFR Part 11 and EU Annex 11 traceability. Canonicalize with RFC 8785 before SHA-256. entry_hash is excluded from the hashed bytes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval",
+    "arguments",
+    "canonicalization",
+    "client",
+    "entry_hash",
+    "error",
+    "hash_algo",
+    "method",
+    "policy_decision",
+    "prev_hash",
+    "principal",
+    "protocol_version",
+    "reason",
+    "record_class",
+    "record_id",
+    "result",
+    "schema_version",
+    "seq",
+    "server",
+    "session_id",
+    "status",
+    "stripped_credential_fields",
+    "timestamp",
+    "tool",
+    "traceparent",
+    "upstream_protocol_version",
+    "upstream_session_id",
+    "utc_offset"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "record_id": {"type": "string", "minLength": 1},
+    "seq": {"type": "integer", "minimum": 1},
+    "timestamp": {"type": "string", "minLength": 20},
+    "utc_offset": {"const": "+00:00"},
+    "principal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": ["string", "null"]},
+        "role": {"enum": ["operator", "approver", "qa", "admin", "system"]}
+      }
+    },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "version", "model_id"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": ["string", "null"]},
+        "version": {"type": ["string", "null"]},
+        "model_id": {"type": ["string", "null"]}
+      }
+    },
+    "protocol_version": {"type": ["string", "null"]},
+    "session_id": {
+      "type": ["string", "null"],
+      "description": "Present only for handshake-era protocol revisions that actually have a session. Always null for 2026-07-28."
+    },
+    "upstream_protocol_version": {"type": ["string", "null"]},
+    "upstream_session_id": {"type": ["string", "null"]},
+    "server": {"type": "string"},
+    "method": {"type": "string"},
+    "tool": {"type": ["string", "null"]},
+    "arguments": {"type": ["object", "null"]},
+    "result": {},
+    "status": {
+      "enum": ["ok", "denied", "failed", "pending_approval", "approved", "rejected"]
+    },
+    "error": {
+      "type": ["object", "null"],
+      "properties": {
+        "code": {"type": "integer"},
+        "message": {"type": "string"}
+      }
+    },
+    "policy_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "rule"],
+      "properties": {
+        "action": {"enum": ["allow", "deny", "require_approval"]},
+        "rule": {"type": "string"}
+      }
+    },
+    "record_class": {"enum": ["gxp_data", "access", "technical", "config"]},
+    "reason": {"type": ["string", "null"]},
+    "approval": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["approval_id", "args_hash", "label", "status", "tool"],
+      "properties": {
+        "approval_id": {"type": "string"},
+        "approver_id": {"type": ["string", "null"]},
+        "approver_name": {"type": ["string", "null"]},
+        "args_hash": {"type": "string"},
+        "decided_at": {"type": ["string", "null"]},
+        "expires_at": {"type": ["string", "null"]},
+        "label": {"const": "approval"},
+        "meaning": {"type": ["string", "null"]},
+        "status": {"enum": ["pending", "approved", "rejected", "consumed"]},
+        "tool": {"type": "string"}
+      }
+    },
+    "stripped_credential_fields": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "traceparent": {"type": ["string", "null"]},
+    "prev_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "entry_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "hash_algo": {"const": "sha-256"},
+    "canonicalization": {"const": "rfc8785"}
+  }
+}

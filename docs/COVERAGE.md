@@ -20,9 +20,8 @@ How to read the matrix:
   allowlist/denylist. Pro = PostgreSQL/MSSQL and S3 Object Lock backends, Ed25519/ECDSA chain signing,
   RFC 3161 timestamps, Part 11-style approval e-signatures, PDF/CSV auditor reports, IQ/OQ validation
   pack, SSO/OAuth, and the GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument
-  templates, LOD/LOQ and molar units, batch processing, signed output). Pro is
-  [mcp-glp-audit-proxy-pro](https://github.com/antonio-castellon/mcp-glp-audit-proxy-pro)
-  (private, access for licensed customers). Contact: [antonio@castellon.ch](mailto:antonio@castellon.ch).
+  templates, LOD/LOQ and molar units, batch processing, signed output). Pro is available as a
+  licensed / paid service - contact [antonio@castellon.ch](mailto:antonio@castellon.ch).
   "TBD - Antonio to decide" = split not yet decided.
 - **Status**: Verified = clause checked against the primary source (or, for Swiss law and eIDAS, against
   the official fedlex/EUR-Lex text) on 2026-10-18. Unverified = paywalled or secondary-source only; do
@@ -142,9 +141,8 @@ The proxy provides technical controls. The following remain with the customer (t
 
 > mcp-glp-audit-proxy is **designed to support** the audit-trail requirements below. Meeting them
 > depends on your validated use, SOPs and reviews. Full clause-by-clause matrix: docs/COVERAGE.md.
-> Extended features are in Pro:
-> [mcp-glp-audit-proxy-pro](https://github.com/antonio-castellon/mcp-glp-audit-proxy-pro)
-> (private, access for licensed customers). Contact: [antonio@castellon.ch](mailto:antonio@castellon.ch).
+> Extended features are in Pro. Pro is available as a licensed / paid service - contact
+> [antonio@castellon.ch](mailto:antonio@castellon.ch).
 
 | Framework | What the proxy helps with | Edition |
 |---|---|---|

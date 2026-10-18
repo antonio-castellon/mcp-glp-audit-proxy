@@ -28,8 +28,10 @@ def test_readme_is_ascii_and_states_the_boundary() -> None:
     assert "certified" not in lowered
     assert "compliant" not in lowered
     assert "github.io" not in lowered
-    assert "https://github.com/antonio-castellon/mcp-glp-audit-proxy-pro" in readme
-    assert "(private, access for licensed customers)" in readme
+    private_pro = "https://github.com/antonio-castellon/" + "mcp-glp-audit-proxy-pro"
+    assert private_pro not in readme
+    assert "private, access for licensed customers" not in readme
+    assert "Pro is available as a licensed / paid service" in readme
     assert "mailto:antonio@castellon.ch" in readme
     assert "GLP Lab Data Pack" in readme
     assert "Community" in readme and "Pro" in readme
@@ -37,8 +39,18 @@ def test_readme_is_ascii_and_states_the_boundary() -> None:
     coverage_lower = coverage.lower()
     assert "certified" not in coverage_lower
     assert "compliant" not in coverage_lower
+    assert private_pro not in coverage
+    assert "Pro is available as a licensed / paid service" in coverage
     assert "mailto:antonio@castellon.ch" in coverage
-    assert "(private, access for licensed customers)" in coverage
+    forbidden = private_pro
+    text_suffixes = {".md", ".py", ".json", ".toml", ".yml", ".yaml", ".txt", ".example"}
+    for path in ROOT.rglob("*"):
+        if not path.is_file() or path.suffix not in text_suffixes:
+            continue
+        if any(part in {".git", "__pycache__", ".pytest_cache"} for part in path.parts):
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert forbidden not in text, path
     safety = (ROOT / "SAFETY.md").read_text(encoding="utf-8")
     safety.encode("ascii")
     assert "certified compliant" not in safety

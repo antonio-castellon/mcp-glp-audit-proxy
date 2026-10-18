@@ -4,7 +4,7 @@ mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
 Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.1.0.
 
-It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, Part 11 electronic signatures, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth live in the separate private package `mcp-glp-audit-proxy-pro` and are not in this repository.
+It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, Part 11 electronic signatures, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository.
 
 ```
 host (Claude, Cursor, Grok, self-hosted LLM)
@@ -95,13 +95,11 @@ Default retention is the Swiss GLP profile: 10 years after study completion, wit
 
 ## Community and Pro
 
-This repository is the Community edition. Extended features are in Pro: [mcp-glp-audit-proxy-pro](https://github.com/antonio-castellon/mcp-glp-audit-proxy-pro) (private, access for licensed customers).
+This repository is the Community edition. Pro is available as a licensed / paid service - contact [antonio@castellon.ch](mailto:antonio@castellon.ch).
 
 Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamps, Part 11 e-signatures, PDF and CSV auditor reports, an IQ/OQ validation pack, and SSO. It also includes the GLP Lab Data Pack for mcp-advanced-excel: provenance hashes, instrument templates, LOD/LOQ and molar units, batch processing, and signed output.
 
-Contact for Pro: [antonio@castellon.ch](mailto:antonio@castellon.ch).
-
-| Capability | Community (this repo) | Pro (`mcp-glp-audit-proxy-pro`, private) |
+| Capability | Community (this repo) | Pro (licensed service) |
 |---|---|---|
 | Proxy core, both protocol eras | yes | plugs in, does not fork |
 | Append-only JSONL hash chain | yes | |

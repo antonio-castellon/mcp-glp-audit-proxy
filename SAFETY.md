@@ -6,7 +6,7 @@ This proxy is a control point in front of real systems. Treat a misconfiguration
 
 `fail_closed` defaults to true and should stay true. The store is health-checked and the chain is verified before a call is forwarded. If the store is down, the call is not forwarded. If the upstream call succeeds and the append then fails, the host does not receive the upstream payload. Denied calls and failed calls are written to the same chain.
 
-There is a residual case you must design for: the upstream server may already have applied a write before the append fails. The host is told the request was not completed. Reconcile that call from the upstream system's own records. Do not retry blindly.
+There is a residual case you must design for: the upstream server may already have applied a write before the append fails. The host is told the request was not completed. Reconcile that call from the upstream system's own records. Do not retry blindly. Follow `docs/RECONCILIATION_SOP.md`: detection, immediate actions, the attributed reconciliation entry, chain verification and restart.
 
 ## The audit file is the record
 

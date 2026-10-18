@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/antonio-castellon/mcp-glp-audit-proxy/blob/main/schema/audit-record.schema.json",
   "title": "GLP audit record",
-  "description": "One append-only entry in the mcp-glp-audit-proxy hash chain. The record is designed to support GLP, 21 CFR Part 11 and EU Annex 11 traceability. Canonicalize with RFC 8785 before SHA-256. entry_hash is excluded from the hashed bytes.",
+  "description": "One append-only entry in the mcp-glp-audit-proxy hash chain. The record is designed to support GLP, 21 CFR Part 11 and EU GMP Annex 11 traceability. Canonicalize with RFC 8785 before SHA-256. entry_hash is excluded from the hashed bytes.",
   "type": "object",
   "additionalProperties": false,
   "required": [

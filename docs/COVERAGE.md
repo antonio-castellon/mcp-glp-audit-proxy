@@ -18,7 +18,7 @@ your responsibility (section 3).
 How to read the matrix:
 - **Edition**: Community = open-source proxy core, local JSONL hash chain, verify CLI, tool
   allowlist/denylist. Pro = PostgreSQL/MSSQL and S3 Object Lock backends, Ed25519/ECDSA chain signing,
-  RFC 3161 timestamps, Part 11-style approval e-signatures, PDF/CSV auditor reports, IQ/OQ validation
+  RFC 3161 timestamps, Part 11 approval e-signatures (Pro only), PDF/CSV auditor reports, IQ/OQ validation
   pack, SSO/OAuth, and the GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument
   templates, advanced LOD/LOQ and molar units, batch processing, Ed25519 signed output). Pro is
   available as a licensed / paid service - contact [antonio@castellon.ch](mailto:antonio@castellon.ch).
@@ -27,7 +27,7 @@ How to read the matrix:
   the official fedlex/EUR-Lex text) on 2026-10-18. Unverified = paywalled or secondary-source only; do
   not quote to customers until checked.
 - **Priority**: P0 = must for the first release, P1 = should, P2 = may (from STANDARDS.md section 4).
-- Drafts (EU Annex 11 2025, Annex 22, Chapter 4) are marked "not in force"; they show where inspections
+- Drafts (EU GMP Annex 11 2025, EU GMP Annex 22, EU GMP Chapter 4) are marked "not in force"; they show where inspections
   are heading, not current law.
 
 ## 2. Coverage matrix
@@ -147,7 +147,7 @@ The proxy provides technical controls. The following remain with the customer (t
 | Framework | What the proxy helps with | Edition |
 |---|---|---|
 | OECD GLP No. 17 (3.4) / Swiss GLPV Annex 2 | Always-on, append-only audit trail; who/what/when/why; admin-only settings; QA read-only role; 10-year Swiss retention profile | Community core; WORM retention and PDF reports in Pro |
-| FDA 21 CFR Part 11 | Computer-generated, time-stamped, hash-chained audit trail (11.10(e)); tamper detection; complete copies; authority checks; Part 11-style approval e-signatures (11.50, 11.70, 11.200) | Community core; signatures, reports, signing, SSO in Pro |
+| FDA 21 CFR Part 11 | Computer-generated, time-stamped, hash-chained audit trail (11.10(e)); tamper detection; complete copies; authority checks. Part 11 approval e-signatures (11.50, 11.70, 11.200) are Pro only: the Community `approval` is not an electronic signature | Community core; e-signatures (Pro only), reports, signing, SSO in Pro |
 | EU GMP Annex 11 (2011; 2025 draft) | Audit trail of changes with reason; role, old/new value, time zone; locked audit trail; searchable complete export; access log | Community core; review tooling and inactivity logout TBD/Pro |
 | MHRA / PIC/S PI 041-1 / WHO TRS 1033 | ALCOA+ data integrity, segregation of duties, metadata with each record, true-copy exports | Community core; signed manifests and validation pack in Pro |
 | ISPE GAMP 5 / FDA CSA | Supplier documentation, proposed Cat. 4 "Configured Components", machine-readable test evidence | Pro (validation pack) |

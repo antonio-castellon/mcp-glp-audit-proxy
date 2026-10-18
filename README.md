@@ -77,7 +77,7 @@ Exposed tool names are `server__tool`. Resource URIs are prefixed `server:`. Cre
 
 ## Regulatory coverage
 
-mcp-glp-audit-proxy is designed to support the audit-trail requirements below. Compliance depends on your validated use, SOPs and reviews. The clause-by-clause matrix is `docs/COVERAGE.md`. The norms and the verification log are `docs/STANDARDS.md`.
+mcp-glp-audit-proxy is designed to support the audit-trail requirements below. Meeting them still depends on your validated use, SOPs and reviews. The clause-by-clause matrix is `docs/COVERAGE.md`. The norms and the verification log are `docs/STANDARDS.md`.
 
 | Framework | What the proxy helps with | Edition |
 |---|---|---|
@@ -94,6 +94,12 @@ mcp-glp-audit-proxy is designed to support the audit-trail requirements below. C
 Default retention is the Swiss GLP profile: 10 years after study completion, with a floor of 6 months. The `minimum` profile may use a shorter year count but cannot go under 6 months. A legal-hold flag refuses disposal. The JSONL backend has no delete. Retention-period WORM enforcement is a Pro backend.
 
 ## Community and Pro
+
+This repository is the Community edition. Extended features are in Pro: [mcp-glp-audit-proxy-pro](https://github.com/antonio-castellon/mcp-glp-audit-proxy-pro) (private, access for licensed customers).
+
+Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamps, Part 11 e-signatures, PDF and CSV auditor reports, an IQ/OQ validation pack, and SSO. It also includes the GLP Lab Data Pack for mcp-advanced-excel: provenance hashes, instrument templates, LOD/LOQ and molar units, batch processing, and signed output.
+
+Contact for Pro: [antonio@castellon.ch](mailto:antonio@castellon.ch).
 
 | Capability | Community (this repo) | Pro (`mcp-glp-audit-proxy-pro`, private) |
 |---|---|---|
@@ -112,6 +118,7 @@ Default retention is the Swiss GLP profile: 10 years after study completion, wit
 | RFC 3161 timestamps | | yes |
 | IQ/OQ validation pack | | yes |
 | SSO / OAuth | | yes |
+| GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument templates, LOD/LOQ and molar units, batch processing, signed output) | | yes |
 | TLS 1.3 to remote upstreams, no token passthrough | yes | |
 | Offline licence file, no phone-home | yes | reads the same file |
 

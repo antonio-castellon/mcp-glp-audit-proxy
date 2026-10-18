@@ -10,16 +10,20 @@ every tool call. It is **designed to support** the audit-trail and data-integrit
 frameworks listed below (OECD GLP, Swiss GLPV, FDA 21 CFR Part 11, EU GMP Annex 11, MHRA, PIC/S, WHO,
 EU AI Act and related technical standards).
 
-The proxy is not, and cannot be, "certified compliant" with any of them. No software product is
-compliant on its own: compliance depends on how you validate, configure and operate it inside your own
-quality system, with your own SOPs, training and reviews. This document shows, clause by clause, which
-feature helps with which requirement, and what stays your responsibility (section 3).
+The product is designed to support those expectations. Meeting them depends on how you validate,
+configure and operate it inside your own quality system, with your own SOPs, training and reviews.
+This document shows, clause by clause, which feature helps with which requirement, and what stays
+your responsibility (section 3).
 
 How to read the matrix:
 - **Edition**: Community = open-source proxy core, local JSONL hash chain, verify CLI, tool
   allowlist/denylist. Pro = PostgreSQL/MSSQL and S3 Object Lock backends, Ed25519/ECDSA chain signing,
   RFC 3161 timestamps, Part 11-style approval e-signatures, PDF/CSV auditor reports, IQ/OQ validation
-  pack, SSO/OAuth. "TBD - Antonio to decide" = split not yet decided.
+  pack, SSO/OAuth, and the GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument
+  templates, LOD/LOQ and molar units, batch processing, signed output). Pro is
+  [mcp-glp-audit-proxy-pro](https://github.com/antonio-castellon/mcp-glp-audit-proxy-pro)
+  (private, access for licensed customers). Contact: [antonio@castellon.ch](mailto:antonio@castellon.ch).
+  "TBD - Antonio to decide" = split not yet decided.
 - **Status**: Verified = clause checked against the primary source (or, for Swiss law and eIDAS, against
   the official fedlex/EUR-Lex text) on 2026-10-18. Unverified = paywalled or secondary-source only; do
   not quote to customers until checked.
@@ -136,9 +140,11 @@ The proxy provides technical controls. The following remain with the customer (t
 
 ## 4. README summary: Regulatory coverage
 
-> mcp-glp-audit-proxy is **designed to support** the audit-trail requirements below. It is not
-> "certified compliant": compliance depends on your validated use, SOPs and reviews. Full clause-by-clause
-> matrix: docs/COVERAGE.md.
+> mcp-glp-audit-proxy is **designed to support** the audit-trail requirements below. Meeting them
+> depends on your validated use, SOPs and reviews. Full clause-by-clause matrix: docs/COVERAGE.md.
+> Extended features are in Pro:
+> [mcp-glp-audit-proxy-pro](https://github.com/antonio-castellon/mcp-glp-audit-proxy-pro)
+> (private, access for licensed customers). Contact: [antonio@castellon.ch](mailto:antonio@castellon.ch).
 
 | Framework | What the proxy helps with | Edition |
 |---|---|---|

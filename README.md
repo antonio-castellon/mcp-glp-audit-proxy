@@ -67,7 +67,7 @@ The GxP trail is that file. The Python `logging` logger `mcp_glp_audit_proxy.tec
 - Auditing cannot be switched off. `glp_update_policy` with `audit_enabled: false` is denied and logged.
 - Write tools (names matching `write_tools`) require a reason by default. The reason is `_meta["io.github.antonio-castellon/reason"]` or the argument `_glp_reason` (stripped before the upstream call).
 - Optional human approval holds the write until a different person in the `approver` role records meaning `approved`. `reviewed` is stored and does not authorise the write. `rejected` rejects it. An approval is single-use, bound to the SHA-256 of the canonical `{tool, arguments}`, and expires (default 3600 seconds). The record label is `approval`. It is not an electronic signature.
-- Fail closed is the default. The store is checked before a call is forwarded. If the append after a successful upstream call fails, the upstream payload is not returned to the host. Denied and failed calls are still logged.
+- Fail closed is the default. The store is checked before a call is forwarded. If the append after a successful upstream call fails, the upstream payload is not returned to the host. Denied and failed calls are still logged. If the upstream may already have applied a write, follow `docs/RECONCILIATION_SOP.md`.
 
 ## Protocol
 
@@ -151,7 +151,7 @@ pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-CI runs the same suite on Python 3.11 and 3.12 (`.github/workflows/ci.yml`).
+CI runs the same suite on Python 3.11, 3.12 and 3.13 (`.github/workflows/ci.yml`).
 
 ## MCP registry
 

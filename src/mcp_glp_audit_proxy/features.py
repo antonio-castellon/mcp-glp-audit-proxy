@@ -27,7 +27,7 @@ COMMUNITY_FEATURES = frozenset(
     }
 )
 
-# Implemented only by mcp-glp-audit-proxy-pro. Names are the contract.
+# Implemented only by the licensed Pro edition. Names are the contract.
 PRO_FEATURES = frozenset(
     {
         "storage.postgres",

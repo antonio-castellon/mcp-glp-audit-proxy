@@ -1,0 +1,498 @@
+# Requirements traceability for the Community edition.
+# A community row must name tests that pass. Pro and customer rows are not tested here.
+# This file is evidence that supports a customer's own records. It is designed to
+# support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows.
+version: 1
+requirements:
+  - id: COV-1
+    source: "OECD GLP No. 17, 3.4 para. 80"
+    scope: community
+    statement: "Append-only trail with UTC time and a person, readable, originals not overwritten."
+    modules: [src/mcp_glp_audit_proxy/storage/jsonl.py, src/mcp_glp_audit_proxy/chain.py, src/mcp_glp_audit_proxy/cli.py]
+    tests: [tests/test_chain.py::test_chain_links_and_matches_schema, tests/test_tamper.py::test_modified_payload_is_detected, tests/test_export.py::test_verify_cli_exports_only_a_valid_chain]
+  - id: COV-2
+    source: "OECD GLP No. 17, 3.4 para. 81"
+    scope: community
+    statement: "Audit stays on. Only admin changes policy, and that change is logged."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed]
+  - id: COV-3
+    source: "OECD GLP No. 17, 3.4 para. 82"
+    scope: community
+    statement: "QA can filter and read the trail. A review user interface is not in this edition."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/cli.py]
+    tests: [tests/test_export.py::test_qa_can_search_and_export_operator_cannot]
+  - id: COV-4
+    source: "OECD GLP No. 17, 3.4 para. 83"
+    scope: gap
+    statement: "Old and new values for a write are not captured yet. Highlighting in reports is Pro."
+    modules: []
+    tests: []
+  - id: COV-5
+    source: "Swiss GLPV Annex 2 sec. 8.3 para. 5"
+    scope: community
+    statement: "Writes require a reason and keep the original line."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/policy.py]
+    tests: [tests/test_policy.py::test_write_requires_reason, tests/test_tamper.py::test_modified_payload_is_detected]
+  - id: COV-6
+    source: "Swiss GLPV Annex 2 sec. 10 para. 1"
+    scope: community
+    statement: "Swiss profile defaults to 10 years and the floor is 6 months. WORM enforcement is Pro."
+    modules: [src/mcp_glp_audit_proxy/config.py]
+    tests: [tests/test_policy.py::test_retention_floor_and_swiss_default]
+  - id: COV-7
+    source: "Swiss GLPV Annex 2 sec. 10 para. 4"
+    scope: community
+    statement: "An export of the trail is itself an audit entry."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_export.py::test_qa_can_search_and_export_operator_cannot]
+  - id: COV-8
+    source: "SPAQA GLP Roundtable 2017 Q9"
+    scope: community
+    statement: "QA can read and verify the trail and cannot call upstream tools."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_qa_and_admin_cannot_call_upstream, tests/test_export.py::test_qa_can_search_and_export_operator_cannot]
+  - id: COV-9
+    source: "21 CFR Part 11 11.10(a)"
+    scope: community
+    statement: "The hash chain detects altered, removed and reordered lines."
+    modules: [src/mcp_glp_audit_proxy/chain.py]
+    tests: [tests/test_tamper.py::test_modified_payload_is_detected, tests/test_tamper.py::test_deleted_line_is_a_gap, tests/test_tamper.py::test_reordered_lines_are_detected]
+  - id: COV-10
+    source: "21 CFR Part 11 11.10(b)"
+    scope: community
+    statement: "JSON electronic export with a hash manifest. PDF and CSV reports are Pro."
+    modules: [src/mcp_glp_audit_proxy/reporters/json_export.py, src/mcp_glp_audit_proxy/cli.py]
+    tests: [tests/test_export.py::test_qa_can_search_and_export_operator_cannot, tests/test_export.py::test_verify_cli_exports_only_a_valid_chain]
+  - id: COV-11
+    source: "21 CFR Part 11 11.10(c)"
+    scope: pro
+    statement: "Retention-period WORM storage."
+    modules: []
+    tests: []
+  - id: COV-12
+    source: "21 CFR Part 11 11.10(d)"
+    scope: community
+    statement: "Local roles and a required principal. SSO and OAuth are Pro."
+    modules: [src/mcp_glp_audit_proxy/config.py, src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_qa_and_admin_cannot_call_upstream]
+  - id: COV-13
+    source: "21 CFR Part 11 11.10(e)"
+    scope: community
+    statement: "The proxy writes the entry itself, fail-closed, before returning a result."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/storage/jsonl.py]
+    tests: [tests/test_fail_closed.py::test_append_failure_hides_upstream_result, tests/test_faults.py::test_fsync_enospc_latches_the_proxy]
+  - id: COV-14
+    source: "21 CFR Part 11 11.10(f)"
+    scope: community
+    statement: "Optional approval before a write, and monotonic sequence numbers."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/approvals.py]
+    tests: [tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts, tests/test_chain.py::test_chain_links_and_matches_schema]
+  - id: COV-15
+    source: "21 CFR Part 11 11.10(g)"
+    scope: community
+    statement: "Allow and deny lists. Denied calls are logged. Part 11 signatures are Pro."
+    modules: [src/mcp_glp_audit_proxy/policy.py]
+    tests: [tests/test_policy.py::test_allowlist_and_denylist, tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded]
+  - id: COV-16
+    source: "21 CFR Part 11 11.30"
+    scope: community
+    statement: "Remote upstreams require TLS 1.3. Chain signing is Pro."
+    modules: [src/mcp_glp_audit_proxy/tlsutil.py]
+    tests: [tests/test_features.py::test_remote_transport_is_tls_1_3]
+  - id: COV-17
+    source: "21 CFR Part 11 11.50"
+    scope: pro
+    statement: "Part 11 signature manifestation."
+    modules: []
+    tests: []
+  - id: COV-18
+    source: "21 CFR Part 11 11.70"
+    scope: pro
+    statement: "Signature bound to the record."
+    modules: []
+    tests: []
+  - id: COV-19
+    source: "21 CFR Part 11 11.100(a)"
+    scope: pro
+    statement: "Signature identity unique to one person."
+    modules: []
+    tests: []
+  - id: COV-20
+    source: "21 CFR Part 11 11.200(a)(1)"
+    scope: pro
+    statement: "Two-component re-authentication for signatures."
+    modules: []
+    tests: []
+  - id: COV-21
+    source: "EU GMP Annex 11 (2011) Sec. 9"
+    scope: community
+    statement: "GMP-relevant writes are logged with a reason and can be read back."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_write_requires_reason, tests/test_export.py::test_qa_can_search_and_export_operator_cannot]
+  - id: COV-22
+    source: "EU GMP Annex 11 (2011) Sec. 7 and Sec. 17"
+    scope: pro
+    statement: "WORM retention and restore controls."
+    modules: []
+    tests: []
+  - id: COV-23
+    source: "EU GMP Annex 11 (2011) Sec. 12"
+    scope: community
+    statement: "Role separation between operator, approver, QA and admin."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_qa_and_admin_cannot_call_upstream]
+  - id: COV-24
+    source: "EU GMP Annex 11 (2011) Sec. 14"
+    scope: pro
+    statement: "Electronic signatures with the same impact as handwritten ones."
+    modules: []
+    tests: []
+  - id: COV-25
+    source: "EU GMP Annex 11 draft 12.1"
+    scope: community
+    statement: "Denied, failed and approval calls are logged."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded, tests/test_fail_closed.py::test_failed_upstream_call_is_logged, tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts]
+  - id: COV-26
+    source: "EU GMP Annex 11 draft 12.2"
+    scope: community
+    statement: "Who, role, tool, arguments, result, UTC offset and reason are on the entry."
+    modules: [src/mcp_glp_audit_proxy/records.py, schema/audit-record.schema.json]
+    tests: [tests/test_export.py::test_entries_match_the_published_schema, tests/test_policy.py::test_write_requires_reason]
+  - id: COV-26-OLDNEW
+    source: "EU GMP Annex 11 draft 12.2 old and new value"
+    scope: gap
+    statement: "Capturing the previous value of a write is not built."
+    modules: []
+    tests: []
+  - id: COV-27
+    source: "EU GMP Annex 11 draft 12.3"
+    scope: community
+    statement: "Audit cannot be switched off. Admin is separate from the operator."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed, tests/test_policy.py::test_qa_and_admin_cannot_call_upstream]
+  - id: COV-28
+    source: "EU GMP Annex 11 draft 12.4 and 12.9"
+    scope: community
+    statement: "Searchable JSON export. CSV is Pro."
+    modules: [src/mcp_glp_audit_proxy/reporters/json_export.py]
+    tests: [tests/test_export.py::test_qa_can_search_and_export_operator_cannot]
+  - id: COV-29
+    source: "EU GMP Annex 11 draft 12.5-12.8"
+    scope: pro
+    statement: "Review tooling with flags and reviewer sign-off."
+    modules: []
+    tests: []
+  - id: COV-30
+    source: "EU GMP Annex 11 draft 11.8"
+    scope: pro
+    statement: "Inactivity logout."
+    modules: []
+    tests: []
+  - id: COV-31
+    source: "EU GMP Annex 11 draft 11.9"
+    scope: community
+    statement: "Role denials are access-class entries. Stdio has no separate login protocol."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_qa_and_admin_cannot_call_upstream]
+  - id: COV-32
+    source: "ISPE comment on Annex 11 draft 12.1-12.2"
+    scope: community
+    statement: "Record class separates GxP data from access, technical and config lines."
+    modules: [src/mcp_glp_audit_proxy/records.py]
+    tests: [tests/test_export.py::test_entries_match_the_published_schema]
+  - id: COV-33
+    source: "EU GMP Annex 22 draft Sec. 1"
+    scope: community
+    statement: "Optional human approval before writes. The proxy does not make an LLM acceptable for critical use."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts]
+  - id: COV-34
+    source: "MHRA GXP Data Integrity 6.3 and 6.11.2"
+    scope: community
+    statement: "Metadata is inline. Complete JSON export. Signed export manifests are Pro."
+    modules: [src/mcp_glp_audit_proxy/reporters/json_export.py]
+    tests: [tests/test_export.py::test_qa_can_search_and_export_operator_cannot]
+  - id: COV-35
+    source: "MHRA GXP Data Integrity 6.13"
+    scope: community
+    statement: "Who, what, when, why and time zone. Users cannot switch the trail off."
+    modules: [src/mcp_glp_audit_proxy/records.py, src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_write_requires_reason, tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed]
+  - id: COV-36
+    source: "MHRA GXP Data Integrity 6.16"
+    scope: community
+    statement: "Admin cannot call upstream tools. Admin actions are attributed."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_policy.py::test_qa_and_admin_cannot_call_upstream, tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed]
+  - id: COV-37
+    source: "PIC/S PI 041-1 9.5"
+    scope: community
+    statement: "Least-privilege roles and an allow list."
+    modules: [src/mcp_glp_audit_proxy/policy.py]
+    tests: [tests/test_policy.py::test_empty_allow_denies_upstream, tests/test_policy.py::test_qa_and_admin_cannot_call_upstream]
+  - id: COV-38
+    source: "PIC/S PI 041-1 9.2-9.3"
+    scope: pro
+    statement: "Supplier IQ/OQ pack and URS template."
+    modules: []
+    tests: []
+  - id: COV-39
+    source: "WHO TRS 1033 Annex 4 11.10-11.11"
+    scope: community
+    statement: "Startup is logged and the chain can be verified."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/chain.py]
+    tests: [tests/test_chain.py::test_chain_links_and_matches_schema, tests/test_export.py::test_verify_cli_exports_only_a_valid_chain]
+  - id: COV-40
+    source: "WHO TRS 1033 Annex 4 11.13"
+    scope: pro
+    statement: "Part 11-style electronic signature."
+    modules: []
+    tests: []
+  - id: COV-41
+    source: "ALCOA+ attributable and contemporaneous"
+    scope: community
+    statement: "Principal on every entry. The response waits for the append."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_fail_closed.py::test_append_failure_hides_upstream_result, tests/test_export.py::test_entries_match_the_published_schema]
+  - id: COV-42
+    source: "ALCOA+ original, accurate, complete, consistent"
+    scope: community
+    statement: "RFC 8785 and SHA-256. Denied and failed calls are logged. Sequence numbers detect gaps."
+    modules: [src/mcp_glp_audit_proxy/canonical.py, src/mcp_glp_audit_proxy/chain.py]
+    tests: [tests/test_properties.py::test_canonical_form_is_stable, tests/test_tamper.py::test_deleted_line_is_a_gap, tests/test_fail_closed.py::test_failed_upstream_call_is_logged]
+  - id: COV-43
+    source: "ALCOA+ legible, enduring, available"
+    scope: community
+    statement: "Published schema, readable verify output, export. WORM storage is Pro."
+    modules: [schema/audit-record.schema.json, src/mcp_glp_audit_proxy/cli.py]
+    tests: [tests/test_export.py::test_entries_match_the_published_schema, tests/test_export.py::test_verify_cli_exports_only_a_valid_chain]
+  - id: COV-44
+    source: "ALCOA++ traceable"
+    scope: community
+    statement: "Hash chain, sequence and record ids."
+    modules: [src/mcp_glp_audit_proxy/chain.py, src/mcp_glp_audit_proxy/records.py]
+    tests: [tests/test_chain.py::test_chain_links_and_matches_schema]
+  - id: COV-45
+    source: "ISPE GAMP 5 Appendix M4"
+    scope: pro
+    statement: "Supplier documentation pack."
+    modules: []
+    tests: []
+  - id: COV-46
+    source: "ISPE GAMP AI Guide 10.5 / 19.11"
+    scope: community
+    statement: "Model id is logged when the client sends it."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_protocol.py::test_modern_host_has_no_session_and_ignores_a_session_hint]
+  - id: COV-47
+    source: "FDA CSA digital records"
+    scope: pro
+    statement: "Machine-readable supplier evidence pack."
+    modules: []
+    tests: []
+  - id: COV-48
+    source: "EU AI Act Art. 12"
+    scope: community
+    statement: "Tool calls, denials and errors are logged."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded, tests/test_fail_closed.py::test_failed_upstream_call_is_logged]
+  - id: COV-49
+    source: "EU AI Act Art. 19 and Art. 26(6)"
+    scope: community
+    statement: "Retention floor of 6 months."
+    modules: [src/mcp_glp_audit_proxy/config.py]
+    tests: [tests/test_policy.py::test_retention_floor_and_swiss_default]
+  - id: COV-50
+    source: "RFC 8785 and SHA-256"
+    scope: community
+    statement: "Canonical JSON and SHA-256 over the entry with entry_hash removed."
+    modules: [src/mcp_glp_audit_proxy/canonical.py, schema/jcs-test-vectors.json]
+    tests: [tests/test_chain.py::test_rfc8785_vectors_match_pinned_implementation, tests/test_properties.py::test_sealed_lines_verify_and_a_byte_flip_does_not]
+  - id: COV-51
+    source: "Ed25519 / ECDSA signed checkpoints"
+    scope: pro
+    statement: "Signed checkpoints."
+    modules: []
+    tests: []
+  - id: COV-52
+    source: "RFC 3161"
+    scope: pro
+    statement: "Trusted timestamps."
+    modules: []
+    tests: []
+  - id: COV-53
+    source: "eIDAS / ZertES qualified timestamps"
+    scope: pro
+    statement: "Qualified time-stamp option."
+    modules: []
+    tests: []
+  - id: COV-54
+    source: "RFC 9162 Merkle log"
+    scope: pro
+    statement: "Merkle tree heads."
+    modules: []
+    tests: []
+  - id: COV-55
+    source: "TLS 1.3"
+    scope: community
+    statement: "Remote transports refuse cleartext and pin TLS 1.3."
+    modules: [src/mcp_glp_audit_proxy/tlsutil.py, src/mcp_glp_audit_proxy/upstream.py]
+    tests: [tests/test_features.py::test_remote_transport_is_tls_1_3]
+  - id: COV-56
+    source: "NIST SP 800-57 key management"
+    scope: pro
+    statement: "Signing-key lifecycle and field encryption."
+    modules: []
+    tests: []
+  - id: COV-57
+    source: "FIPS 140-3 modules"
+    scope: pro
+    statement: "FIPS mode."
+    modules: []
+    tests: []
+  - id: COV-58
+    source: "OpenTelemetry GenAI MCP spans"
+    scope: gap
+    statement: "Optional technical spans are not built. The audit file is the record."
+    modules: []
+    tests: []
+  - id: COV-59
+    source: "RFC 5424 syslog"
+    scope: pro
+    statement: "Syslog export."
+    modules: []
+    tests: []
+  - id: COV-60
+    source: "W3C PROV-O"
+    scope: gap
+    statement: "PROV export is not planned in this edition."
+    modules: []
+    tests: []
+  - id: COV-61
+    source: "RFC 5905 / RFC 3339"
+    scope: community
+    statement: "UTC timestamps. Ordering is by sequence. A backwards clock is stored as given."
+    modules: [src/mcp_glp_audit_proxy/records.py, src/mcp_glp_audit_proxy/clockutil.py]
+    tests: [tests/test_faults.py::test_backwards_clock_is_stored_as_given, tests/test_export.py::test_entries_match_the_published_schema]
+  - id: COV-62
+    source: "S3 Object Lock"
+    scope: pro
+    statement: "Object Lock retention."
+    modules: []
+    tests: []
+  - id: COV-63
+    source: "PostgreSQL / MSSQL append-only"
+    scope: pro
+    statement: "Append-only database backends."
+    modules: []
+    tests: []
+  - id: COV-64
+    source: "MCP authorization, no token passthrough"
+    scope: community
+    statement: "Client tokens are not forwarded. OAuth as a resource server is Pro."
+    modules: [src/mcp_glp_audit_proxy/upstream.py]
+    tests: [tests/test_limits.py::test_secrets_are_stripped_from_meta_and_the_log, tests/test_protocol.py::test_stdio_subprocess_upstream_does_not_inherit_parent_secrets]
+  - id: COV-65
+    source: "MCP protocol 2026-07-28 and earlier handshakes"
+    scope: community
+    statement: "Both protocol eras. Session id only when the revision has one."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/upstream.py]
+    tests: [tests/test_protocol.py::test_legacy_host_and_legacy_upstream_record_session_ids, tests/test_protocol.py::test_modern_host_has_no_session_and_ignores_a_session_hint]
+  - id: COV-66
+    source: "ISO/IEC 42001 Annex A event logs"
+    scope: community
+    statement: "The trail is event-log evidence an organisational system can use."
+    modules: [src/mcp_glp_audit_proxy/storage/jsonl.py]
+    tests: [tests/test_chain.py::test_chain_links_and_matches_schema]
+  - id: COV-67
+    source: "NIST AI RMF measure and manage"
+    scope: community
+    statement: "Denials, errors, approvals and config changes are logged."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded, tests/test_approval.py::test_reviewed_and_rejected_do_not_authorise, tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed]
+  - id: COV-68
+    source: "OWASP LLM06 excessive agency"
+    scope: community
+    statement: "Allow list, deny list, and approval before writes."
+    modules: [src/mcp_glp_audit_proxy/policy.py, src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_limits.py::test_name_tricks_fail_closed, tests/test_approval.py::test_expired_approval_is_refused]
+  - id: COV-69
+    source: "OWASP agentic ASI02 / ASI03"
+    scope: community
+    statement: "Per-call attribution and separate upstream credentials."
+    modules: [src/mcp_glp_audit_proxy/upstream.py, src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_protocol.py::test_stdio_subprocess_upstream_does_not_inherit_parent_secrets, tests/test_export.py::test_entries_match_the_published_schema]
+  - id: COV-70
+    source: "Multilingual reports"
+    scope: pro
+    statement: "DE/FR/EN report templates."
+    modules: []
+    tests: []
+  - id: GLP22-1
+    source: "OECD GLP Series No. 22 data integrity, attributable and contemporaneous (see docs/STANDARDS.md)"
+    scope: community
+    statement: "Same controls as ALCOA+ attributable and contemporaneous. Paragraph numbers are not copied here."
+    modules: [src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_fail_closed.py::test_append_failure_hides_upstream_result]
+  - id: GLP22-2
+    source: "OECD GLP Series No. 22 data integrity, original and accurate"
+    scope: community
+    statement: "Same controls as the hash chain and tamper tests."
+    modules: [src/mcp_glp_audit_proxy/chain.py]
+    tests: [tests/test_tamper.py::test_modified_payload_is_detected, tests/test_properties.py::test_canonical_form_is_stable]
+  - id: GLP22-3
+    source: "OECD GLP Series No. 22 data integrity, available over retention"
+    scope: community
+    statement: "Export and the retention floor. WORM enforcement is Pro."
+    modules: [src/mcp_glp_audit_proxy/config.py, src/mcp_glp_audit_proxy/cli.py]
+    tests: [tests/test_policy.py::test_retention_floor_and_swiss_default, tests/test_export.py::test_verify_cli_exports_only_a_valid_chain]
+  - id: VER-IO
+    source: "Fail-closed store write"
+    scope: community
+    statement: "Disk full, I/O error and permission errors latch the proxy."
+    modules: [src/mcp_glp_audit_proxy/storage/jsonl.py, src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_faults.py::test_fsync_enospc_latches_the_proxy, tests/test_faults.py::test_eio_and_permission_errors_are_store_errors]
+  - id: VER-CONCURRENCY
+    source: "Single-writer JSONL"
+    scope: community
+    statement: "Parallel appends do not interleave lines."
+    modules: [src/mcp_glp_audit_proxy/storage/jsonl.py]
+    tests: [tests/test_faults.py::test_parallel_appends_stay_one_record_per_line]
+  - id: VER-UPSTREAM
+    source: "Upstream loss"
+    scope: community
+    statement: "A crashed or timed-out upstream is an error. A failed call does not use up an approval."
+    modules: [src/mcp_glp_audit_proxy/upstream.py, src/mcp_glp_audit_proxy/proxy.py]
+    tests: [tests/test_faults.py::test_upstream_timeout, tests/test_faults.py::test_transport_failure_keeps_the_approval, tests/test_faults.py::test_upstream_crash_is_logged_and_does_not_consume_approval]
+  - id: VER-LIMITS
+    source: "Message limits"
+    scope: community
+    statement: "Malformed and oversized messages are not forwarded."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/server.py]
+    tests: [tests/test_limits.py::test_malformed_and_oversized_messages_are_not_forwarded]
+  - id: GAP-TAIL
+    source: "Clean truncation of a valid tail"
+    scope: gap
+    statement: "Cutting the file on a line boundary leaves a shorter chain that still verifies. Detecting that needs an external head, which is Pro."
+    modules: []
+    tests: []
+  - id: CUST-CSV
+    source: "docs/COVERAGE.md section 3"
+    scope: customer
+    statement: "The customer decides the computerised-system category, writes procedures, and performs the review."
+    modules: []
+    tests: []
+  - id: CUST-SOP
+    source: "docs/COVERAGE.md section 3"
+    scope: customer
+    statement: "SOPs, training, identity lifecycle, key custody, retention decisions and infrastructure remain with the customer."
+    modules: []
+    tests: []
+  - id: CUST-RECONCILE
+    source: "docs/RECONCILIATION_SOP.md"
+    scope: customer
+    statement: "Reconciling an upstream write that the trail missed is a customer procedure. The proxy supplies the entry shape."
+    modules: [docs/RECONCILIATION_SOP.md]
+    tests: []

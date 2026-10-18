@@ -8,14 +8,16 @@ small environment allow-list, not the proxy process environment.
 from __future__ import annotations
 
 import json
+import select
 import subprocess
 from typing import Any, Protocol
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from mcp.client.stdio import StdioServerParameters, get_default_environment
 
 from . import __version__
-from .errors import UpstreamError
+from .errors import TlsRequired, UpstreamError
 from .tlsutil import require_https, tls13_context
 
 MODERN_VERSION = "2026-07-28"
@@ -77,11 +79,12 @@ def forward_meta(host_meta: dict[str, Any] | None, *, modern: bool) -> dict[str,
 class StdioTransport:
     """Newline-delimited JSON-RPC over a child process."""
 
-    def __init__(self, params: StdioServerParameters) -> None:
+    def __init__(self, params: StdioServerParameters, *, timeout: float = 60.0) -> None:
         env = get_default_environment()
         if params.env:
             env.update(params.env)
-        self.proc = subprocess.Popen(
+        # shell stays off. The command is operator config, not a tool argument.
+        self.proc = subprocess.Popen(  # noqa: S603  # nosec B603
             [params.command, *params.args],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -93,6 +96,7 @@ class StdioTransport:
         )
         self.response_session_id: str | None = None
         self._params = params
+        self.timeout = timeout
 
     def send(self, message: dict[str, Any], *, session_id: str | None = None) -> None:
         del session_id  # stdio has no session header
@@ -104,6 +108,9 @@ class StdioTransport:
     def receive(self) -> dict[str, Any]:
         if self.proc.stdout is None:
             raise UpstreamError("upstream stdout is closed")
+        ready, _, _ = select.select([self.proc.stdout], [], [], self.timeout)
+        if not ready:
+            raise UpstreamError(f"upstream timed out after {self.timeout}s")
         line = self.proc.stdout.readline()
         if not line:
             raise UpstreamError("upstream closed stdout")
@@ -148,9 +155,11 @@ class HttpsTransport:
         headers.update(self.headers)
         if session_id:
             headers["Mcp-Session-Id"] = session_id
-        request = Request(self.url, data=payload, headers=headers, method="POST")
+        if urlparse(self.url).scheme != "https":
+            raise TlsRequired(f"remote transports require TLS 1.3 (https); refused {self.url!r}")
+        request = Request(self.url, data=payload, headers=headers, method="POST")  # noqa: S310  # nosec B310
         try:
-            with urlopen(request, context=tls13_context(), timeout=self.timeout) as response:
+            with urlopen(request, context=tls13_context(), timeout=self.timeout) as response:  # noqa: S310  # nosec B310
                 self.response_session_id = response.headers.get("Mcp-Session-Id")
                 raw = response.read()
         except Exception as exc:  # urllib.error.URLError and friends

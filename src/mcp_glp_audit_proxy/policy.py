@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import fnmatch
+import re
+
+# Exposed names are server__tool. Anything outside this set is denied so a
+# lookalike, space or control character cannot slip past a glob.
+_SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,200}$")
 
 
 @dataclass(frozen=True)
@@ -23,6 +28,9 @@ class Policy:
     def decide(self, tool: str, role: str) -> Decision:
         if role != "operator":
             return Decision("deny", f"role:{role}")
+        problem = name_problem(tool)
+        if problem:
+            return Decision("deny", problem)
         for pattern in self.deny:
             if fnmatch.fnmatchcase(tool, pattern):
                 return Decision("deny", f"deny:{pattern}")
@@ -63,6 +71,15 @@ class Policy:
             require_approval_for_writes=bool(raw.get("require_approval_for_writes", False)),
             require_reason_for_writes=bool(raw.get("require_reason_for_writes", True)),
         )
+
+
+def name_problem(tool: str) -> str | None:
+    """Return a deny rule when the tool name is not a plain ASCII token."""
+    if tool != tool.strip() or not tool.strip():
+        return "name:whitespace"
+    if not _SAFE_NAME.fullmatch(tool):
+        return "name:charset"
+    return None
 
 
 def _string_list(value: object, field: str) -> list[str]:

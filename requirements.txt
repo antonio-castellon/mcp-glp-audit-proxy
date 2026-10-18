@@ -6,3 +6,10 @@ rfc8785==0.1.4
 # Dev / test (optional)
 pytest>=8.3
 jsonschema>=4.21
+hypothesis>=6.110
+pytest-cov>=5.0
+PyYAML>=6.0
+pip-audit>=2.7
+bandit>=1.7
+ruff>=0.6
+defusedxml>=0.7

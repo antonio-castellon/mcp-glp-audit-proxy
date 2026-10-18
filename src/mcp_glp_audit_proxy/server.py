@@ -14,7 +14,7 @@ from mcp.client.stdio import StdioServerParameters
 from .config import Settings, load_settings
 from .errors import AuditStoreError, ConfigurationError
 from .features import FeatureSet
-from .proxy import AuditProxy
+from .proxy import MAX_MESSAGE_BYTES, AuditProxy
 from .sdkcheck import assert_mcp_floor
 from .storage.jsonl import JsonlAuditStore
 from .upstream import HttpsTransport, JsonRpcUpstream, StdioTransport
@@ -54,6 +54,11 @@ def serve_stdio(proxy: AuditProxy) -> None:
         for line in sys.stdin:
             if not line.strip():
                 continue
+            if len(line.encode("utf-8")) > MAX_MESSAGE_BYTES:
+                response = proxy.reject_oversized_line(len(line.encode("utf-8")))
+                if response is not None:
+                    _write(response)
+                continue
             try:
                 message = json.loads(line)
             except json.JSONDecodeError:
@@ -65,6 +70,8 @@ def serve_stdio(proxy: AuditProxy) -> None:
             try:
                 response = proxy.handle(message)
             except Exception as exc:  # last resort: do not forward, do not die silently
+                if proxy.settings.fail_closed:
+                    proxy._dead = True
                 logging.getLogger("mcp_glp_audit_proxy.technical").exception("proxy handle failed")
                 response = {
                     "jsonrpc": "2.0",

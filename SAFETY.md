@@ -8,6 +8,8 @@ This proxy is a control point in front of real systems. Treat a misconfiguration
 
 There is a residual case you must design for: the upstream server may already have applied a write before the append fails. The host is told the request was not completed. Reconcile that call from the upstream system's own records. Do not retry blindly. Follow `docs/RECONCILIATION_SOP.md`: detection, immediate actions, the attributed reconciliation entry, chain verification and restart.
 
+Any failure to open, write or fsync the audit file, and any chain that no longer verifies, raises `AuditStoreError`. The process then latches into a blocked state: later calls are not forwarded until the process is restarted. A raw OS error does not skip that latch.
+
 ## The audit file is the record
 
 `data/audit.jsonl` (or the path in config) is the GxP trail. stderr logs from `mcp_glp_audit_proxy.technical` are debug output. They record method, status and record class. They do not record arguments, and they are not the trail.

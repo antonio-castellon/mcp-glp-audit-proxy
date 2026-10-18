@@ -17,13 +17,13 @@ What the proxy does in this case (Community 0.1.0):
   `INFO mcp_glp_audit_proxy.technical audit append method=tools/call status=ok class=gxp_data`.
   If that line has no matching new line in the JSONL file, the append failed after the upstream call.
   This line has no tool name and no arguments by design.
-- If the store raised `AuditStoreError` (store unavailable, chain broken), the proxy enters a
-  blocked state: every later request gets the same `fail_closed` error, except
-  `glp_verify_chain`, and notifications are dropped. The block lasts until the process restarts.
-- If the failure was a raw OS error during the write itself (for example disk full), stderr shows
-  `ERROR mcp_glp_audit_proxy.technical proxy handle failed` with a traceback, and the host gets the
-  same `fail_closed` error. In 0.1.0 this path does not set the blocked state, so the next call
-  retries the store. Treat it exactly like the blocked case and stop the proxy yourself.
+- If the store raised `AuditStoreError`, the proxy enters a blocked state: every later request
+  gets the same `fail_closed` error, except `glp_verify_chain`, and notifications are dropped.
+  The block lasts until the process restarts.
+- An OS error while opening, writing or fsyncing the audit file (disk full, I/O error, permission
+  denied) is converted to `AuditStoreError` with detail `audit store write failed: ...`. That path
+  sets the same blocked state. The proxy does not retry the store. A chain that no longer verifies
+  (including a partial last line) also sets the blocked state.
 - A partly written last line makes the chain invalid. The verify CLI then reports
   `file does not end with a newline` and `line N: not utf-8 json (...)`.
 

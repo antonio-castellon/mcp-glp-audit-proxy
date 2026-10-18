@@ -9,6 +9,7 @@ to). Hashes make silent edits detectable.
 
 from __future__ import annotations
 
+import errno
 import fcntl
 import os
 from datetime import datetime
@@ -71,41 +72,55 @@ class JsonlAuditStore:
             from ..chain import VerifyReport
 
             return VerifyReport(ok=True, head_hash=GENESIS)
-        fd = os.open(self.path, os.O_RDONLY)
         try:
-            fcntl.flock(fd, fcntl.LOCK_SH)
-            data = _read_all(fd)
+            fd = os.open(self.path, os.O_RDONLY)
+        except OSError as exc:
+            raise _write_failure(exc) from exc
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_SH)
+                data = _read_all(fd)
+            except OSError as exc:
+                raise _write_failure(exc) from exc
         finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-            os.close(fd)
+            _quiet_unlock(fd)
         return verify_bytes(data)
 
     def _append(self, event: dict[str, Any], *, allow_checkpoint: bool) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if not self.health():
             raise AuditStoreError("audit store unavailable")
-        fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+        except OSError as exc:
+            raise _write_failure(exc) from exc
         checkpoint: dict[str, Any] | None = None
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX)
-            report = verify_bytes(_read_all(fd))
-            if not report.ok:
-                raise ChainIntegrityError("; ".join(report.errors))
-            sealed = _seal_next(event, report.entries)
-            os.lseek(fd, 0, os.SEEK_END)
-            _write_all(fd, canonicalize(sealed) + b"\n")
-            os.fsync(fd)
-            written = report.entries + [sealed]
-            if allow_checkpoint and _needs_checkpoint(written, self.checkpoint_every):
-                checkpoint = self._checkpoint_event(sealed)
-                checkpoint_sealed = _seal_next(checkpoint, written)
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+                report = verify_bytes(_read_all(fd))
+                if not report.ok:
+                    raise ChainIntegrityError("; ".join(report.errors))
+                sealed = _seal_next(event, report.entries)
                 os.lseek(fd, 0, os.SEEK_END)
-                _write_all(fd, canonicalize(checkpoint_sealed) + b"\n")
+                _write_all(fd, canonicalize(sealed) + b"\n")
                 os.fsync(fd)
-                checkpoint = checkpoint_sealed
-            return sealed, checkpoint
+                written = report.entries + [sealed]
+                if allow_checkpoint and _needs_checkpoint(written, self.checkpoint_every):
+                    checkpoint = self._checkpoint_event(sealed)
+                    checkpoint_sealed = _seal_next(checkpoint, written)
+                    os.lseek(fd, 0, os.SEEK_END)
+                    _write_all(fd, canonicalize(checkpoint_sealed) + b"\n")
+                    os.fsync(fd)
+                    checkpoint = checkpoint_sealed
+                return sealed, checkpoint
+            except AuditStoreError:
+                raise
+            except OSError as exc:
+                # open, write and fsync failures must surface as store errors so
+                # the proxy latches fail-closed instead of retrying the call.
+                raise _write_failure(exc) from exc
         finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-            os.close(fd)
+            _quiet_unlock(fd)
 
     def _checkpoint_event(self, head: dict[str, Any]) -> dict[str, Any]:
         moment = self._now()
@@ -172,4 +187,23 @@ def _write_all(fd: int, data: bytes) -> None:
     view = data
     while view:
         written = os.write(fd, view)
+        if written <= 0:
+            raise OSError(errno.EIO, "short write on audit store")
         view = view[written:]
+
+
+def _write_failure(exc: OSError) -> AuditStoreError:
+    detail = exc.strerror or exc.__class__.__name__
+    code = exc.errno
+    return AuditStoreError(f"audit store write failed: errno={code} {detail}")
+
+
+def _quiet_unlock(fd: int) -> None:
+    try:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    except OSError:
+        pass
+    try:
+        os.close(fd)
+    except OSError:
+        pass

@@ -10,7 +10,7 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
 authors = [
-  { name = "Antonio Castellon", email = "hello@castellon.ch" },
+  { name = "Antonio Castellon", email = "antonio@castellon.ch" },
 ]
 keywords = ["mcp", "glp", "audit", "proxy", "part-11", "alcoa"]
 classifiers = [
@@ -46,7 +46,7 @@ Homepage = "https://github.com/antonio-castellon/mcp-glp-audit-proxy"
 Issues = "https://github.com/antonio-castellon/mcp-glp-audit-proxy/issues"
 Documentation = "https://github.com/antonio-castellon/mcp-glp-audit-proxy/blob/main/docs/STANDARDS.md"
 
-# Pro package mcp-glp-audit-proxy-pro registers additional names in these
+# The licensed Pro edition registers additional names in these
 # groups. This repo ships only the Community implementations.
 [project.entry-points."mcp_glp_audit_proxy.storage"]
 jsonl = "mcp_glp_audit_proxy.storage.jsonl:JsonlAuditStore"

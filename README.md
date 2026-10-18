@@ -97,7 +97,7 @@ Default retention is the Swiss GLP profile: 10 years after study completion, wit
 
 This repository is the Community edition. Pro is available as a licensed / paid service - contact [antonio@castellon.ch](mailto:antonio@castellon.ch).
 
-Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamps, Part 11 e-signatures, PDF and CSV auditor reports, an IQ/OQ validation pack, and SSO. It also includes the GLP Lab Data Pack for mcp-advanced-excel: provenance hashes, instrument templates, LOD/LOQ and molar units, batch processing, and signed output.
+Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamps, Part 11 e-signatures, PDF and CSV auditor reports, an IQ/OQ validation pack, and SSO. It also includes the GLP Lab Data Pack for [mcp-advanced-excel](https://github.com/antonio-castellon/mcp-advanced-excel), unlocked by the same offline licence key. The free mcp-advanced-excel server reads and writes lab spreadsheets. The Data Pack adds what a GLP lab needs on top: provenance hashes that tie every result back to its source file, instrument templates for common lab exports, advanced LOD/LOQ calculations and molar unit conversions, batch processing of many files in one run, and Ed25519 signed output.
 
 | Capability | Community (this repo) | Pro (licensed service) |
 |---|---|---|
@@ -116,7 +116,7 @@ Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamp
 | RFC 3161 timestamps | | yes |
 | IQ/OQ validation pack | | yes |
 | SSO / OAuth | | yes |
-| GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument templates, LOD/LOQ and molar units, batch processing, signed output) | | yes |
+| GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument templates, advanced LOD/LOQ and molar units, batch processing, Ed25519 signed output) | | yes |
 | TLS 1.3 to remote upstreams, no token passthrough | yes | |
 | Offline licence file, no phone-home | yes | reads the same file |
 

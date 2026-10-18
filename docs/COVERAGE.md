@@ -20,8 +20,8 @@ How to read the matrix:
   allowlist/denylist. Pro = PostgreSQL/MSSQL and S3 Object Lock backends, Ed25519/ECDSA chain signing,
   RFC 3161 timestamps, Part 11-style approval e-signatures, PDF/CSV auditor reports, IQ/OQ validation
   pack, SSO/OAuth, and the GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument
-  templates, LOD/LOQ and molar units, batch processing, signed output). Pro is available as a
-  licensed / paid service - contact [antonio@castellon.ch](mailto:antonio@castellon.ch).
+  templates, advanced LOD/LOQ and molar units, batch processing, Ed25519 signed output). Pro is
+  available as a licensed / paid service - contact [antonio@castellon.ch](mailto:antonio@castellon.ch).
   "TBD - Antonio to decide" = split not yet decided.
 - **Status**: Verified = clause checked against the primary source (or, for Swiss law and eIDAS, against
   the official fedlex/EUR-Lex text) on 2026-10-18. Unverified = paywalled or secondary-source only; do

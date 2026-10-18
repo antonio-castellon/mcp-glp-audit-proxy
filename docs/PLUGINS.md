@@ -1,6 +1,6 @@
 # Plugin interfaces
 
-Community ships one storage backend, one signer and two reporters. The private package `mcp-glp-audit-proxy-pro` registers more entry points in the same groups. It should not need to fork this repository.
+Community ships one storage backend, one signer and two reporters. The licensed Pro edition registers more entry points in the same groups. It should not need to fork this repository.
 
 Nothing in the feature loader opens a socket. A licence is a local JSON file.
 

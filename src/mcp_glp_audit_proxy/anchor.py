@@ -1,0 +1,149 @@
+"""Sidecar head for the JSONL log.
+
+``<log>.head`` stores the latest ``seq`` and ``entry_hash`` after each fsynced
+line. It is written to a temp file in the same directory, fsynced, then
+renamed into place.
+
+A crash between the log fsync and this rename may leave the head one record
+behind. That lag is accepted when the extra record itself verifies. The next
+append, and startup, advance the head. Any other disagreement (missing head,
+shorter log, hash mismatch, lag of more than one) is a store error.
+
+Someone who can edit both files can move them together. A copy of the head
+kept outside this machine (ticket, email, LIMS) is the local control. Signed
+checkpoints and WORM storage are Pro.
+"""
+
+from __future__ import annotations
+
+import errno
+import json
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+from .canonical import canonicalize
+from .chain import VerifyReport, verify_file
+from .errors import AuditStoreError
+
+
+@dataclass
+class Head:
+    seq: int
+    entry_hash: str
+
+
+@dataclass
+class AnchorStatus:
+    ok: bool
+    errors: list[str]
+    lag: int
+
+
+def head_path(log: Path) -> Path:
+    return log.with_name(log.name + ".head")
+
+
+def read_head(log: Path) -> Head | None:
+    path = head_path(log)
+    if not path.exists():
+        return None
+    try:
+        raw = path.read_text(encoding="utf-8")
+        parsed = json.loads(raw)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise AuditStoreError(f"audit head unreadable: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise AuditStoreError("audit head is not an object")
+    seq = parsed.get("seq")
+    entry_hash = parsed.get("entry_hash")
+    if isinstance(seq, bool) or not isinstance(seq, int) or seq < 1:
+        raise AuditStoreError("audit head seq is invalid")
+    if not isinstance(entry_hash, str) or len(entry_hash) != 64:
+        raise AuditStoreError("audit head entry_hash is invalid")
+    return Head(seq=seq, entry_hash=entry_hash)
+
+
+def write_head(log: Path, seq: int, entry_hash: str) -> None:
+    """Atomic replace. Raises OSError if the head cannot be made durable."""
+    target = head_path(log)
+    temporary = target.with_name(target.name + ".tmp")
+    payload = canonicalize({"entry_hash": entry_hash, "seq": seq}) + b"\n"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        view = payload
+        while view:
+            written = os.write(fd, view)
+            if written <= 0:
+                raise OSError(errno.EIO, "short write on audit head")
+            view = view[written:]
+        os.fsync(fd)
+    except OSError:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+    os.close(fd)
+    os.replace(temporary, target)
+    directory = os.open(target.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def assess(report: VerifyReport, head: Head | None) -> AnchorStatus:
+    """Compare a verified log with its sidecar. The log must already be intact."""
+    if not report.ok:
+        return AnchorStatus(False, list(report.errors), 0)
+    entries = report.entries
+    if not entries:
+        if head is None:
+            return AnchorStatus(True, [], 0)
+        return AnchorStatus(False, ["audit head present but log is empty"], 0)
+    if head is None:
+        return AnchorStatus(False, ["audit head missing for a non-empty log"], 0)
+    last = entries[-1]
+    if head.seq == last.get("seq") and head.entry_hash == last.get("entry_hash"):
+        return AnchorStatus(True, [], 0)
+    if len(entries) >= 2:
+        previous = entries[-2]
+        if head.seq == previous.get("seq") and head.entry_hash == previous.get("entry_hash"):
+            return AnchorStatus(True, [], 1)
+    return AnchorStatus(
+        False,
+        [f"audit head disagrees with log: head seq={head.seq} log seq={last.get('seq')}"],
+        0,
+    )
+
+
+def verify_anchored(path: Path) -> VerifyReport:
+    """Chain verify plus the sidecar. A one-record lag stays ok."""
+    report = verify_file(path)
+    if not report.ok:
+        return report
+    try:
+        head = read_head(path)
+    except AuditStoreError as exc:
+        return _failed(report, [str(exc)])
+    status = assess(report, head)
+    if not status.ok:
+        return _failed(report, status.errors)
+    report.anchor_lag = status.lag
+    return report
+
+
+def _failed(report: VerifyReport, errors: list[str]) -> VerifyReport:
+    return VerifyReport(
+        ok=False,
+        entries=report.entries,
+        errors=errors,
+        head_hash=report.head_hash,
+        anchor_lag=0,
+    )

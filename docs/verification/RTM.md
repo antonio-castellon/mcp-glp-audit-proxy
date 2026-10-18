@@ -11,7 +11,9 @@ How to read `scope`:
 
 OECD GLP Series No. 22 is the data-integrity advisory cited in `docs/STANDARDS.md`. Rows `GLP22-1` through `GLP22-3` map the attributes this proxy actually exercises. They do not quote paragraph numbers.
 
-A clean cut of the file on a line boundary leaves a shorter chain that still verifies (`GAP-TAIL`). Detecting that rollback needs an external head. Signed checkpoints and WORM storage are Pro.
+`GAP-TAIL` is a Community control: `<log>.head` is written after each fsynced record, and verify fails when the log is shorter or the hash does not match. A head that lags by one verified record is recovered on startup. Cutting the log and the sidecar together is still only caught by an external copy of `--print-head`. Signed checkpoints and WORM storage are Pro.
+
+A host or upstream that never sends a newline is capped at 1 MiB. The session ends. The refusal is audited without the body (`VER-LIMITS`).
 
 Regenerate the verification report with:
 

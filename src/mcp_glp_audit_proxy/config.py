@@ -70,6 +70,7 @@ class UpstreamConfig:
     url: str | None = None
     headers: dict[str, str] | None = None
     cwd: str | None = None
+    timeout: float | None = None
 
 
 @dataclass
@@ -196,6 +197,7 @@ def _upstream(item: object) -> UpstreamConfig:
     headers = item.get("headers") or {}
     if not isinstance(env, dict) or not isinstance(headers, dict):
         raise ConfigurationError("upstream env and headers must be objects")
+    timeout = _timeout(item.get("timeout"))
     return UpstreamConfig(
         name=str(item.get("name") or ""),
         transport=str(item.get("transport") or "stdio"),
@@ -206,7 +208,20 @@ def _upstream(item: object) -> UpstreamConfig:
         url=item.get("url"),
         headers={str(key): str(value) for key, value in headers.items()},
         cwd=item.get("cwd"),
+        timeout=timeout,
     )
+
+
+def _timeout(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        timeout = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError("upstream timeout must be a positive number") from exc
+    if timeout <= 0:
+        raise ConfigurationError("upstream timeout must be a positive number")
+    return timeout
 
 
 def _parse_bool(value: str, label: str) -> bool:

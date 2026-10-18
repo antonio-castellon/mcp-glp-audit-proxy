@@ -16,6 +16,7 @@ class VerifyReport:
     entries: list[dict[str, Any]] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     head_hash: str = GENESIS
+    anchor_lag: int = 0
 
     @property
     def count(self) -> int:

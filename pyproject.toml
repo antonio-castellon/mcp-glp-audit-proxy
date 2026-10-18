@@ -73,3 +73,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
+
+[tool.coverage.run]
+source = ["mcp_glp_audit_proxy"]
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true

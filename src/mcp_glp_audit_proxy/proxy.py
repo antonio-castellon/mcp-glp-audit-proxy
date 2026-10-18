@@ -16,17 +16,15 @@ from typing import Any
 from . import __version__
 from .approvals import load_approvals, parse_timestamp
 from .canonical import args_hash
-from .chain import verify_file
+from .anchor import verify_anchored
 from .config import Settings
 from .errors import AuditStoreError, ChainIntegrityError, ConfigurationError
 from .features import FeatureSet
+from .framing import MAX_MESSAGE_BYTES
 from .records import build_event, format_timestamp
 from .reporters.json_export import dumps_document, export_document, filter_entries
 from .reporters.text_export import format_entry
 from .upstream import MODERN_VERSION, SECRET_META, split_meta
-
-# One mebibyte on the wire. Larger messages are refused and not forwarded.
-MAX_MESSAGE_BYTES = 1_048_576
 
 LEGACY_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
 MODERN_VERSIONS = (MODERN_VERSION,)
@@ -992,7 +990,7 @@ class AuditProxy:
                 rule=f"role:{role}",
                 text=f"role {role} cannot verify the audit trail",
             )
-        report = verify_file(self.settings.audit_path)
+        report = verify_anchored(self.settings.audit_path)
         client_result = {
             "content": [
                 {
@@ -1004,6 +1002,7 @@ class AuditProxy:
             "structuredContent": {
                 "ok": report.ok,
                 "errors": report.errors,
+                "anchor_lag": report.anchor_lag,
                 "head_hash": report.head_hash,
                 "entries": report.count,
             },
@@ -1065,7 +1064,7 @@ class AuditProxy:
                 rule="feature:report.json",
                 text="JSON export is not enabled",
             )
-        report = verify_file(self.settings.audit_path)
+        report = verify_anchored(self.settings.audit_path)
         if not report.ok:
             # Do not append onto a broken chain and do not write a partial copy.
             return _fail_closed(message, "refusing to export a chain that does not verify")
@@ -1652,7 +1651,8 @@ def _approval_problem(record: Any, *, tool: str, digest: str, requester: str, no
 
 def _verify_text(report: Any) -> str:
     if report.ok:
-        return f"chain ok entries={report.count} head={report.head_hash}"
+        lag = f" anchor_lag={report.anchor_lag}" if report.anchor_lag else ""
+        return f"chain ok entries={report.count} head={report.head_hash}{lag}"
     return "chain invalid: " + "; ".join(report.errors)
 
 

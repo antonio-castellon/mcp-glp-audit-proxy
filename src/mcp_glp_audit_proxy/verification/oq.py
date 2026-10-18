@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import shutil
 import subprocess
@@ -30,6 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--junit", type=Path, default=Path("junit.xml"))
     parser.add_argument("--markdown", type=Path, default=Path("oq-report.md"))
     parser.add_argument("--json", type=Path, dest="json_path", default=Path("oq-report.json"))
+    parser.add_argument("--coverage-json", type=Path, default=Path("coverage.json"))
     parser.add_argument("--pytest-arg", action="append", default=[])
     args = parser.parse_args(argv)
 
@@ -42,10 +44,15 @@ def main(argv: list[str] | None = None) -> int:
         str(args.junit),
         "--cov=mcp_glp_audit_proxy",
         "--cov-report=term-missing",
-        "--cov-report=json:coverage.json",
+        "--cov-report=json:" + str(args.coverage_json),
         *args.pytest_arg,
     ]
-    completed = subprocess.run(command, cwd=ROOT, check=False)  # noqa: S603  # nosec B603
+    # The nested suite must not write into this process's coverage data.
+    env = os.environ.copy()
+    for key in list(env):
+        if key.startswith("COVERAGE") or key.startswith("COV_"):
+            env.pop(key, None)
+    completed = subprocess.run(command, cwd=ROOT, check=False, env=env)  # noqa: S603  # nosec B603
     report = build_report(args.junit, pytest_exit=completed.returncode)
     args.markdown.parent.mkdir(parents=True, exist_ok=True)
     args.json_path.parent.mkdir(parents=True, exist_ok=True)

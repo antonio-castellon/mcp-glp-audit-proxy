@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from mcp.client.stdio import StdioServerParameters
 
+from mcp_glp_audit_proxy.anchor import verify_anchored
 from mcp_glp_audit_proxy.chain import verify_bytes, verify_file
 from mcp_glp_audit_proxy.errors import AuditStoreError, ChainIntegrityError
 from mcp_glp_audit_proxy.records import SYSTEM_PRINCIPAL, build_event
@@ -122,12 +123,14 @@ def test_insert_duplicate_and_tail_shapes(tmp_path) -> None:
     duplicated = b"".join([lines[0], lines[1], lines[1], lines[2]])
     assert verify_bytes(duplicated).ok is False
 
-    # A cut on a line boundary leaves a shorter chain that still verifies.
-    # An external witness of the previous head is a Pro control.
+    # The hash chain of a prefix still links. The sidecar head names the old tip,
+    # so the anchored check fails. See tests/test_anchor.py.
     prefix = b"".join(lines[:2])
     rolled = verify_bytes(prefix)
     assert rolled.ok is True
     assert rolled.count == 2
+    path.write_bytes(prefix)
+    assert verify_anchored(path).ok is False
 
     mid = lines[0] + lines[1][:10]
     truncated = verify_bytes(mid)

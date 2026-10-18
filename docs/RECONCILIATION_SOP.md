@@ -24,8 +24,21 @@ What the proxy does in this case (Community 0.1.0):
   denied) is converted to `AuditStoreError` with detail `audit store write failed: ...`. That path
   sets the same blocked state. The proxy does not retry the store. A chain that no longer verifies
   (including a partial last line) also sets the blocked state.
+- After each fsynced line the store writes `<audit-path>.head` (temp file, fsync, atomic rename)
+  with the latest `seq` and `entry_hash`. The verify CLI fails when the log is shorter than that
+  head or the hash does not match. A missing head on a non-empty log fails the same way.
+- If the head is exactly one record behind and that last record verifies, the verify CLI still
+  reports `chain ok` and prints `head lags by 1 verified record`. That is the crash window between
+  the log fsync and the head write. Startup advances the head. It does not refuse to start, and it
+  is not a false alarm.
+- Any other disagreement (shorter log, hash mismatch, missing head, lag of more than one) makes
+  startup print `mcp-glp-audit-proxy: refusing to start: ...` and exit. No call is forwarded. If a
+  disagreement is found on a later append, the process latches the blocked state until restart.
 - A partly written last line makes the chain invalid. The verify CLI then reports
   `file does not end with a newline` and `line N: not utf-8 json (...)`.
+- Cutting whole lines and rewriting the sidecar to match is not detected on this machine. Compare
+  `--print-head` with a copy you stored outside (ticket, email, LIMS). Signed checkpoints and WORM
+  storage are Pro.
 
 Alerting: Community has no built-in alerting. Forward the proxy's stderr to your log monitoring and
 alert on `fail_closed`, `proxy handle failed` and `refusing to start`.
@@ -36,8 +49,9 @@ alert on `fail_closed`, `proxy handle failed` and `refusing to start`.
 2. Note what you know: time (UTC), your principal id, tool name, arguments, reason, and the error
    text the host showed.
 3. Admin stops the proxy process (stop the MCP host or remove the server from it).
-4. Admin copies, without editing: the JSONL file, the config file, and the proxy stderr log.
-   Record the SHA-256 of each copy (`sha256sum`). Keep the copies with the deviation record.
+4. Admin copies, without editing: the JSONL file, the sidecar `.head` file, the config file, and
+   the proxy stderr log. Record the SHA-256 of each copy (`sha256sum`). Keep the copies with the
+   deviation record. If you previously stored a `--print-head` line outside this machine, attach it.
 5. Open a deviation in your quality system and tell QA.
 
 ## 3. Establish what happened upstream (operator + QA)
@@ -55,16 +69,24 @@ alert on `fail_closed`, `proxy handle failed` and `refusing to start`.
 - Fix the cause. Do not edit, reorder or delete existing lines in the JSONL file.
 - If the verify CLI reports only an incomplete last line (no newline, not JSON), that fragment was
   never a sealed entry. Remove it only with QA approval in the deviation, after step 2.4, and keep
-  the original copy. Any other verify error is a data-integrity incident: stop and escalate to QA.
+  the original copy. Do not delete sealed lines to make a short log match an old head. A short log,
+  a missing head, or a hash mismatch is a data-integrity incident: stop and escalate to QA.
+- If the only note is `head lags by 1 verified record`, leave both files unchanged and restart.
+  Startup advances the sidecar. Do not hand-edit it.
 
 ## 5. Verify the chain (QA or admin)
 
 ```bash
-mcp-glp-audit-proxy-verify data/audit.jsonl
+mcp-glp-audit-proxy-verify data/audit.jsonl --print-head
 ```
 
-- Exit 0 and stderr `chain ok entries=N shown=N head=<hash>`: intact. Record N and the head hash.
+- Exit 0 and stderr `chain ok entries=N shown=N head=<hash> seq=<n>`: intact. Record N, the seq,
+  and the `seq=<n> entry_hash=<hash>` line from stdout. Store that line outside this machine.
+- Stderr `head lags by 1 verified record` with exit 0: the last record verifies. Restart so
+  startup can advance the sidecar, then run this command again. The lag note should be gone.
 - Exit 1 and stderr `chain invalid` plus one line per error: do not continue; see section 4.
+  `audit head disagrees with log`, `audit head missing` and `audit head present but log is empty`
+  are in this group.
 
 ## 6. Record the reconciliation entry (QA, with a second person)
 
@@ -80,7 +102,7 @@ Community has no electronic signature. Attribution and signature work like this:
 ```python
 from pathlib import Path
 
-from mcp_glp_audit_proxy.chain import verify_file
+from mcp_glp_audit_proxy.anchor import verify_anchored
 from mcp_glp_audit_proxy.records import build_event
 from mcp_glp_audit_proxy.storage.jsonl import JsonlAuditStore
 
@@ -89,7 +111,7 @@ RECONCILER = {"id": "qa-1", "name": "Quinn QA", "role": "qa"}
 FORM_ID = "REC-2026-001"
 FORM_SHA256 = "sha256-of-the-signed-form-pdf"
 
-before = verify_file(AUDIT_PATH)
+before = verify_anchored(AUDIT_PATH)
 if not before.ok:
     raise SystemExit("chain invalid: " + "; ".join(before.errors))
 
@@ -131,8 +153,9 @@ reconciliation entry instead of the paper or external signature; this is optiona
 ## 7. Unblock (admin)
 
 1. Restart the proxy (start the MCP host again). The blocked state only clears on restart.
-2. On start the proxy verifies the chain. If the store is unavailable or the chain is invalid it
-   prints `mcp-glp-audit-proxy: refusing to start: ...` and exits; go back to section 4.
+2. On start the proxy verifies the chain and the sidecar head. A one-record lag is advanced.
+   Any other disagreement, an unavailable store, or a chain that does not verify prints
+   `mcp-glp-audit-proxy: refusing to start: ...` and exits; go back to section 4.
 3. A successful start appends an `audit/startup` entry (record class `config`). Run the verify CLI
    once more and record the new head hash on the form.
 4. Tell the operator to resume. Repeat any write that was "not applied" (section 3) normally.
@@ -164,7 +187,8 @@ Chain verification
   Before: entries ____  head ______________  result [ ] chain ok
   Reconciliation entry:   seq ____  entry_hash ______________
   After:  entries ____  head ______________  result [ ] chain ok
-  Copies kept (SHA-256):  audit file ________  config ________  stderr log ________
+  Copies kept (SHA-256):  audit file ________  head file ________  config ________  stderr log ________
+  External head (if kept): seq ________  entry_hash ________  where stored ________
 
 Signatures
   Reconciled by (QA):     name ______________  date ________  signature ________

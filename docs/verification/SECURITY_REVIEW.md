@@ -24,9 +24,9 @@ On Python 3.11, 3.12 and 3.13:
 
 ## Open risks
 
-- A clean truncation of the audit file on a line boundary still verifies as a shorter chain. An external signed head is Pro (`GAP-TAIL` in `rtm.yaml`).
-- JSONL is tamper-evident, not a WORM store. A person who can edit the file can change history if nobody kept a copy of the previous head hash.
+- A cut of whole trailing lines fails verification against `<log>.head`. Cutting the log and the sidecar together still verifies locally. Keep `--print-head` outside the machine. Signed checkpoints and WORM storage are Pro.
+- JSONL is tamper-evident, not a WORM store. A person who can edit the file and the sidecar can change history if nobody kept a copy of the previous head.
 - If an upstream write is applied and the append then fails, the host does not receive the result, but the upstream action may already have happened. Follow `docs/RECONCILIATION_SOP.md`.
 - Stdio identity is the environment of the host process. The proxy does not run an identity provider.
 - Tool arguments are stored in full. Secrets must not be placed in arguments. `_meta` credential keys are stripped.
-- The size limit is 1 MiB per JSON-RPC message. Larger messages are refused and not forwarded.
+- The size limit is 1 MiB per JSON-RPC message, including a stream that never sends a newline. The session ends. The body is not stored.

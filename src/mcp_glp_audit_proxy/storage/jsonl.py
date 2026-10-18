@@ -11,16 +11,21 @@ from __future__ import annotations
 
 import errno
 import fcntl
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..anchor import assess, read_head, write_head
 from ..canonical import GENESIS, canonicalize, seal
-from ..chain import verify_bytes
+from ..chain import VerifyReport, verify_bytes
 from ..errors import AuditStoreError, ChainIntegrityError
 from ..records import SYSTEM_PRINCIPAL, build_event, format_timestamp, utc_now
 from ..signers.unsigned import UnsignedSigner
+
+
+_LOG = logging.getLogger("mcp_glp_audit_proxy.technical")
 
 
 class JsonlAuditStore:
@@ -69,9 +74,7 @@ class JsonlAuditStore:
 
     def _locked_report(self) -> Any:
         if not self.path.exists():
-            from ..chain import VerifyReport
-
-            return VerifyReport(ok=True, head_hash=GENESIS)
+            return _apply_anchor(self.path, VerifyReport(ok=True, head_hash=GENESIS))
         try:
             fd = os.open(self.path, os.O_RDONLY)
         except OSError as exc:
@@ -79,12 +82,14 @@ class JsonlAuditStore:
         try:
             try:
                 fcntl.flock(fd, fcntl.LOCK_SH)
-                data = _read_all(fd)
+                report = verify_bytes(_read_all(fd))
+                if report.ok:
+                    report = _apply_anchor(self.path, report)
             except OSError as exc:
                 raise _write_failure(exc) from exc
         finally:
             _quiet_unlock(fd)
-        return verify_bytes(data)
+        return report
 
     def _append(self, event: dict[str, Any], *, allow_checkpoint: bool) -> tuple[dict[str, Any], dict[str, Any] | None]:
         if not self.health():
@@ -100,17 +105,21 @@ class JsonlAuditStore:
                 report = verify_bytes(_read_all(fd))
                 if not report.ok:
                     raise ChainIntegrityError("; ".join(report.errors))
+                self._require_anchor(report)
                 sealed = _seal_next(event, report.entries)
                 os.lseek(fd, 0, os.SEEK_END)
                 _write_all(fd, canonicalize(sealed) + b"\n")
                 os.fsync(fd)
                 written = report.entries + [sealed]
+                if not self._try_head(sealed):
+                    return sealed, None
                 if allow_checkpoint and _needs_checkpoint(written, self.checkpoint_every):
                     checkpoint = self._checkpoint_event(sealed)
                     checkpoint_sealed = _seal_next(checkpoint, written)
                     os.lseek(fd, 0, os.SEEK_END)
                     _write_all(fd, canonicalize(checkpoint_sealed) + b"\n")
                     os.fsync(fd)
+                    self._try_head(checkpoint_sealed)
                     checkpoint = checkpoint_sealed
                 return sealed, checkpoint
             except AuditStoreError:
@@ -121,6 +130,31 @@ class JsonlAuditStore:
                 raise _write_failure(exc) from exc
         finally:
             _quiet_unlock(fd)
+
+    def _require_anchor(self, report: VerifyReport) -> None:
+        status = assess(report, read_head(self.path))
+        if not status.ok:
+            raise AuditStoreError(status.errors[0])
+        if status.lag != 1:
+            return
+        last = report.entries[-1]
+        try:
+            write_head(self.path, int(last["seq"]), str(last["entry_hash"]))
+        except OSError as exc:
+            raise _write_failure(exc) from exc
+        _LOG.info("audit head advanced over a one-record lag to seq=%s", last["seq"])
+
+    def _try_head(self, entry: dict[str, Any]) -> bool:
+        try:
+            write_head(self.path, int(entry["seq"]), str(entry["entry_hash"]))
+        except OSError as exc:
+            _LOG.warning(
+                "audit head lags by 1 after write failure seq=%s errno=%s",
+                entry.get("seq"),
+                exc.errno,
+            )
+            return False
+        return True
 
     def _checkpoint_event(self, head: dict[str, Any]) -> dict[str, Any]:
         moment = self._now()
@@ -190,6 +224,28 @@ def _write_all(fd: int, data: bytes) -> None:
         if written <= 0:
             raise OSError(errno.EIO, "short write on audit store")
         view = view[written:]
+
+
+def _apply_anchor(path: Path, report: VerifyReport) -> VerifyReport:
+    try:
+        head = read_head(path)
+    except AuditStoreError as exc:
+        return VerifyReport(
+            ok=False,
+            entries=report.entries,
+            errors=[str(exc)],
+            head_hash=report.head_hash,
+        )
+    status = assess(report, head)
+    if not status.ok:
+        return VerifyReport(
+            ok=False,
+            entries=report.entries,
+            errors=status.errors,
+            head_hash=report.head_hash,
+        )
+    report.anchor_lag = status.lag
+    return report
 
 
 def _write_failure(exc: OSError) -> AuditStoreError:

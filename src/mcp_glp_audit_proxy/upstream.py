@@ -8,7 +8,6 @@ small environment allow-list, not the proxy process environment.
 from __future__ import annotations
 
 import json
-import select
 import subprocess
 from typing import Any, Protocol
 from urllib.parse import urlparse
@@ -18,6 +17,7 @@ from mcp.client.stdio import StdioServerParameters, get_default_environment
 
 from . import __version__
 from .errors import TlsRequired, UpstreamError
+from .framing import MAX_MESSAGE_BYTES, BoundedLineReader, LineTooLong
 from .tlsutil import require_https, tls13_context
 
 MODERN_VERSION = "2026-07-28"
@@ -84,6 +84,7 @@ class StdioTransport:
         if params.env:
             env.update(params.env)
         # shell stays off. The command is operator config, not a tool argument.
+        # Binary pipes so a missing newline cannot grow the buffer without a cap.
         self.proc = subprocess.Popen(  # noqa: S603  # nosec B603
             [params.command, *params.args],
             stdin=subprocess.PIPE,
@@ -91,36 +92,46 @@ class StdioTransport:
             stderr=subprocess.DEVNULL,
             env=env,
             cwd=params.cwd,
-            text=True,
-            bufsize=1,
+            bufsize=0,
         )
         self.response_session_id: str | None = None
         self._params = params
         self.timeout = timeout
+        self._reader = BoundedLineReader(self.proc.stdout, MAX_MESSAGE_BYTES, timeout=timeout)
 
     def send(self, message: dict[str, Any], *, session_id: str | None = None) -> None:
         del session_id  # stdio has no session header
         if self.proc.stdin is None:
             raise UpstreamError("upstream stdin is closed")
-        self.proc.stdin.write(json.dumps(message, separators=(",", ":")) + "\n")
+        payload = json.dumps(message, separators=(",", ":")).encode("utf-8") + b"\n"
+        self.proc.stdin.write(payload)
         self.proc.stdin.flush()
 
     def receive(self) -> dict[str, Any]:
         if self.proc.stdout is None:
             raise UpstreamError("upstream stdout is closed")
-        ready, _, _ = select.select([self.proc.stdout], [], [], self.timeout)
-        if not ready:
-            raise UpstreamError(f"upstream timed out after {self.timeout}s")
-        line = self.proc.stdout.readline()
-        if not line:
+        try:
+            line = self._reader.readline()
+        except TimeoutError:
+            raise UpstreamError(f"upstream timed out after {self.timeout}s") from None
+        except LineTooLong:
+            self._stop_child()
+            raise UpstreamError("upstream message exceeds size limit") from None
+        if not line or not line.endswith(b"\n"):
             raise UpstreamError("upstream closed stdout")
         try:
-            parsed = json.loads(line)
-        except json.JSONDecodeError as exc:
+            parsed = json.loads(line.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise UpstreamError(f"upstream sent non-JSON: {exc}") from exc
         if not isinstance(parsed, dict):
             raise UpstreamError("upstream sent a non-object")
         return parsed
+
+    def _stop_child(self) -> None:
+        try:
+            self.proc.kill()
+        except OSError:
+            pass
 
     def close(self) -> None:
         if self.proc.stdin is not None:

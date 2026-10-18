@@ -469,15 +469,15 @@ requirements:
   - id: VER-LIMITS
     source: "Message limits"
     scope: community
-    statement: "Malformed and oversized messages are not forwarded."
-    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/server.py]
-    tests: [tests/test_limits.py::test_malformed_and_oversized_messages_are_not_forwarded]
+    statement: "Malformed and oversized messages are not forwarded. A stream with no newline is capped at 1 MiB and the session ends."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/server.py, src/mcp_glp_audit_proxy/framing.py, src/mcp_glp_audit_proxy/upstream.py]
+    tests: [tests/test_limits.py::test_malformed_and_oversized_messages_are_not_forwarded, tests/test_framing.py::test_host_stream_without_a_newline_ends_the_session, tests/test_framing.py::test_upstream_stream_without_a_newline_is_refused]
   - id: GAP-TAIL
-    source: "Clean truncation of a valid tail"
-    scope: gap
-    statement: "Cutting the file on a line boundary leaves a shorter chain that still verifies. Detecting that needs an external head, which is Pro."
-    modules: []
-    tests: []
+    source: "Sidecar head"
+    scope: community
+    statement: "A sidecar head makes a cut of whole trailing lines detectable. A one-record lag is recovered. Cutting the log and the head together is still only caught by an external copy of the head."
+    modules: [src/mcp_glp_audit_proxy/anchor.py, src/mcp_glp_audit_proxy/storage/jsonl.py, src/mcp_glp_audit_proxy/cli.py]
+    tests: [tests/test_anchor.py::test_truncating_whole_lines_fails_verification, tests/test_anchor.py::test_consistent_truncation_of_log_and_head_is_a_residual_risk, tests/test_anchor.py::test_corrupt_or_missing_head_fails, tests/test_anchor.py::test_one_record_lag_is_recovered_not_a_false_alarm, tests/test_anchor.py::test_startup_disagreement_refuses_to_start]
   - id: CUST-CSV
     source: "docs/COVERAGE.md section 3"
     scope: customer

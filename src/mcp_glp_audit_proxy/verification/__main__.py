@@ -4,4 +4,10 @@ from __future__ import annotations
 
 from .oq import main
 
-raise SystemExit(main())
+
+def run() -> None:
+    raise SystemExit(main())
+
+
+if __name__ == "__main__":
+    run()

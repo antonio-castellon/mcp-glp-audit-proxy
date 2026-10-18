@@ -50,7 +50,10 @@ Verify a chain and write a searchable JSON export (the export is skipped when th
 ```bash
 mcp-glp-audit-proxy-verify data/audit.jsonl --json-export exports/audit.json
 mcp-glp-audit-proxy-verify data/audit.jsonl --tool excel__write_cell --status ok
+mcp-glp-audit-proxy-verify data/audit.jsonl --print-head
 ```
+
+`--print-head` prints `seq` and `entry_hash`. Copy that line into a ticket, an email or a LIMS record. The sidecar `data/audit.jsonl.head` makes a cut of whole trailing lines fail verification. Someone who can edit both the log and the sidecar can move them together; the external copy is the control. Signed checkpoints and WORM storage are Pro.
 
 ## What is recorded
 

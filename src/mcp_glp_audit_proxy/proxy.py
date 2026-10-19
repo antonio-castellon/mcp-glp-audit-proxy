@@ -7,6 +7,7 @@ result. If the audit store cannot be written, the result is not returned.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -15,10 +16,11 @@ from typing import Any
 from . import __version__
 from .approvals import load_approvals, parse_timestamp
 from .canonical import args_hash
-from .chain import verify_file
+from .anchor import verify_anchored
 from .config import Settings
 from .errors import AuditStoreError, ChainIntegrityError, ConfigurationError
 from .features import FeatureSet
+from .framing import MAX_MESSAGE_BYTES
 from .records import build_event, format_timestamp
 from .reporters.json_export import dumps_document, export_document, filter_entries
 from .reporters.text_export import format_entry
@@ -178,6 +180,9 @@ class AuditProxy:
         self._transport_session_id = transport_session_id
         if not isinstance(message, dict) or not isinstance(message.get("method"), str):
             return _error(message if isinstance(message, dict) else {"id": None}, -32600, "invalid request")
+        too_big = _encoded_size(message)
+        if too_big > MAX_MESSAGE_BYTES:
+            return self._oversized(message, too_big)
         method = message["method"]
         if self._dead and self.settings.fail_closed and not _is_verify_call(message):
             if _is_notification(message):
@@ -223,6 +228,9 @@ class AuditProxy:
         except ChainIntegrityError as exc:
             if _is_verify_call(message):
                 return self._verify_tool(message)
+            self._dead = True
+            if _is_notification(message):
+                return None
             return _fail_closed(message, str(exc))
         except AuditStoreError as exc:
             self._dead = True
@@ -250,6 +258,38 @@ class AuditProxy:
         if _is_notification(message):
             return None
         return _error(message, -32601, f"method not found: {method}")
+
+    def reject_oversized_line(self, nbytes: int) -> dict[str, Any]:
+        """Stdio saw a line past the size limit. The body is not parsed or stored."""
+        stub = {"jsonrpc": "2.0", "id": None, "method": "rejected/oversized"}
+        return self._oversized(stub, nbytes)
+
+    def _oversized(self, message: dict[str, Any], nbytes: int) -> dict[str, Any]:
+        """Refuse a message that would bloat the trail. Do not store its body."""
+        try:
+            self._audit_simple(
+                message,
+                method=str(message.get("method") or "rejected/oversized"),
+                record_class="technical",
+                status="denied",
+                server="proxy",
+                tool=None,
+                arguments={"bytes": nbytes, "limit": MAX_MESSAGE_BYTES},
+                result=None,
+                error={"code": -32600, "message": "message exceeds size limit"},
+                policy_action="deny",
+                policy_rule="message:size",
+                reason=None,
+            )
+        except AuditStoreError as exc:
+            self._dead = True
+            return _fail_closed(message, str(exc))
+        return _error(
+            message,
+            -32600,
+            "message exceeds size limit",
+            {"bytes": nbytes, "limit": MAX_MESSAGE_BYTES},
+        )
 
     def close(self) -> None:
         for upstream in self.upstreams.values():
@@ -754,7 +794,7 @@ class AuditProxy:
                 policy_action="allow",
                 policy_rule=decision.rule,
                 reason=reason,
-                approval=self._consumed_approval(message, name, arguments),
+                approval=None,
                 upstream_protocol_version=getattr(upstream, "protocol_version", None),
                 upstream_session_id=getattr(upstream, "session_id", None),
             )
@@ -950,7 +990,7 @@ class AuditProxy:
                 rule=f"role:{role}",
                 text=f"role {role} cannot verify the audit trail",
             )
-        report = verify_file(self.settings.audit_path)
+        report = verify_anchored(self.settings.audit_path)
         client_result = {
             "content": [
                 {
@@ -962,6 +1002,7 @@ class AuditProxy:
             "structuredContent": {
                 "ok": report.ok,
                 "errors": report.errors,
+                "anchor_lag": report.anchor_lag,
                 "head_hash": report.head_hash,
                 "entries": report.count,
             },
@@ -1023,7 +1064,7 @@ class AuditProxy:
                 rule="feature:report.json",
                 text="JSON export is not enabled",
             )
-        report = verify_file(self.settings.audit_path)
+        report = verify_anchored(self.settings.audit_path)
         if not report.ok:
             # Do not append onto a broken chain and do not write a partial copy.
             return _fail_closed(message, "refusing to export a chain that does not verify")
@@ -1610,7 +1651,8 @@ def _approval_problem(record: Any, *, tool: str, digest: str, requester: str, no
 
 def _verify_text(report: Any) -> str:
     if report.ok:
-        return f"chain ok entries={report.count} head={report.head_hash}"
+        lag = f" anchor_lag={report.anchor_lag}" if report.anchor_lag else ""
+        return f"chain ok entries={report.count} head={report.head_hash}{lag}"
     return "chain invalid: " + "; ".join(report.errors)
 
 
@@ -1628,6 +1670,14 @@ def _error(
     if data is not None:
         error["data"] = data
     return {"jsonrpc": "2.0", "id": message.get("id"), "error": error}
+
+
+def _encoded_size(message: dict[str, Any]) -> int:
+    try:
+        raw = json.dumps(message, separators=(",", ":"), default=str)
+    except (TypeError, ValueError):
+        return MAX_MESSAGE_BYTES + 1
+    return len(raw.encode("utf-8"))
 
 
 def _fail_closed(message: dict[str, Any], detail: str) -> dict[str, Any]:

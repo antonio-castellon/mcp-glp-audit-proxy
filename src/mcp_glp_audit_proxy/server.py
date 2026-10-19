@@ -14,7 +14,8 @@ from mcp.client.stdio import StdioServerParameters
 from .config import Settings, load_settings
 from .errors import AuditStoreError, ConfigurationError
 from .features import FeatureSet
-from .proxy import AuditProxy
+from .framing import BoundedLineReader, LineTooLong
+from .proxy import MAX_MESSAGE_BYTES, AuditProxy
 from .sdkcheck import assert_mcp_floor
 from .storage.jsonl import JsonlAuditStore
 from .upstream import HttpsTransport, JsonRpcUpstream, StdioTransport
@@ -50,13 +51,22 @@ def serve_stdio(proxy: AuditProxy) -> None:
             + ", ".join(proxy.features.unavailable),
             file=sys.stderr,
         )
+    reader = BoundedLineReader(sys.stdin.buffer, MAX_MESSAGE_BYTES)
     try:
-        for line in sys.stdin:
-            if not line.strip():
+        while True:
+            try:
+                raw = reader.readline()
+            except LineTooLong:
+                # Stop. Do not read until the next newline.
+                _end_unbounded(proxy)
+                raise SystemExit(1)
+            if not raw:
+                break
+            if not raw.strip():
                 continue
             try:
-                message = json.loads(line)
-            except json.JSONDecodeError:
+                message = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
                 _write({"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}})
                 continue
             if not isinstance(message, dict):
@@ -65,6 +75,8 @@ def serve_stdio(proxy: AuditProxy) -> None:
             try:
                 response = proxy.handle(message)
             except Exception as exc:  # last resort: do not forward, do not die silently
+                if proxy.settings.fail_closed:
+                    proxy._dead = True
                 logging.getLogger("mcp_glp_audit_proxy.technical").exception("proxy handle failed")
                 response = {
                     "jsonrpc": "2.0",
@@ -99,6 +111,18 @@ def main(argv: list[str] | None = None) -> None:
     serve_stdio(proxy)
 
 
+def _end_unbounded(proxy: AuditProxy) -> None:
+    """Refuse a stream that never framed a message, then end the session."""
+    logging.getLogger("mcp_glp_audit_proxy.technical").error(
+        "message exceeds size limit without a newline; ending session"
+    )
+    if proxy.settings.fail_closed:
+        proxy._dead = True
+    response = proxy.reject_oversized_line(MAX_MESSAGE_BYTES + 1)
+    if response is not None:
+        _write(response)
+
+
 def _build_upstream(item: Any) -> JsonRpcUpstream:
     if item.transport == "https":
         if not item.url:
@@ -113,7 +137,7 @@ def _build_upstream(item: Any) -> JsonRpcUpstream:
             env=dict(item.env or {}),
             cwd=item.cwd,
         )
-        transport = StdioTransport(params)
+        transport = StdioTransport(params, timeout=item.timeout if item.timeout is not None else 60.0)
     return JsonRpcUpstream(item.name, transport, item.protocol)
 
 

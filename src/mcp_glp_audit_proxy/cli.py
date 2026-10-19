@@ -10,7 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .chain import verify_file
+from .anchor import verify_anchored
 from .records import format_timestamp, utc_now
 from .reporters.json_export import dumps_document, export_document, filter_entries
 from .reporters.text_export import format_entry
@@ -28,9 +28,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--server", default=None)
     parser.add_argument("--since", default=None)
     parser.add_argument("--until", default=None)
+    parser.add_argument(
+        "--print-head",
+        action="store_true",
+        help="Print seq and entry_hash of the log tip. Copy that line outside this machine.",
+    )
     args = parser.parse_args(argv)
 
-    report = verify_file(args.audit_file)
+    report = verify_anchored(args.audit_file)
     filters = {
         "method": args.method,
         "principal_id": args.principal,
@@ -46,10 +51,19 @@ def main(argv: list[str] | None = None) -> int:
     if report.ok:
         for entry in selected:
             print(format_entry(entry))
+        seq = report.entries[-1]["seq"] if report.entries else 0
+        if report.anchor_lag:
+            print(
+                "head lags by 1 verified record; startup will advance it",
+                file=sys.stderr,
+            )
         print(
-            f"chain ok entries={report.count} shown={len(selected)} head={report.head_hash}",
+            f"chain ok entries={report.count} shown={len(selected)} head={report.head_hash} seq={seq}",
             file=sys.stderr,
         )
+        if args.print_head:
+            tip = report.head_hash
+            print(f"seq={seq} entry_hash={tip}")
     else:
         print("chain invalid", file=sys.stderr)
         for error in report.errors:

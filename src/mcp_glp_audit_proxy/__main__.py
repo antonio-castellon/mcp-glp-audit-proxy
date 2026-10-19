@@ -4,6 +4,12 @@ from __future__ import annotations
 
 
 def main() -> None:
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == "oq-report":
+        from .verification.oq import main as report
+
+        raise SystemExit(report(sys.argv[2:]))
     from .server import main as run
 
     run()

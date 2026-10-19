@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from typing import Any
 
 
 def probe_clock() -> dict[str, Any]:
     """Best-effort NTP status. Unknown is recorded; it does not invent a sync."""
+    binary = shutil.which("timedatectl")
+    if not binary:
+        return {
+            "detail": "timedatectl not found; operator must sync time (RFC 5905)",
+            "ntp_synchronized": None,
+            "source": "unverified",
+        }
     try:
-        completed = subprocess.run(
-            ["timedatectl", "show", "-p", "NTPSynchronized", "--value"],
+        completed = subprocess.run(  # noqa: S603  # nosec B603
+            [binary, "show", "-p", "NTPSynchronized", "--value"],
             check=False,
             capture_output=True,
             text=True,

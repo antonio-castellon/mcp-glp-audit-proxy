@@ -8,6 +8,14 @@ This proxy is a control point in front of real systems. Treat a misconfiguration
 
 There is a residual case you must design for: the upstream server may already have applied a write before the append fails. The host is told the request was not completed. Reconcile that call from the upstream system's own records. Do not retry blindly. Follow `docs/RECONCILIATION_SOP.md`: detection, immediate actions, the attributed reconciliation entry, chain verification and restart.
 
+Any failure to open, write or fsync the audit file, and any chain that no longer verifies, raises `AuditStoreError`. The process then latches into a blocked state: later calls are not forwarded until the process is restarted. A raw OS error does not skip that latch.
+
+Each fsynced line is followed by a sidecar file, `<audit-path>.head`. It stores the latest `seq` and `entry_hash` (temp file, fsync, atomic rename). The verify command fails when the log is shorter than that head or the hash does not match. A crash in the gap after the log fsync and before the head rename may leave the head one record behind. That one record must itself verify. Startup then advances the head. It is not treated as a broken trail. Any other disagreement refuses startup (`refusing to start`) and does not forward. A disagreement found on a later append latches the blocked state.
+
+A person who can edit both the log and the sidecar can move them together. `mcp-glp-audit-proxy-verify --print-head` prints `seq` and `entry_hash` so an operator can copy that line into a ticket, an email or a LIMS record. That external copy is the control. Signed checkpoints and WORM storage are Pro.
+
+A host or an upstream that never sends a newline is capped at 1 MiB. The proxy records a refusal with the byte count and the limit, not the body, and ends the session (exit 1). It does not scan for a later newline. An upstream that does this is closed, and the failure is logged without the body.
+
 ## The audit file is the record
 
 `data/audit.jsonl` (or the path in config) is the GxP trail. stderr logs from `mcp_glp_audit_proxy.technical` are debug output. They record method, status and record class. They do not record arguments, and they are not the trail.

@@ -29,6 +29,10 @@ class FakeUpstreamApp:
     def handle(self, message: dict[str, Any]) -> dict[str, Any] | None:
         self.calls.append(message)
         method = message.get("method")
+        call_log = os.environ.get("GLP_CALL_LOG")
+        if call_log:
+            with open(call_log, "a", encoding="utf-8") as handle:
+                handle.write(str(method) + "\n")
         if self.era == "modern" and method == "initialize":
             return _error(message, -32601, "method not found")
         if self.era == "legacy" and method == "server/discover":

@@ -1,0 +1,695 @@
+{
+  "cases": [
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_anchor.py::test_truncating_whole_lines_fails_verification",
+      "status": "pass",
+      "time": "0.022"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_anchor.py::test_consistent_truncation_of_log_and_head_is_a_residual_risk",
+      "status": "pass",
+      "time": "0.015"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_anchor.py::test_corrupt_or_missing_head_fails",
+      "status": "pass",
+      "time": "0.008"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_anchor.py::test_one_record_lag_is_recovered_not_a_false_alarm",
+      "status": "pass",
+      "time": "0.016"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_anchor.py::test_startup_disagreement_refuses_to_start",
+      "status": "pass",
+      "time": "1.338"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_anchor.py::test_settings_round_trip_and_clock_branches",
+      "status": "pass",
+      "time": "0.002"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts",
+      "status": "pass",
+      "time": "0.124"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_approval.py::test_reviewed_and_rejected_do_not_authorise",
+      "status": "pass",
+      "time": "0.111"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_approval.py::test_operator_cannot_approve_and_cannot_self_approve",
+      "status": "pass",
+      "time": "0.111"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_approval.py::test_changed_arguments_do_not_match_the_approval",
+      "status": "pass",
+      "time": "0.118"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_approval.py::test_expired_approval_is_refused",
+      "status": "pass",
+      "time": "0.125"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_chain.py::test_rfc8785_vectors_match_pinned_implementation",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_chain.py::test_chain_links_and_matches_schema",
+      "status": "pass",
+      "time": "0.096"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_docs.py::test_readme_is_ascii_and_states_the_boundary",
+      "status": "pass",
+      "time": "0.018"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_docs.py::test_source_has_no_pro_implementations",
+      "status": "pass",
+      "time": "0.003"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_docs.py::test_registry_metadata_matches_the_package",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_export.py::test_entries_match_the_published_schema",
+      "status": "pass",
+      "time": "0.170"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_export.py::test_qa_can_search_and_export_operator_cannot",
+      "status": "pass",
+      "time": "0.145"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_export.py::test_export_path_cannot_escape",
+      "status": "pass",
+      "time": "0.114"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_export.py::test_verify_cli_exports_only_a_valid_chain",
+      "status": "pass",
+      "time": "0.118"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_fail_closed.py::test_unhealthy_store_does_not_forward",
+      "status": "pass",
+      "time": "0.111"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_fail_closed.py::test_append_failure_hides_upstream_result",
+      "status": "pass",
+      "time": "0.111"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded",
+      "status": "pass",
+      "time": "0.111"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_fail_closed.py::test_failed_upstream_call_is_logged",
+      "status": "pass",
+      "time": "0.116"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_fail_closed.py::test_tool_is_error_is_logged_as_failed",
+      "status": "pass",
+      "time": "0.114"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_fail_closed.py::test_tampered_chain_does_not_forward",
+      "status": "pass",
+      "time": "0.107"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_fail_closed.py::test_store_refuses_disposal",
+      "status": "pass",
+      "time": "0.113"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_fsync_enospc_latches_the_proxy",
+      "status": "pass",
+      "time": "0.117"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_eio_and_permission_errors_are_store_errors",
+      "status": "pass",
+      "time": "0.005"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_broken_chain_latches_and_does_not_retry",
+      "status": "pass",
+      "time": "0.116"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_partial_line_is_detected_and_blocks_the_next_append",
+      "status": "pass",
+      "time": "0.005"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_insert_duplicate_and_tail_shapes",
+      "status": "pass",
+      "time": "0.007"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_parallel_appends_stay_one_record_per_line",
+      "status": "pass",
+      "time": "0.159"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_backwards_clock_is_stored_as_given",
+      "status": "pass",
+      "time": "0.124"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_upstream_crash_is_logged_and_does_not_consume_approval",
+      "status": "pass",
+      "time": "0.012"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_upstream_timeout",
+      "status": "pass",
+      "time": "2.303"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_faults.py::test_transport_failure_keeps_the_approval",
+      "status": "pass",
+      "time": "0.131"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_features.py::test_licence_is_local_and_does_not_phone_home",
+      "status": "pass",
+      "time": "0.053"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_features.py::test_community_entry_points_only",
+      "status": "pass",
+      "time": "0.020"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_features.py::test_remote_transport_is_tls_1_3",
+      "status": "pass",
+      "time": "0.016"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_features.py::test_sdk_floor_rejects_the_advisory_range",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_framing.py::test_bounded_reader_stops_at_the_limit",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_framing.py::test_bounded_reader_times_out",
+      "status": "pass",
+      "time": "0.201"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_framing.py::test_host_stream_without_a_newline_ends_the_session",
+      "status": "pass",
+      "time": "1.245"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_framing.py::test_upstream_stream_without_a_newline_is_refused",
+      "status": "pass",
+      "time": "0.012"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_limits.py::test_name_tricks_fail_closed",
+      "status": "pass",
+      "time": "0.002"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_limits.py::test_secrets_are_stripped_from_meta_and_the_log",
+      "status": "pass",
+      "time": "0.113"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_limits.py::test_malformed_and_oversized_messages_are_not_forwarded",
+      "status": "pass",
+      "time": "0.123"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_oq_runner.py::test_oq_report_happy_path",
+      "status": "pass",
+      "time": "0.532"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_oq_runner.py::test_oq_report_failing_test_path",
+      "status": "pass",
+      "time": "0.532"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_oq_runner.py::test_oq_report_module_entry",
+      "status": "pass",
+      "time": "0.687"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_policy.py::test_allowlist_and_denylist",
+      "status": "pass",
+      "time": "0.111"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_policy.py::test_empty_allow_denies_upstream",
+      "status": "pass",
+      "time": "0.107"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_policy.py::test_write_requires_reason",
+      "status": "pass",
+      "time": "0.107"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_policy.py::test_qa_and_admin_cannot_call_upstream",
+      "status": "pass",
+      "time": "0.110"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed",
+      "status": "pass",
+      "time": "0.112"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_policy.py::test_retention_floor_and_swiss_default",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_properties.py::test_canonical_form_is_stable",
+      "status": "pass",
+      "time": "0.164"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_properties.py::test_sealed_lines_verify_and_a_byte_flip_does_not",
+      "status": "pass",
+      "time": "0.049"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_protocol.py::test_legacy_host_and_legacy_upstream_record_session_ids",
+      "status": "pass",
+      "time": "0.114"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_protocol.py::test_modern_host_has_no_session_and_ignores_a_session_hint",
+      "status": "pass",
+      "time": "0.106"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_protocol.py::test_modern_host_against_legacy_upstream_falls_back",
+      "status": "pass",
+      "time": "0.104"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_protocol.py::test_resources_and_prompts_are_logged",
+      "status": "pass",
+      "time": "0.115"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_protocol.py::test_stdio_subprocess_upstream_does_not_inherit_parent_secrets",
+      "status": "pass",
+      "time": "0.070"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_protocol.py::test_proxy_stdio_speaks_discover",
+      "status": "pass",
+      "time": "1.200"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_reconciliation_sop.py::test_sop_snippet_appends_a_verifiable_entry",
+      "status": "pass",
+      "time": "0.013"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_reconciliation_sop.py::test_sop_is_linked",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_rtm.py::test_community_rows_name_real_tests",
+      "status": "pass",
+      "time": "0.076"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_rtm.py::test_verification_docs_avoid_banned_words",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_sample_report.py::test_sample_report_hash_and_wording",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_serve_stdio_session_parse_and_call",
+      "status": "pass",
+      "time": "0.109"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_serve_stdio_ends_a_newline_less_stream",
+      "status": "pass",
+      "time": "0.111"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_serve_stdio_refuses_a_disagreeing_head",
+      "status": "pass",
+      "time": "0.129"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_serve_stdio_last_resort_and_unknown_licence",
+      "status": "pass",
+      "time": "0.136"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_server_main_and_upstream_builders",
+      "status": "pass",
+      "time": "0.002"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_https_transport_errors",
+      "status": "pass",
+      "time": "0.070"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_text_reporter_and_unsigned_signer",
+      "status": "pass",
+      "time": "0.001"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_empty_log_with_a_head_fails",
+      "status": "pass",
+      "time": "0.002"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_rtm_cli_and_junit_statuses",
+      "status": "pass",
+      "time": "0.148"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_verification_package_loads_the_matrix",
+      "status": "pass",
+      "time": "0.074"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_server_loop.py::test_verification_module_entry",
+      "status": "pass",
+      "time": "0.521"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_stdio_e2e.py::test_allowed_denied_and_verify_cli",
+      "status": "pass",
+      "time": "1.358"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_stdio_e2e.py::test_approval_flow_across_two_processes",
+      "status": "pass",
+      "time": "2.457"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_stdio_e2e.py::test_upstream_crash_and_hang",
+      "status": "pass",
+      "time": "5.149"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_stdio_e2e.py::test_audit_store_failure_latches_blocked",
+      "status": "pass",
+      "time": "1.279"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_tamper.py::test_valid_chain",
+      "status": "pass",
+      "time": "0.008"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_tamper.py::test_modified_payload_is_detected",
+      "status": "pass",
+      "time": "0.006"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_tamper.py::test_whitespace_is_detected",
+      "status": "pass",
+      "time": "0.005"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_tamper.py::test_deleted_line_is_a_gap",
+      "status": "pass",
+      "time": "0.005"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_tamper.py::test_reordered_lines_are_detected",
+      "status": "pass",
+      "time": "0.007"
+    },
+    {
+      "actual": "pass",
+      "expected": "pass",
+      "id": "tests/test_tamper.py::test_unknown_hash_algo_is_rejected",
+      "status": "pass",
+      "time": "0.005"
+    }
+  ],
+  "counts": {
+    "failed": 0,
+    "passed": 91,
+    "requirements_community": 52,
+    "requirements_customer": 3,
+    "requirements_gap": 4,
+    "requirements_pro": 23,
+    "tests": 91
+  },
+  "coverage_percent": "88.6",
+  "environment": {
+    "dependencies": [
+      {
+        "name": "mcp",
+        "sha256": "cf7213be0f51c210ba49f5c5d315b6643fb650521f05d0bea52bbd39b2bc634b",
+        "version": "2.3.0"
+      },
+      {
+        "name": "rfc8785",
+        "sha256": "476c34e39dbf263f3c2ec4911785663d27f921b23d66a895036067bb4f0676b9",
+        "version": "0.1.4"
+      },
+      {
+        "name": "pytest",
+        "sha256": "ddb0d1caa9fe73f73cdbdbb483e77d4efcd0ee74da1a74e949bfe8494b81362e",
+        "version": "9.1.1"
+      },
+      {
+        "name": "hypothesis",
+        "sha256": "81b1cb0e8096b52d60aaeb205e7e0d1bc5afa9c88676dcb9d5feebb29288c26e",
+        "version": "6.170.1"
+      },
+      {
+        "name": "jsonschema",
+        "sha256": "633d1c647f2bf083d30541dce1791acc3f62ec615eee92181f7089435e70fcec",
+        "version": "4.26.0"
+      },
+      {
+        "name": "PyYAML",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "version": "6.0.1"
+      }
+    ],
+    "git_sha": "c1270003beec66c0eafb1c3282df9de42de776fb",
+    "os": "Linux-6.12.94+-x86_64-with-glibc2.39",
+    "package_version": "0.1.0",
+    "python": "3.12.3"
+  },
+  "generated_at": "2026-10-18T22:18:20+00:00",
+  "pytest_exit": 0,
+  "report_sha256": "3a672dd13bc84a825e59a1dee38c1884c9802efc2f41eaf0af7e9cbeccc76e6d",
+  "statement": "Evidence that supports a customer's own records. Designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows.",
+  "title": "Community verification report",
+  "traceability_problems": []
+}

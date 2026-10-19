@@ -36,11 +36,19 @@ dependencies = [
 dev = [
   "pytest>=8.3",
   "jsonschema>=4.21",
+  "hypothesis>=6.110",
+  "pytest-cov>=5.0",
+  "PyYAML>=6.0",
+  "pip-audit>=2.7",
+  "bandit>=1.7",
+  "ruff>=0.6",
+  "defusedxml>=0.7",
 ]
 
 [project.scripts]
 mcp-glp-audit-proxy = "mcp_glp_audit_proxy.__main__:main"
 mcp-glp-audit-proxy-verify = "mcp_glp_audit_proxy.cli:main"
+mcp-glp-audit-proxy-oq = "mcp_glp_audit_proxy.verification.oq:main"
 
 [project.urls]
 Homepage = "https://github.com/antonio-castellon/mcp-glp-audit-proxy"
@@ -65,3 +73,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "tests"]
+
+[tool.coverage.run]
+source = ["mcp_glp_audit_proxy"]
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true

@@ -125,6 +125,20 @@ def test_missing_checkout_is_a_clear_error(tmp_path: Path, monkeypatch, capsys) 
     assert "PyPI" in capsys.readouterr().err
 
 
+def test_both_oq_commands_are_documented() -> None:
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    rtm = (root / "docs" / "verification" / "RTM.md").read_text(encoding="utf-8")
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    entry = (root / "src" / "mcp_glp_audit_proxy" / "__main__.py").read_text(encoding="utf-8")
+    for text in (readme, rtm):
+        assert "mcp-glp-audit-proxy-oq" in text
+        assert "oq-report" in text
+        assert "neither is deprecated" in text.lower() or "Neither is deprecated" in text
+    assert 'mcp-glp-audit-proxy-oq = "mcp_glp_audit_proxy.verification.oq:main"' in pyproject
+    assert 'sys.argv[1] == "oq-report"' in entry
+
+
 def test_coverage_percent_reads_the_requested_file(tmp_path: Path) -> None:
     good = tmp_path / "coverage.json"
     good.write_text(json.dumps({"totals": {"percent_covered": 90}}), encoding="utf-8")

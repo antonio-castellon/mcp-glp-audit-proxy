@@ -435,7 +435,7 @@ requirements:
     scope: community
     statement: "The OQ-style report runner reads the matrix and the tests from a source checkout. A path that is not a checkout exits with an error and does not start pytest."
     modules: [src/mcp_glp_audit_proxy/verification/oq.py, src/mcp_glp_audit_proxy/verification/rtm.py]
-    tests: [tests/test_oq_runner.py::test_oq_report_refuses_a_path_that_is_not_a_checkout, tests/test_oq_runner.py::test_oq_report_accepts_an_explicit_repo_root]
+    tests: [tests/test_oq_runner.py::test_oq_report_refuses_a_path_that_is_not_a_checkout, tests/test_oq_runner.py::test_oq_report_accepts_an_explicit_repo_root, tests/test_oq_runner.py::test_both_oq_commands_are_documented]
   - id: COV-71
     source: "Community plugin selection"
     scope: community

@@ -25,7 +25,14 @@ from .rtm import CheckoutError, checkout_root, community_gaps, junit_results, lo
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="mcp-glp-audit-proxy oq-report")
+    parser = argparse.ArgumentParser(
+        prog="mcp-glp-audit-proxy-oq",
+        description=(
+            "Run the Community verification report. "
+            "mcp-glp-audit-proxy-oq and `mcp-glp-audit-proxy oq-report` "
+            "call this same runner. Neither name is deprecated."
+        ),
+    )
     parser.add_argument(
         "--repo-root",
         type=Path,

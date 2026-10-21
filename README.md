@@ -156,9 +156,10 @@ pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-The OQ-style report runner needs a source checkout (`tests/` and `docs/verification/rtm.yaml`). A PyPI install does not include that tree. From a clone:
+The OQ-style report runner needs a source checkout (`tests/` and `docs/verification/rtm.yaml`). A PyPI install does not include that tree. Two command names call the same runner. Neither is deprecated: `mcp-glp-audit-proxy-oq` is the installed console script, and `mcp-glp-audit-proxy oq-report` is the module subcommand. From a clone:
 
 ```bash
+mcp-glp-audit-proxy-oq --repo-root .
 mcp-glp-audit-proxy oq-report --repo-root .
 ```
 

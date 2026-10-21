@@ -1,0 +1,23 @@
+%% Editable labels live in render_flow.py. Re-run that script to refresh
+%% flow.mmd, flow.svg, and flow.png together.
+flowchart LR
+  host["host (Claude, Cursor, Grok, self-hosted LLM)"]
+  client["client / agent"]
+  subgraph proxy["mcp-glp-audit-proxy"]
+    direction TB
+    policy["policy (allow / deny, reason, human approval)"]
+    approval["approval"]
+    writer["audit writer"]
+    audit["audit (append-only JSONL, RFC 8785, SHA-256 chain)"]
+  end
+  upstream["upstream MCP servers (Excel, ELN, LIMS, databases, instruments)"]
+  jsonl["JSONL log"]
+  head[".head sidecar"]
+  anchor["off-host anchor"]
+  host -->|"stdio JSON-RPC"| proxy
+  proxy -->|"stdio or HTTPS (TLS 1.3)"| upstream
+  client --- host
+  writer --> audit
+  audit --> jsonl
+  jsonl --> head
+  head --> anchor

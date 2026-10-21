@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="576" viewBox="0 0 1280 576" role="img">
+<title>mcp-glp-audit-proxy flow</title>
+<desc>client / agent. host (Claude, Cursor, Grok, self-hosted LLM). stdio JSON-RPC. mcp-glp-audit-proxy. policy (allow / deny, reason, human approval). approval. audit writer. audit (append-only JSONL, RFC 8785, SHA-256 chain). stdio or HTTPS (TLS 1.3). upstream MCP servers (Excel, ELN, LIMS, databases, instruments). JSONL log. .head sidecar. off-host anchor.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+<path d="M 0 1.2 L 10 5 L 0 8.8 z" fill="#2c3d48"/>
+</marker>
+<clipPath id="proxy-clip"><rect x="430" y="20" width="400" height="368" rx="16"/></clipPath>
+</defs>
+<rect width="1280" height="576" fill="#f4f2ec"/>
+<rect x="8" y="8" width="1264" height="560" rx="18" fill="none" stroke="#d9d3c7"/>
+<rect x="28" y="130" width="236" height="148" rx="12" fill="#f7f8f8" stroke="#5d6e7a"/>
+<text x="146" y="166" text-anchor="middle" fill="#4a5963" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" letter-spacing="0.6">client / agent</text>
+<text x="146" y="198" text-anchor="middle" fill="#1c2830" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600"><tspan x="146" dy="0">host (Claude, Cursor,</tspan><tspan x="146" dy="20">Grok, self-hosted LLM)</tspan></text>
+<line x1="264" y1="204" x2="430" y2="204" stroke="#2c3d48" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="347" y="188" text-anchor="middle" fill="#4a5963" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="500"><tspan x="347" dy="0">stdio JSON-RPC</tspan></text>
+<g clip-path="url(#proxy-clip)">
+<rect x="430" y="20" width="400" height="368" fill="#e6eef0"/>
+<rect x="430" y="20" width="400" height="48" fill="#1e4652"/>
+</g>
+<rect x="430" y="20" width="400" height="368" rx="16" fill="none" stroke="#1e4652" stroke-width="1.5"/>
+<text x="630" y="50" text-anchor="middle" fill="#ffffff" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600"><tspan x="630" dy="0">mcp-glp-audit-proxy</tspan></text>
+<rect x="446" y="84" width="368" height="84" rx="12" fill="#ffffff" stroke="#c5d0d4"/>
+<text x="630" y="118" text-anchor="middle" fill="#1c2830" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="500"><tspan x="630" dy="0">policy (allow / deny,</tspan><tspan x="630" dy="20">reason, human approval)</tspan></text>
+<rect x="446" y="180" width="368" height="56" rx="12" fill="#ffffff" stroke="#c5d0d4"/>
+<text x="630" y="213" text-anchor="middle" fill="#1c2830" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="600"><tspan x="630" dy="0">approval</tspan></text>
+<rect x="446" y="248" width="368" height="108" rx="12" fill="#ffffff" stroke="#c5d0d4"/>
+<text x="630" y="276" text-anchor="middle" fill="#4a5963" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" letter-spacing="0.6">audit writer</text>
+<text x="630" y="304" text-anchor="middle" fill="#1c2830" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="500"><tspan x="630" dy="0">audit (append-only JSONL,</tspan><tspan x="630" dy="20">RFC 8785, SHA-256 chain)</tspan></text>
+<line x1="830" y1="204" x2="1000" y2="204" stroke="#2c3d48" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="915" y="168" text-anchor="middle" fill="#4a5963" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="500"><tspan x="915" dy="0">stdio or HTTPS</tspan><tspan x="915" dy="17">(TLS 1.3)</tspan></text>
+<rect x="1000" y="116" width="248" height="176" rx="12" fill="#f2f6f0" stroke="#4d674f"/>
+<text x="1124" y="178" text-anchor="middle" fill="#1c2830" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="500"><tspan x="1124" dy="0">upstream MCP servers</tspan><tspan x="1124" dy="20">(Excel, ELN, LIMS,</tspan><tspan x="1124" dy="20">databases, instruments)</tspan></text>
+<line x1="534" y1="356" x2="534" y2="424" stroke="#2c3d48" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="726" y1="356" x2="726" y2="424" stroke="#2c3d48" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="446" y="424" width="176" height="104" rx="12" fill="#fffcf7" stroke="#8d8172"/>
+<text x="534" y="470" text-anchor="middle" fill="#1c2830" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600"><tspan x="534" dy="0">JSONL log</tspan><tspan x="534" dy="20">append-only</tspan></text>
+<rect x="638" y="424" width="176" height="104" rx="12" fill="#fffcf7" stroke="#8d8172"/>
+<text x="726" y="470" text-anchor="middle" fill="#1c2830" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600"><tspan x="726" dy="0">.head sidecar</tspan><tspan x="726" dy="20">seq, entry_hash</tspan></text>
+<line x1="814" y1="476" x2="1000" y2="476" stroke="#2c3d48" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="907" y="462" text-anchor="middle" fill="#4a5963" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="500"><tspan x="907" dy="0">external copy</tspan></text>
+<rect x="1000" y="412" width="248" height="128" rx="12" fill="#f7f1e8" stroke="#7a624c"/>
+<text x="1124" y="458" text-anchor="middle" fill="#1c2830" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="600"><tspan x="1124" dy="0">off-host anchor</tspan><tspan x="1124" dy="20">ticket, email, or</tspan><tspan x="1124" dy="20">LIMS record</tspan></text>
+</svg>

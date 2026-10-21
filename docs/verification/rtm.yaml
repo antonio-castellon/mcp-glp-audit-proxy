@@ -73,9 +73,9 @@ requirements:
   - id: COV-12
     source: "21 CFR Part 11 11.10(d)"
     scope: community
-    statement: "Local roles and a required principal. SSO and OAuth are Pro."
-    modules: [src/mcp_glp_audit_proxy/config.py, src/mcp_glp_audit_proxy/proxy.py]
-    tests: [tests/test_policy.py::test_qa_and_admin_cannot_call_upstream]
+    statement: "Local roles and a required principal. The auth plugin defaults to the process environment. SSO and OAuth are Pro."
+    modules: [src/mcp_glp_audit_proxy/config.py, src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/identity.py, src/mcp_glp_audit_proxy/wiring.py]
+    tests: [tests/test_policy.py::test_qa_and_admin_cannot_call_upstream, tests/test_plugins.py::test_env_identity_is_the_default_and_other_auth_plugins_fail_closed]
   - id: COV-13
     source: "21 CFR Part 11 11.10(e)"
     scope: community

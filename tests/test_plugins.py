@@ -16,7 +16,7 @@ from mcp_glp_audit_proxy.server import main as server_main
 from mcp_glp_audit_proxy.server import build_proxy
 from mcp_glp_audit_proxy.signers.unsigned import UnsignedSigner
 from mcp_glp_audit_proxy.storage.jsonl import JsonlAuditStore
-from mcp_glp_audit_proxy.wiring import REPORTERS_GROUP, SIGNERS_GROUP, STORAGE_GROUP
+from mcp_glp_audit_proxy.wiring import AUTH_GROUP, REPORTERS_GROUP, SIGNERS_GROUP, STORAGE_GROUP
 
 from conftest import call_tool
 
@@ -65,10 +65,12 @@ def test_defaults_build_the_community_plugins(tmp_path: Path) -> None:
     assert set(proxy.reporters) == {"json", "text"}
     sealed = proxy.startup()
     assert sealed["arguments"]["plugins"] == {
+        "auth": "env",
         "reporters": ["json", "text"],
         "signer": "unsigned",
         "storage": "jsonl",
     }
+    assert sealed["principal"]["id"] == "qa-1"
 
     plain = load_settings(_config(tmp_path))
     assert plain.storage == "jsonl"
@@ -238,6 +240,81 @@ def test_selected_signer_and_reporter_are_used(tmp_path: Path) -> None:
     assert (tmp_path / "exports" / "trail.csv").read_bytes() == b"seq,status\n"
     document = exported["result"]["structuredContent"]
     assert document["manifest"]["signer"] == "ed25519"
+
+
+def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    auth = load_group("mcp_glp_audit_proxy.auth")
+    assert auth["env"].__name__ == "env_identity"
+    assert "sso" not in auth
+    assert "oauth" not in auth
+
+    monkeypatch.setenv("GLP_PRINCIPAL_ID", "operator-9")
+    monkeypatch.setenv("GLP_PRINCIPAL_NAME", "Ada Analyst")
+    monkeypatch.setenv("GLP_PRINCIPAL_ROLE", "operator")
+    loaded = load_settings(_config(tmp_path))
+    proxy = build_proxy(loaded)
+    assert proxy.settings.auth == "env"
+    assert proxy.settings.principal.id == "operator-9"
+    assert proxy.settings.principal.role == "operator"
+    assert proxy.startup()["principal"]["id"] == "operator-9"
+
+    flags = FeatureSet.community()
+    with pytest.raises(ConfigurationError, match="not licensed"):
+        build_proxy(_settings(tmp_path, auth="sso"), flags)
+
+    missing = FeatureSet.community()
+    missing.unavailable.append("auth.sso")
+    with pytest.raises(ConfigurationError, match="not installed"):
+        build_proxy(_settings(tmp_path, auth="sso"), missing)
+
+    class Other:
+        name = "sso"
+
+        def resolve(self) -> dict[str, str]:
+            return {"id": "from-plugin", "name": "Plugin User", "role": "qa"}
+
+    flags.enabled.add("auth.sso")
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: Other()
+    replaced = build_proxy(_settings(tmp_path, auth="sso"), flags)
+    assert replaced.settings.principal.id == "from-plugin"
+    assert replaced.settings.principal.role == "qa"
+
+    class BadRole:
+        name = "sso"
+
+        def resolve(self) -> dict[str, str]:
+            return {"id": "x", "name": "Y", "role": "root"}
+
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: BadRole()
+    with pytest.raises(ConfigurationError, match="role must be"):
+        build_proxy(_settings(tmp_path, auth="sso"), flags)
+
+    class NotAPrincipal:
+        name = "sso"
+
+        def resolve(self) -> list[str]:
+            return ["nope"]
+
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: NotAPrincipal()
+    with pytest.raises(ConfigurationError, match="did not return a principal"):
+        build_proxy(_settings(tmp_path, auth="sso"), flags)
+
+    class Nameless:
+        def resolve(self) -> dict[str, str]:
+            return {"id": "x", "name": "Y", "role": "qa"}
+
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: Nameless()
+    with pytest.raises(ConfigurationError, match="no name"):
+        build_proxy(_settings(tmp_path, auth="sso"), flags)
+
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: Nameless
+    with pytest.raises(ConfigurationError, match="instance"):
+        build_proxy(_settings(tmp_path, auth="sso"), flags)
+
+    with pytest.raises(ConfigurationError, match="unknown plugin 'nope'"):
+        build_proxy(_settings(tmp_path, auth="nope"), flags)
 
 
 def test_text_export_and_unknown_format(build) -> None:

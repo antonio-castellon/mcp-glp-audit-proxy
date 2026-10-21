@@ -13,6 +13,7 @@ Declared in `pyproject.toml`. Each value is a factory, not the class.
 | `mcp_glp_audit_proxy.storage` | `jsonl` | `jsonl_store(settings, signer)` | `JsonlAuditStore` |
 | `mcp_glp_audit_proxy.signers` | `unsigned` | `unsigned_signer(settings)` | `UnsignedSigner` |
 | `mcp_glp_audit_proxy.reporters` | `json`, `text` | `json_reporter(settings)`, `text_reporter(settings)` | `JsonReporter`, `TextReporter` |
+| `mcp_glp_audit_proxy.auth` | `env` | `env_identity(settings)` | `EnvIdentity` |
 
 Pro names reserved by `mcp_glp_audit_proxy.features.PRO_PLUGINS` (not implemented here):
 
@@ -31,6 +32,8 @@ Pro names reserved by `mcp_glp_audit_proxy.features.PRO_PLUGINS` (not implemente
 | `auth.sso` | `mcp_glp_audit_proxy.auth` | `sso` |
 | `auth.oauth` | `mcp_glp_audit_proxy.auth` | `oauth` |
 
+The auth group stays reserved. Dropping `sso` and `oauth` would remove names `PRO_PLUGINS` already publishes. Community does not add an identity provider. `IdentityProvider` is the contract, and `env` is the default: it returns the principal `load_settings` already took from `GLP_PRINCIPAL_*` or `config.json`. `resolve()` returns `{"id", "name", "role"}`. A Pro plugin uses the same `(settings)` factory signature and the same method. This repository does not implement `sso` or `oauth`.
+
 `load_group` in `mcp_glp_audit_proxy.plugins` returns `{name: loaded object}`. A missing group is an empty dict.
 
 ## Selection
@@ -42,16 +45,18 @@ Config (all keys optional):
   "plugins": {
     "storage": "jsonl",
     "signer": "unsigned",
-    "reporters": ["json", "text"]
+    "reporters": ["json", "text"],
+    "auth": "env"
   }
 }
 ```
 
 Missing `plugins` uses those defaults. `build_proxy` then:
 
-1. Resolves the signer factory and calls it with `settings`.
-2. Resolves the storage factory and calls it with `(settings, signer)`.
-3. Resolves each reporter factory and calls it with `settings`.
+1. Resolves the auth factory and calls it with `settings`. The returned principal replaces `settings.principal` before anything is built. A role outside `operator`, `approver`, `qa` and `admin` refuses startup.
+2. Resolves the signer factory and calls it with `settings`.
+3. Resolves the storage factory and calls it with `(settings, signer)`.
+4. Resolves each reporter factory and calls it with `settings`.
 
 A Pro package uses the same signatures. This repository only maps names to feature flags and calls the factory. It does not contain a Pro backend.
 
@@ -107,7 +112,7 @@ The Community signer returns `{"algorithm": null, "signed": false, "value": null
 
 Point config `licence_path` or `GLP_LICENCE_PATH` at that file. `FeatureSet.load`:
 
-- always enables Community features (`storage.jsonl`, `signer.unsigned`, `report.json`, `report.text`, `verify`, `policy.allowlist`, `approval.local`, `rbac.local`)
+- always enables Community features (`storage.jsonl`, `signer.unsigned`, `report.json`, `report.text`, `verify`, `policy.allowlist`, `approval.local`, `rbac.local`, `auth.env`)
 - enables a Pro feature only when the licence lists it and the matching entry point is installed
 - records anything else on `unavailable` and the server prints that list to stderr
 - still refuses to start if config selects a feature that is not both licensed and installed

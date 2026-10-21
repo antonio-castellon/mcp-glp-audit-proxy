@@ -170,6 +170,7 @@ class AuditProxy:
                 "clock": status,
                 "fail_closed": self.settings.fail_closed,
                 "plugins": {
+                    "auth": self.settings.auth,
                     "reporters": list(self.reporters),
                     "signer": getattr(getattr(self.store, "signer", None), "name", self.settings.signer),
                     "storage": self.settings.storage,

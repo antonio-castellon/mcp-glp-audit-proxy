@@ -26,7 +26,7 @@ Do not log the JSONL file into a system that can rewrite lines. The Community ba
 
 ## Identity
 
-On stdio the principal is the environment: `GLP_PRINCIPAL_ID`, `GLP_PRINCIPAL_NAME`, `GLP_PRINCIPAL_ROLE`. The host process must set those to the authenticated human. A shared service account for operators is a bad fit for attribution.
+On stdio the principal is the environment: `GLP_PRINCIPAL_ID`, `GLP_PRINCIPAL_NAME`, `GLP_PRINCIPAL_ROLE`, or the same fields in `config.json` when those variables are unset. The `auth` plugin defaults to `env` and returns that principal. It does not contact an identity provider. `plugins.auth` set to `sso` or `oauth` refuses to start unless a licence enables it and a plugin is installed. Those plugins are not in this repository. The host process must set the environment to the authenticated human. A shared service account for operators is a bad fit for attribution.
 
 Roles are split on purpose. An operator cannot verify, search, export, approve or change policy. An approver, a QA reviewer and an admin cannot call upstream tools.
 

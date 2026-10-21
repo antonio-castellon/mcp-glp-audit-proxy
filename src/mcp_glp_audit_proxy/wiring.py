@@ -8,18 +8,21 @@ from __future__ import annotations
 
 from typing import Any
 
+from .config import Principal
 from .errors import ConfigurationError
 from .features import PRO_PLUGINS, FeatureSet
 
 STORAGE_GROUP = "mcp_glp_audit_proxy.storage"
 SIGNERS_GROUP = "mcp_glp_audit_proxy.signers"
 REPORTERS_GROUP = "mcp_glp_audit_proxy.reporters"
+AUTH_GROUP = "mcp_glp_audit_proxy.auth"
 
 # Community entry point name -> feature flag. Pro names come from PRO_PLUGINS.
 COMMUNITY_PLUGIN_FEATURES: dict[str, dict[str, str]] = {
     STORAGE_GROUP: {"jsonl": "storage.jsonl"},
     SIGNERS_GROUP: {"unsigned": "signer.unsigned"},
     REPORTERS_GROUP: {"json": "report.json", "text": "report.text"},
+    AUTH_GROUP: {"env": "auth.env"},
 }
 
 
@@ -58,6 +61,25 @@ def load_named(features: FeatureSet, group: str, name: str) -> Any:
     return factory
 
 
+def apply_identity(settings: Any, features: FeatureSet) -> None:
+    """Replace settings.principal with the selected identity plugin's answer.
+
+    The default plugin returns the principal load_settings already resolved.
+    An unknown, unlicensed or missing auth plugin refuses startup.
+    """
+    provider = _call(load_named(features, AUTH_GROUP, settings.auth), settings, label=settings.auth)
+    _check_identity(provider)
+    resolved = provider.resolve()
+    if not isinstance(resolved, dict):
+        raise ConfigurationError("identity plugin did not return a principal")
+    settings.principal = Principal(
+        id=str(resolved.get("id") or ""),
+        name=str(resolved.get("name") or ""),
+        role=str(resolved.get("role") or ""),
+    )
+    settings.validate()
+
+
 def build_components(settings: Any, features: FeatureSet) -> tuple[Any, dict[str, Any]]:
     """Build the signer, store and reporters selected by settings."""
     signer = _call(load_named(features, SIGNERS_GROUP, settings.signer), settings, label=settings.signer)
@@ -84,6 +106,16 @@ def _call(factory: Any, *args: Any, label: str) -> Any:
         raise
     except Exception as exc:
         raise ConfigurationError(f"plugin {label!r} failed to load: {exc}") from exc
+
+
+def _check_identity(provider: Any) -> None:
+    if isinstance(provider, type):
+        raise ConfigurationError("identity plugin factory must return an instance")
+    name = getattr(provider, "name", None)
+    if not isinstance(name, str) or not name:
+        raise ConfigurationError("identity plugin has no name")
+    if not callable(getattr(provider, "resolve", None)):
+        raise ConfigurationError(f"identity plugin {name!r} does not implement IdentityProvider")
 
 
 def _check_signer(signer: Any) -> None:

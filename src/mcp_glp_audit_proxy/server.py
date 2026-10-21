@@ -18,12 +18,13 @@ from .framing import BoundedLineReader, LineTooLong
 from .proxy import MAX_MESSAGE_BYTES, AuditProxy
 from .sdkcheck import assert_mcp_floor
 from .upstream import HttpsTransport, JsonRpcUpstream, StdioTransport
-from .wiring import build_components
+from .wiring import apply_identity, build_components
 
 
 def build_proxy(settings: Settings, features: FeatureSet | None = None) -> AuditProxy:
     flags = features or FeatureSet.load(settings.licence_path)
     settings.validate()
+    apply_identity(settings, flags)
     store, reporters = build_components(settings, flags)
     upstreams = [_build_upstream(item) for item in settings.upstreams or []]
     return AuditProxy(settings, store, upstreams, features=flags, reporters=reporters)

@@ -67,6 +67,9 @@ unsigned = "mcp_glp_audit_proxy.signers.unsigned:unsigned_signer"
 json = "mcp_glp_audit_proxy.reporters.json_export:json_reporter"
 text = "mcp_glp_audit_proxy.reporters.text_export:text_reporter"
 
+[project.entry-points."mcp_glp_audit_proxy.auth"]
+env = "mcp_glp_audit_proxy.identity:env_identity"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

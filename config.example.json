@@ -30,7 +30,8 @@
   "plugins": {
     "storage": "jsonl",
     "signer": "unsigned",
-    "reporters": ["json", "text"]
+    "reporters": ["json", "text"],
+    "auth": "env"
   },
   "upstreams": [
     {

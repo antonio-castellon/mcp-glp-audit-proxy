@@ -91,6 +91,7 @@ class Settings:
     storage: str = "jsonl"
     signer: str = "unsigned"
     reporters: tuple[str, ...] = _DEFAULT_REPORTERS
+    auth: str = "env"
 
     def validate(self) -> None:
         if self.principal.role not in ROLES:
@@ -123,6 +124,7 @@ class Settings:
             raise ConfigurationError("plugins.reporters must not repeat a name")
         for name in self.reporters:
             _check_plugin_name(name, "plugins.reporters")
+        _check_plugin_name(self.auth, "plugins.auth")
 
 
 def load_settings(path: str | Path) -> Settings:
@@ -186,7 +188,7 @@ def load_settings(path: str | Path) -> Settings:
         export_dir = (config_path.parent / export_dir).resolve()
 
     upstreams = [_upstream(item) for item in raw.get("upstreams") or []]
-    storage, signer, reporters = _plugins(raw)
+    storage, signer, reporters, auth = _plugins(raw)
     settings = Settings(
         principal=principal,
         retention=retention,
@@ -202,32 +204,35 @@ def load_settings(path: str | Path) -> Settings:
         storage=storage,
         signer=signer,
         reporters=reporters,
+        auth=auth,
     )
     settings.validate()
     return settings
 
 
-def _plugins(raw: dict[str, Any]) -> tuple[str, str, tuple[str, ...]]:
+def _plugins(raw: dict[str, Any]) -> tuple[str, str, tuple[str, ...], str]:
     block = raw.get("plugins", None)
     if block is None:
-        return "jsonl", "unsigned", _DEFAULT_REPORTERS
+        return "jsonl", "unsigned", _DEFAULT_REPORTERS, "env"
     if not isinstance(block, dict):
         raise ConfigurationError("plugins must be an object")
-    unknown = set(block) - {"storage", "signer", "reporters"}
+    unknown = set(block) - {"storage", "signer", "reporters", "auth"}
     if unknown:
         raise ConfigurationError(f"unknown plugins fields: {sorted(unknown)}")
     storage = block.get("storage", "jsonl")
     signer = block.get("signer", "unsigned")
     reporters = block.get("reporters", list(_DEFAULT_REPORTERS))
+    auth = block.get("auth", "env")
     _check_plugin_name(storage, "plugins.storage")
     _check_plugin_name(signer, "plugins.signer")
+    _check_plugin_name(auth, "plugins.auth")
     if not isinstance(reporters, list) or not reporters:
         raise ConfigurationError("plugins.reporters must be a non-empty list of plugin names")
     for name in reporters:
         _check_plugin_name(name, "plugins.reporters")
     if len(set(reporters)) != len(reporters):
         raise ConfigurationError("plugins.reporters must not repeat a name")
-    return str(storage), str(signer), tuple(str(name) for name in reporters)
+    return str(storage), str(signer), tuple(str(name) for name in reporters), str(auth)
 
 
 def _check_plugin_name(name: object, label: str) -> None:

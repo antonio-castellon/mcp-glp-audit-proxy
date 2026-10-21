@@ -25,6 +25,7 @@ from pathlib import Path
 from .canonical import canonicalize
 from .chain import VerifyReport, verify_file
 from .errors import AuditStoreError
+from .permissions import ensure_private_dir, open_private
 
 
 @dataclass
@@ -49,7 +50,7 @@ def read_head(log: Path) -> Head | None:
     if not path.exists():
         return None
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = _read_private(path)
         parsed = json.loads(raw)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise AuditStoreError(f"audit head unreadable: {exc}") from exc
@@ -69,9 +70,10 @@ def write_head(log: Path, seq: int, entry_hash: str) -> None:
     target = head_path(log)
     temporary = target.with_name(target.name + ".tmp")
     payload = canonicalize({"entry_hash": entry_hash, "seq": seq}) + b"\n"
-    target.parent.mkdir(parents=True, exist_ok=True)
+    ensure_private_dir(target.parent)
     fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
+        os.fchmod(fd, 0o600)
         view = payload
         while view:
             written = os.write(fd, view)
@@ -137,6 +139,20 @@ def verify_anchored(path: Path) -> VerifyReport:
         return _failed(report, status.errors)
     report.anchor_lag = status.lag
     return report
+
+
+def _read_private(path: Path) -> str:
+    fd = open_private(path, os.O_RDONLY)
+    try:
+        chunks: list[bytes] = []
+        while True:
+            block = os.read(fd, 65536)
+            if not block:
+                break
+            chunks.append(block)
+    finally:
+        os.close(fd)
+    return b"".join(chunks).decode("utf-8")
 
 
 def _failed(report: VerifyReport, errors: list[str]) -> VerifyReport:

@@ -5,6 +5,7 @@ ASCII prompts only. This module does not open a socket.
 
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
@@ -76,6 +77,24 @@ def config_main(argv: list[str] | None = None) -> int:
     return check_config(Path(path))
 
 
+def _write_private(path: Path, payload: bytes) -> None:
+    """Create ``path`` as mode 0600. The umask cannot leave it group-readable."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+        view = payload
+        while view:
+            written = os.write(fd, view)
+            if written <= 0:
+                raise OSError(errno.EIO, "short write")
+            view = view[written:]
+        os.fsync(fd)
+    except OSError:
+        os.close(fd)
+        raise
+    os.close(fd)
+
+
 def run_init(
     dest: Path,
     *,
@@ -98,7 +117,7 @@ def run_init(
         text = json.dumps(document, indent=2, sort_keys=True) + "\n"
         text.encode("ascii")
         temporary = dest.with_name(f".{dest.name}.{os.getpid()}.tmp")
-        temporary.write_text(text, encoding="ascii")
+        _write_private(temporary, text.encode("ascii"))
         _load_without_overrides(temporary)
         _validate_tools(tools, document)
         if dest.exists() and not _confirmed(ask):

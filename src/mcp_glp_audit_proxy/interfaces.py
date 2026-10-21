@@ -26,7 +26,18 @@ class Signer(Protocol):
 
     def sign(self, payload: bytes) -> dict[str, Any]: ...
 
-    def verify(self, payload: bytes, signature: dict[str, Any]) -> bool: ...
+    def verify(
+        self,
+        payload: bytes,
+        signature: dict[str, Any],
+        public_key: bytes | None = None,
+    ) -> bool:
+        """Return true when ``signature`` covers ``payload``.
+
+        ``verify --pubkey`` passes the pinned key as ``public_key``. The
+        Community unsigned signer returns false when a key is passed.
+        """
+        ...
 
 
 class Reporter(Protocol):

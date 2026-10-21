@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .canonical import CANON, GENESIS, HASH_ALGO, canonicalize
+from .permissions import tighten_path
 
 
 @dataclass
@@ -98,4 +99,5 @@ def hashlib_hex(body: dict[str, Any]) -> str:
 def verify_file(path: Path) -> VerifyReport:
     if not path.exists():
         return VerifyReport(ok=True, head_hash=GENESIS)
+    tighten_path(path)
     return verify_bytes(path.read_bytes())

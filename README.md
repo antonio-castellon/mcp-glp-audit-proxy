@@ -16,7 +16,7 @@ mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
 Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.2.0. Changes since 0.1.0 are in `CHANGELOG.md`.
 
-It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU GMP Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository. Personal Part 11 e-signatures are out of scope. The proxy writes an automatic, non-blocking trace and signs that trace itself.
+It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU GMP Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository. Personal Part 11 e-signatures are out of scope. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro.
 
 <picture>
   <source srcset="https://raw.githubusercontent.com/antonio-castellon/mcp-glp-audit-proxy/main/docs/images/flow.svg" type="image/svg+xml">
@@ -60,11 +60,11 @@ mcp-glp-audit-proxy-verify data/audit.jsonl --tool excel__write_cell --status ok
 mcp-glp-audit-proxy-verify data/audit.jsonl --print-head
 ```
 
-`--print-head` prints `seq` and `entry_hash`. Copy that line into a ticket, an email or a LIMS record. The sidecar `data/audit.jsonl.head` makes a cut of whole trailing lines fail verification. Someone who can edit both the log and the sidecar can move them together; the external copy is the control. Signed checkpoints and WORM storage are Pro.
+`--print-head` prints `seq=<n> entry_hash=<64 hex>`. Copy that line into a ticket, an email or a LIMS record. Check it later with `--expect-head <seq>:<entry_hash>` or `--expect-head-file` (the file may hold that same line). The command exits 1 when the chain tip differs. The sidecar `data/audit.jsonl.head` makes a cut of whole trailing lines fail verification. Someone who can edit both the log and the sidecar can move them together; the external copy is the control. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro. `--pubkey` passes a pinned public key file to the licensed signer plugin. With no licensed signer the check fails. Unsigned checkpoints stay the default and are not treated as signed.
 
 ## Configure
 
-`init` asks for the audit log path, the tool allow list, the principal (id, name, role), and the retention profile and legal hold. It writes a JSON config the same loader as startup accepts. Prompts and the file are ASCII. The wizard does not open a network connection. If the destination already exists, it is left unchanged unless you answer yes to the overwrite question.
+`init` asks for the audit log path, the tool allow list, the principal (id, name, role), and the retention profile and legal hold. It writes a JSON config the same loader as startup accepts, with mode 0600. Prompts and the file are ASCII. The wizard does not open a network connection. If the destination already exists, it is left unchanged unless you answer yes to the overwrite question.
 
 ```bash
 mcp-glp-audit-proxy init
@@ -112,7 +112,7 @@ mcp-glp-audit-proxy is designed to support the audit-trail requirements below. M
 | Framework | What the proxy helps with | Edition |
 |---|---|---|
 | OECD GLP No. 17 (3.4) / Swiss GLPV Annex 2 | Always-on, append-only audit trail; who/what/when/why; admin-only settings; QA read-only role; 10-year Swiss retention profile | Community core; WORM retention and PDF reports in Pro |
-| FDA 21 CFR Part 11 | Computer-generated, time-stamped, hash-chained audit trail (11.10(e)); tamper detection; complete copies; authority checks. The proxy writes an automatic, non-blocking trace and signs that trace itself. Personal Part 11 e-signatures are out of scope. An approval is not an electronic signature | Community core; reports, checkpoint signing, and SSO in Pro |
+| FDA 21 CFR Part 11 | Computer-generated, time-stamped, hash-chained audit trail (11.10(e)); tamper detection; complete copies; authority checks. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro. Personal Part 11 e-signatures are out of scope. An approval is not an electronic signature | Community core; reports, checkpoint signing, and SSO in Pro |
 | EU GMP Annex 11 (2011; 2025 draft) | Audit trail of changes with reason; role, time zone; locked audit trail; searchable complete export; access log | Community core; review tooling and inactivity logout in Pro |
 | MHRA / PIC/S PI 041-1 / WHO TRS 1033 | ALCOA+ data integrity, segregation of duties, metadata with each record, true-copy exports | Community core; signed manifests and validation pack in Pro |
 | ISPE GAMP 5 / FDA CSA | Supplier documentation, proposed Cat. 4 configured components, machine-readable test evidence | Pro (validation pack) |

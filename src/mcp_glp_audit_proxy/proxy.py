@@ -933,11 +933,22 @@ class AuditProxy:
         approval_id = _meta(message).get("io.github.antonio-castellon/approvalId")
         if not approval_id or not self.settings.policy.is_write(name):
             return None
-        if not self.settings.policy.require_approval_for_writes:
-            return None
+        # Single-use does not depend on require_approval_for_writes. Turning
+        # the gate off must not leave a presented, still-valid approval reusable.
+        # A mismatch is not spent: this call did not use that approval.
+        # A failed upstream call drops this object before the append.
         records = load_approvals(self.store.read_entries())
         record = records.get(str(approval_id))
         if record is None:
+            return None
+        problem = _approval_problem(
+            record,
+            tool=name,
+            digest=args_hash(name, arguments),
+            requester=self.settings.principal.id,
+            now=self._now(),
+        )
+        if problem:
             return None
         return {
             "approval_id": record.approval_id,

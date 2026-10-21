@@ -87,7 +87,7 @@ requirements:
     scope: community
     statement: "Optional approval before a write, and monotonic sequence numbers."
     modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/approvals.py]
-    tests: [tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts, tests/test_approval.py::test_legacy_reviewed_approval_still_verifies_and_does_not_authorise, tests/test_chain.py::test_chain_links_and_matches_schema]
+    tests: [tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts, tests/test_approval.py::test_legacy_reviewed_approval_still_verifies_and_does_not_authorise, tests/test_approval.py::test_matching_approval_is_consumed_when_the_gate_is_turned_off, tests/test_chain.py::test_chain_links_and_matches_schema]
   - id: COV-15
     source: "21 CFR Part 11 11.10(g)"
     scope: community
@@ -417,7 +417,7 @@ requirements:
     scope: community
     statement: "Allow list, deny list, and approval before writes."
     modules: [src/mcp_glp_audit_proxy/policy.py, src/mcp_glp_audit_proxy/proxy.py]
-    tests: [tests/test_limits.py::test_name_tricks_fail_closed, tests/test_approval.py::test_expired_approval_is_refused]
+    tests: [tests/test_limits.py::test_name_tricks_fail_closed, tests/test_approval.py::test_expired_approval_is_refused, tests/test_approval.py::test_matching_approval_is_consumed_when_the_gate_is_turned_off]
   - id: COV-69
     source: "OWASP agentic ASI02 / ASI03"
     scope: community

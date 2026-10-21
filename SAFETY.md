@@ -44,7 +44,7 @@ Remote upstreams must be `https`. The client context is TLS 1.3 only. Client tok
 
 `require_approval_for_writes` asks a different person, in the approver role, to record meaning `approved` before a write is forwarded. The stored label is `approval`. It does not meet 21 CFR Part 11 signature rules (printed name plus meaning is recorded, but there is no two-factor re-authentication, no signature binding beyond the args hash, and no IdP). Part 11 electronic signatures are a Pro plugin.
 
-Meaning `reviewed` does not authorise the write. It is stored as status `reviewed` (schema 1.1.0). Older lines that stored it as status `approved` with meaning `reviewed` still verify, and the gate still refuses them. The requester cannot approve their own request. Each approval matches one canonical `{tool, arguments}` digest and is single-use.
+Meaning `reviewed` does not authorise the write. It is stored as status `reviewed` (schema 1.1.0). Older lines that stored it as status `approved` with meaning `reviewed` still verify, and the gate still refuses them. The requester cannot approve their own request. Each approval matches one canonical `{tool, arguments}` digest and is single-use. Consumption does not depend on `require_approval_for_writes` still being on: a successful write that presents a matching approval records `approval.status` `consumed`. A different call, or a failed upstream call, does not consume it. The failed call can be retried while the approval is still valid.
 
 ## Time
 

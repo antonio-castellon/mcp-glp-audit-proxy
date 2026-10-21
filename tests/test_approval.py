@@ -271,6 +271,75 @@ def test_changed_arguments_do_not_match_the_approval(build) -> None:
     assert stack["fake"].calls == []
 
 
+def _ok_writes(store, tool: str = "excel__write_cell") -> list[dict]:
+    return [
+        entry
+        for entry in store.read_entries()
+        if entry.get("tool") == tool and entry.get("status") == "ok"
+    ]
+
+
+def test_matching_approval_is_consumed_when_the_gate_is_turned_off(build) -> None:
+    stack = build(require_approval=True)
+    operator = stack["proxies"]["operator"]
+    approver = stack["proxies"]["approver"]
+    admin = stack["proxies"]["admin"]
+    held = call_tool(operator, "excel__write_cell", {"cell": "A1", "value": 2}, REASON)
+    approval_id = _pending_id(held)
+    call_tool(
+        approver,
+        "glp_approve",
+        {"approval_id": approval_id, "meaning": "approved"},
+        request_id=11,
+    )
+    paused = call_tool(
+        admin,
+        "glp_update_policy",
+        {"require_approval_for_writes": False, "reason": "pause the gate"},
+        request_id=12,
+    )
+    assert paused["result"]["isError"] is False
+
+    other = call_tool(
+        operator,
+        "excel__write_cell",
+        {"cell": "A1", "value": 999},
+        {**REASON, "io.github.antonio-castellon/approvalId": approval_id},
+        request_id=13,
+    )
+    assert other["result"]["structuredContent"]["saved"] is True
+    assert all(entry.get("approval") is None or entry["approval"].get("status") != "consumed" for entry in stack["store"].read_entries())
+
+    done = call_tool(
+        operator,
+        "excel__write_cell",
+        {"cell": "A1", "value": 2},
+        {**REASON, "io.github.antonio-castellon/approvalId": approval_id},
+        request_id=14,
+    )
+    assert done["result"]["structuredContent"]["saved"] is True
+    consumed = _ok_writes(stack["store"])[-1]
+    assert consumed["arguments"]["value"] == 2
+    assert consumed["approval"]["status"] == "consumed"
+
+    restored = call_tool(
+        admin,
+        "glp_update_policy",
+        {"require_approval_for_writes": True, "reason": "restore the gate"},
+        request_id=15,
+    )
+    assert restored["result"]["isError"] is False
+    again = call_tool(
+        operator,
+        "excel__write_cell",
+        {"cell": "A1", "value": 2},
+        {**REASON, "io.github.antonio-castellon/approvalId": approval_id},
+        request_id=16,
+    )
+    assert again["result"]["isError"] is True
+    assert "consumed" in again["result"]["content"][0]["text"]
+
+
 def test_expired_approval_is_refused(build) -> None:
     stack = build(require_approval=True)
     operator = stack["proxies"]["operator"]

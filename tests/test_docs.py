@@ -106,6 +106,17 @@ def test_community_pro_table_is_filled() -> None:
             assert cell.strip() not in {"", "yes", "later"}
         if community.startswith(has):
             assert pro.startswith(has), capability
+        assert "planned" not in community
+    pro_included = {
+        "DE / FR / EN report templates",
+        "Old/new value capture for write tools",
+        "Merkle log with inclusion / consistency proofs",
+        "OpenTelemetry spans (technical telemetry, not the audit record)",
+    }
+    by_name = {capability: (community, pro) for capability, community, pro in rows}
+    for name in pro_included:
+        assert by_name[name] == (":x:", ":white_check_mark:"), name
+    assert by_name["FIPS 140-3 mode"] == (":x:", ":x: on request")
     # The capability table lives in the README only.
     for path in (ROOT / "docs").rglob("*.md"):
         text = path.read_text(encoding="utf-8")

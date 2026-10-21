@@ -87,6 +87,7 @@ Same Community plugins, stated explicitly, licence file present, reporters limit
     "checkpoint_every": 50
   },
   "export_dir": "/srv/glp/admin-1/exports",
+  "client_id": "lab-1",
   "licence_path": "/srv/glp/licence.json",
   "plugins": {
     "storage": "jsonl",
@@ -98,7 +99,13 @@ Same Community plugins, stated explicitly, licence file present, reporters limit
 }
 ```
 
-Licence file. `format` must be `mcp-glp-audit-proxy-licence`. `features` is a list of strings. An empty list leaves Community features on. A feature outside that set is enabled only when the file carries a valid Ed25519 signature and an installed factory declares the same `licence_feature`. Otherwise the name is not loaded. A verified feature that no factory declares is printed on stderr as unavailable. `expires`, when set, is an RFC 3339 timestamp with a time zone; a time that is not still in the future is rejected after the signature check. The signature covers the RFC 8785 bytes of the file with the `signature` field removed. `algorithm` is `ed25519`. `value` is standard base64. The public key is `LICENCE_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence`. The private key is not in this repository. A file that lists only Community features, and has no signature, still loads.
+Licence file. Two shapes are accepted. JSON uses `format` `mcp-glp-audit-proxy-licence` and an Ed25519 signature over the RFC 8785 bytes with the `signature` field removed. `features` is a list of strings. An empty list leaves Community features on. A feature outside that set is enabled only when the signature verifies, the fingerprint matches, and an installed factory declares the same `licence_feature`. Otherwise the name is not loaded. A verified feature that no factory declares is printed on stderr as unavailable. JSON `expires`, when set, is an RFC 3339 timestamp with a time zone; a time that is not still in the future is rejected after the signature and the fingerprint.
+
+LM1 is three text lines: `LM1`, base64 of the JSON body, and base64 of an RSA-2048 PSS signature over those raw body bytes (MGF1 with SHA-256, salt length equal to the digest). The body bytes are UTF-8 from `json.dumps` with `sort_keys=True`, `separators=(",", ":")`, and `ensure_ascii=False`. The loader checks that signature and does not re-encode the JSON. The object keys are `app`, `expires`, `fingerprint`, `holder`, `issued`, `kind`, `updates_until`, and `version`. There is no `features` field. `app` must be `mcp-glp-audit-proxy`. `kind` is `trial`, `year`, or `perpetual`. `expires` is an ISO date (`YYYY-MM-DD`) or null. Null does not expire. `updates_until` and `version` are kept and not checked yet. A matching fingerprint enables the `licence_feature` of each installed licensed plugin in that set.
+
+The public keys are `LICENCE_PUBLIC_KEY` and `LICENCE_RSA_PUBLIC_PEM` in `mcp_glp_audit_proxy.licence`. Both are test keys. Replace them before issuing customer licences. The private keys are not in this repository.
+
+The fingerprint is the lowercase SHA-256 hex of the RFC 8785 array `[client_id, "mcp-glp-audit-proxy", [sorted licensed entry-point names]]`. `client_id` comes from config. The names are installed entry points whose `licence_feature` is outside the Community set. Community names are not included. There is no machine fingerprint. Startup computes the digest and refuses the file when it does not match, so each new licensed plugin needs a new licence. A JSON file that lists only Community features, and has neither a signature nor a fingerprint, still loads.
 
 A plugin value may be a name, or `{"name": "<plugin>", "options": {}}`. Reporters may be `{"names": ["json", "text"], "options": {}}`. `options` is `plugins.<group>.options` and is passed to that factory. Community factories ignore it. It is not written to the audit log.
 
@@ -115,7 +122,7 @@ Admin can change the allow list at runtime with `glp_update_policy`. `reason` is
 
 ## Verification
 
-Start the proxy and read stderr. A rejected plugin prints `mcp-glp-audit-proxy:` and exits 1. A licence that names a feature with no installed entry point prints `licence requested features with no plugin:` and still starts, as long as `plugins` did not select that feature.
+Start the proxy and read stderr. A rejected plugin or a licence whose fingerprint does not match prints `mcp-glp-audit-proxy:` and exits 1. A verified licence that names a feature no installed factory declares prints `licence requested features with no plugin:` and still starts, as long as the fingerprint matches and `plugins` did not select that feature.
 
 After a session, the startup audit entry records `arguments.plugins` with the auth, reporters, signer name, and storage that were selected. Search it:
 

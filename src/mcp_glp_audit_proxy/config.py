@@ -15,6 +15,7 @@ from .policy import Policy
 ROLES = frozenset({"operator", "approver", "qa", "admin"})
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,40}$")
 _PLUGIN = re.compile(r"^[a-z][a-z0-9_]{0,40}$")
+_CLIENT_ID = re.compile(r"^[!-~]{1,200}$")
 _DEFAULT_REPORTERS = ("json", "text")
 _TRUTHY = {"1", "true", "yes", "on"}
 _FALSY = {"0", "false", "no", "off"}
@@ -85,6 +86,7 @@ class Settings:
     checkpoint_every: int = 100
     approval_ttl_seconds: int = 3600
     licence_path: Path | None = None
+    client_id: str | None = None
     require_ntp: bool = False
     export_dir: Path | None = None
     upstreams: list[UpstreamConfig] | None = None
@@ -178,6 +180,7 @@ def load_settings(path: str | Path) -> Settings:
     licence_path = Path(licence_value) if licence_value else None
     if licence_path and not licence_path.is_absolute():
         licence_path = (config_path.parent / licence_path).resolve()
+    client_id = _client_id(raw.get("client_id"))
 
     require_ntp = bool(raw.get("require_ntp") or False)
     if os.environ.get("GLP_REQUIRE_NTP"):
@@ -199,6 +202,7 @@ def load_settings(path: str | Path) -> Settings:
         checkpoint_every=int(audit_raw.get("checkpoint_every") or 100),
         approval_ttl_seconds=int(raw.get("approval_ttl_seconds") or 3600),
         licence_path=licence_path,
+        client_id=client_id,
         require_ntp=require_ntp,
         export_dir=export_dir,
         upstreams=upstreams,
@@ -333,6 +337,15 @@ def _timeout(value: object) -> float | None:
     if timeout <= 0:
         raise ConfigurationError("upstream timeout must be a positive number")
     return timeout
+
+
+def _client_id(value: Any) -> str | None:
+    """Config client_id. Absent and null are the same. A licence that is bound needs one."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not _CLIENT_ID.fullmatch(value):
+        raise ConfigurationError("client_id must be a printable token")
+    return value
 
 
 def _parse_bool(value: str, label: str) -> bool:

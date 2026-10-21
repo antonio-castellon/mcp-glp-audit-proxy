@@ -16,6 +16,7 @@ from mcp_glp_audit_proxy.canonical import canonicalize
 from mcp_glp_audit_proxy.config import Settings, UpstreamConfig
 from mcp_glp_audit_proxy.errors import ConfigurationError, LicenceError, TlsRequired, UpstreamError
 from mcp_glp_audit_proxy.features import FeatureSet
+from mcp_glp_audit_proxy.licence import licence_fingerprint
 from mcp_glp_audit_proxy.proxy import AuditProxy
 from mcp_glp_audit_proxy.reporters.text_export import TextReporter
 from mcp_glp_audit_proxy.server import _build_upstream, main as server_main, serve_stdio
@@ -114,7 +115,11 @@ def test_serve_stdio_last_resort_and_unknown_licence(tmp_path: Path, monkeypatch
 
     private = Ed25519PrivateKey.generate()
     public = private.public_key().public_bytes_raw()
-    body = {"format": "mcp-glp-audit-proxy-licence", "features": ["not-a-feature"]}
+    body = {
+        "format": "mcp-glp-audit-proxy-licence",
+        "features": ["not-a-feature"],
+        "fingerprint": licence_fingerprint("lab-1", []),
+    }
     body["signature"] = {
         "algorithm": "ed25519",
         "key_id": "test",
@@ -126,7 +131,7 @@ def test_serve_stdio_last_resort_and_unknown_licence(tmp_path: Path, monkeypatch
         stack["proxies"]["qa"].settings,
         stack["store"],
         [],
-        features=FeatureSet.load(licence, public_key=public),
+        features=FeatureSet.load(licence, public_key=public, client_id="lab-1"),
         now=stack["clock"],
         clock_probe=lambda: {"detail": "yes", "ntp_synchronized": True, "source": "test"},
     )

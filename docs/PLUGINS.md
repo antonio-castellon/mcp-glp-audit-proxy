@@ -101,6 +101,12 @@ The Community signer returns `{"algorithm": null, "signed": false, "value": null
 
 ## Licence file
 
+Point config `licence_path` or `GLP_LICENCE_PATH` at the file. `client_id` in the same config is the customer id used for the fingerprint below. With no licence file, `FeatureSet.load` enables only Community features and does not check a signature or a fingerprint.
+
+A file is one of two shapes. Both are checked locally. There is no network call and no grace period fetched from a vendor.
+
+### JSON, Ed25519
+
 ```json
 {
   "format": "mcp-glp-audit-proxy-licence",
@@ -108,34 +114,74 @@ The Community signer returns `{"algorithm": null, "signed": false, "value": null
 }
 ```
 
-Point config `licence_path` or `GLP_LICENCE_PATH` at that file. With no licence file, `FeatureSet.load` enables only Community features and does not check a signature.
+`expires` is optional. When present it is an RFC 3339 timestamp with a time zone. `FeatureSet.load` compares it with the local clock and raises `LicenceError` (`licence expired`) when the time is not still in the future. A missing zone or a value that is not a timestamp is rejected. The check runs after the signature and the fingerprint, so `expires` is the signed value. This is not a clock check against a vendor.
 
-`expires` is optional. When present it is an RFC 3339 timestamp with a time zone. `FeatureSet.load` compares it with the local clock and raises `LicenceError` (`licence expired`) when the time is not still in the future. A missing zone or a value that is not a timestamp is rejected. The check runs after a signature check, so `expires` is the signed value. This is not a clock check against a vendor.
+Community features do not need a signature. Any other feature in `features`, a `fingerprint`, and any file that carries a `signature`, must verify as Ed25519 before a feature is enabled. A missing signature in that case raises `LicenceError` (`licence signature is required`). A bad signature raises `LicenceError` (`licence signature is invalid`). Features in a rejected file are not enabled.
 
-Community features do not need a signature. Any other feature in `features`, and any file that carries a `signature`, must verify as Ed25519 before a feature is enabled. A missing signature in that case raises `LicenceError` (`licence signature is required`). A bad signature raises `LicenceError` (`licence signature is invalid`). Features in a rejected file are not enabled.
+The signature covers the RFC 8785 bytes of the licence object with the `signature` field removed. `algorithm` must be `ed25519`. `value` is standard base64 of the 64-byte signature. `key_id` sits inside `signature`, so it is not part of the signed bytes and it does not select a key. The trust anchor is the raw 32-byte public key `LICENCE_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence` (`LICENCE_KEY_ID` is `mcp-glp-audit-proxy-licence`).
 
-The signature covers the RFC 8785 bytes of the licence object with the `signature` field removed. `algorithm` must be `ed25519`. `value` is standard base64 of the 64-byte signature. `key_id` sits inside `signature`, so it is not part of the signed bytes and it does not select a key. The trust anchor is the raw 32-byte public key `LICENCE_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence` (`LICENCE_KEY_ID` is `mcp-glp-audit-proxy-licence`). The private key is not in this repository. Replace `LICENCE_PUBLIC_KEY` to rotate the anchor.
+### LM1 text, RSA-2048 PSS
+
+The file is three lines and it ends with a newline:
+
+```text
+LM1
+<base64 of the JSON body>
+<base64 of the RSA-PSS signature>
+```
+
+The body bytes are UTF-8 from `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. The signature is RSA 2048, PSS, MGF1 with SHA-256, salt length equal to the SHA-256 digest length, hash SHA-256, over those raw bytes. The loader verifies those bytes. It does not re-encode the JSON. The trust anchor is the PEM SubjectPublicKeyInfo `LICENCE_RSA_PUBLIC_PEM` in `mcp_glp_audit_proxy.licence`.
+
+The object has these keys and no others. It has no `features` field.
+
+| Key | Value |
+|---|---|
+| `app` | Must be `mcp-glp-audit-proxy` |
+| `expires` | ISO date `YYYY-MM-DD`, or null. Null does not expire. A past date is `licence expired` |
+| `fingerprint` | 64 lowercase hex characters. Same digest as the JSON shape |
+| `holder` | Email address |
+| `issued` | ISO date `YYYY-MM-DD` |
+| `kind` | `trial`, `year`, or `perpetual`. The clock uses `expires`, not `kind` |
+| `updates_until` | ISO date `YYYY-MM-DD`. Recorded and not checked yet |
+| `version` | JSON number or string. Recorded and not checked yet |
 
 ```json
 {
-  "format": "mcp-glp-audit-proxy-licence",
-  "features": ["storage.sql"],
-  "expires": "2027-01-01T00:00:00+00:00",
-  "signature": {
-    "algorithm": "ed25519",
-    "key_id": "mcp-glp-audit-proxy-licence",
-    "value": "<standard base64 of the 64-byte signature>"
-  }
+  "app": "mcp-glp-audit-proxy",
+  "expires": "2027-01-01",
+  "fingerprint": "<64 lowercase hex>",
+  "holder": "qa@lab.example",
+  "issued": "2026-01-01",
+  "kind": "year",
+  "updates_until": "2027-06-01",
+  "version": 1
 }
 ```
 
-That `value` is the field shape. It is not a signature this repository can verify.
+That object is the body before base64. The fingerprint above is a placeholder. It is not a signature this repository can verify.
+
+When the fingerprint matches, LM1 enables the `licence_feature` of each installed licensed plugin in that set. It does not read a feature list from the file.
+
+### Fingerprint
+
+Both shapes use the same fingerprint. It is the lowercase SHA-256 hex of the RFC 8785 bytes of this JSON array:
+
+```json
+["<client_id>", "mcp-glp-audit-proxy", ["<sorted entry-point names>"]]
+```
+
+`client_id` is the config value. The app id is the fixed string `mcp-glp-audit-proxy`. The names are the installed entry-point names whose `licence_feature` is outside the Community set, sorted ascending. Community entry points (`jsonl`, `unsigned`, `json`, `text`, `env`) are not included. There is no machine id, hostname, or MAC address in the array.
+
+Startup computes that digest from the config and from the entry points installed in this process. The licence `fingerprint` must be equal. A mismatch raises `LicenceError` (`licence fingerprint does not match`) and no feature from that file is enabled. The factory is not called. Adding or removing a licensed plugin changes the digest, so the previous licence is refused and a new one is required. A signed file also requires `client_id`. A file that lists only Community features, and has neither a signature nor a fingerprint, still loads without `client_id`.
+
+`LICENCE_PUBLIC_KEY` and `LICENCE_RSA_PUBLIC_PEM` are test trust anchors. Replace both before issuing customer licences. The private keys are not in this repository.
 
 `FeatureSet.load`:
 
 - always enables Community features (`storage.jsonl`, `signer.unsigned`, `report.json`, `report.text`, `verify`, `policy.allowlist`, `approval.local`, `rbac.local`, `auth.env`) when the file is accepted
-- enables any other feature only when the signature verifies and an installed factory declares that same `licence_feature`
-- records a verified feature that no installed factory declares on `unavailable`, and the server prints that list to stderr
+- for a JSON licence, enables any other listed feature only when the signature verifies, the fingerprint matches, and an installed factory declares that same `licence_feature`
+- for an LM1 file, enables the `licence_feature` of each installed licensed plugin whose names produced the matching fingerprint
+- records a JSON feature that no installed factory declares on `unavailable`, and the server prints that list to stderr
 - refuses to start if config selects a plugin whose declared feature is not enabled; the factory is not called
 
-There is no network call and no grace period fetched from anywhere. Selecting a name that is not installed is an error, not a silent skip. A file that lists only Community features, and has no signature, still loads.
+Selecting a name that is not installed is an error, not a silent skip.

@@ -301,7 +301,7 @@ def test_airgap_wheel_builds_without_deps(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr
     wheels = list(tmp_path.glob("mcp_glp_audit_proxy-*.whl"))
     assert len(wheels) == 1
-    assert "0.1.0" in wheels[0].name
+    assert "0.2.0" in wheels[0].name
 
 
 def _first_proxy(path: Path) -> dict:

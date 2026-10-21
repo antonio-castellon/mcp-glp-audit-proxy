@@ -27,7 +27,7 @@ def _event(index: int) -> dict:
         status="ok",
         server="excel",
         principal=SYSTEM_PRINCIPAL,
-        client={"id": "proxy", "name": "proxy", "version": "0.1.0", "model_id": None},
+        client={"id": "proxy", "name": "proxy", "version": "0.2.0", "model_id": None},
         protocol_version="2025-11-25",
         session_id=None,
         tool=f"excel__read_{index}",

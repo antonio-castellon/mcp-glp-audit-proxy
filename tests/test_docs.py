@@ -72,9 +72,12 @@ def test_registry_metadata_matches_the_package() -> None:
     server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert server["name"] == "io.github.antonio-castellon/mcp-glp-audit-proxy"
-    assert server["version"] == "0.1.0"
+    assert server["version"] == "0.2.0"
+    assert server["packages"][0]["version"] == "0.2.0"
     assert len(server["description"]) <= 100
-    assert 'version = "0.1.0"' in pyproject
+    assert 'version = "0.2.0"' in pyproject
+    init = (ROOT / "src" / "mcp_glp_audit_proxy" / "__init__.py").read_text(encoding="utf-8")
+    assert '__version__ = "0.2.0"' in init
     assert "mcp>=2.2.0,<3" in pyproject
     assert (ROOT / "docs" / "STANDARDS.md").is_file()
     assert (ROOT / "docs" / "COVERAGE.md").is_file()
@@ -101,8 +104,22 @@ def test_community_pro_table_is_filled() -> None:
         for cell in (community, pro):
             assert cell.startswith(has) or cell.startswith(lacks), cell
             assert cell.strip() not in {"", "yes", "later"}
-        if community.startswith(has):
+        assert "planned" not in community and "planned" not in pro
+        assert community in {has, lacks}, capability
+        if capability == "FIPS 140-3 mode":
+            assert pro == ":x: on request"
+        else:
             assert pro.startswith(has), capability
+        if community == has:
+            assert pro.startswith(has), capability
+    by_name = {capability: (community, pro) for capability, community, pro in rows}
+    for name in (
+        "DE / FR / EN report templates",
+        "Old/new value capture for write tools",
+        "Merkle log with inclusion / consistency proofs",
+        "OpenTelemetry spans (technical telemetry, not the audit record)",
+    ):
+        assert by_name[name] == (":x:", ":white_check_mark:"), name
     # The capability table lives in the README only.
     for path in (ROOT / "docs").rglob("*.md"):
         text = path.read_text(encoding="utf-8")

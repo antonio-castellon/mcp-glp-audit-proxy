@@ -15,7 +15,6 @@ Declared in `pyproject.toml`. Each value is a factory, not the class.
 | `mcp_glp_audit_proxy.reporters` | `json`, `text` | `json_reporter(settings, options=None)`, `text_reporter(settings, options=None)` | `JsonReporter`, `TextReporter` |
 | `mcp_glp_audit_proxy.auth` | `env` | `env_identity(settings, options=None)` | `EnvIdentity` |
 | `mcp_glp_audit_proxy.wizard` | none | `factory(options=None)` | object with `questions()` and `validate(document)` |
-| `mcp_glp_audit_proxy.signatures` | none | `factory(settings, options=None)` | object with `sign(target, meaning, principal)` |
 
 Each factory declares `licence_feature`, a string such as `storage.sql`. Community reads that attribute from the installed entry points. There is no built-in list of Pro names in this repository, and this repository does not ship a Pro backend.
 
@@ -112,16 +111,6 @@ The Community signer returns `{"algorithm": null, "signed": false, "value": null
 
 `init` asks those questions and stores each answer as a string at `key`. `config check` calls `validate` and does not ask questions. An unlicensed factory is not called. It adds no question and no validation. With no licence file, only Community features are enabled, so a Pro wizard factory is not called.
 
-## Signatures
-
-`glp_sign` appends one new hash-chained audit entry. It does not rewrite the entry it covers. `arguments.target_entry_hash` and `result.target_entry_hash` are the `entry_hash` of that existing line. The approval field stays null. The record is not an approval. It is designed to support 21 CFR Part 11 workflows.
-
-The group is `mcp_glp_audit_proxy.signatures`. Discovery uses `load_group`, the same loader as storage. Community does not register a factory. `licensed_signature_names` does not call factories. `load_signature` calls `factory(settings, options={})` only when the factory declares `licence_feature`, that feature is outside the Community set, and the feature is enabled. Declaring a Community feature such as `storage.jsonl` does not run the factory.
-
-The returned object implements `sign(*, target, meaning, principal) -> dict`. `target` is a copy of the audit entry. The proxy stores that dict under `result.signature` and writes the chain entry itself.
-
-`glp_sign` is listed for the approver role only when at least one such factory is licensed. With none, the tool is absent from `tools/list`, and a direct call returns `no licensed signature plugin`. The factory is not called. When several are licensed, the call names `plugin`. One licensed plugin is used when `plugin` is omitted.
-
 ## Licence file
 
 Point config `licence_path` or `GLP_LICENCE_PATH` at the file. `client_id` in the same config is the customer id used for the fingerprint below. With no licence file, `FeatureSet.load` enables only Community features and does not check a signature or a fingerprint.
@@ -210,5 +199,3 @@ Startup computes that digest from the config and from the entry points installed
 Selecting a name that is not installed is an error, not a silent skip.
 
 The wizard group is part of the same discovery. Community registers no factory there, so a Community install does not change the fingerprint. A factory in that group whose `licence_feature` is outside the Community set is one of the names in the fingerprint array.
-
-The signatures group is discovered the same way. Community registers no factory there, so a Community install does not change the fingerprint. A factory whose `licence_feature` is outside the Community set, for example `signature.part11`, is one of the names in the fingerprint array.

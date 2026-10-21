@@ -156,6 +156,14 @@ pip install -e ".[dev]"
 python -m pytest -q
 ```
 
+The OQ-style report runner needs a source checkout (`tests/` and `docs/verification/rtm.yaml`). A PyPI install does not include that tree. From a clone:
+
+```bash
+mcp-glp-audit-proxy oq-report --repo-root .
+```
+
+If the checkout is missing, the command exits 2 and does not start pytest.
+
 CI runs the same suite on Python 3.11, 3.12 and 3.13 (`.github/workflows/ci.yml`).
 
 ## MCP registry

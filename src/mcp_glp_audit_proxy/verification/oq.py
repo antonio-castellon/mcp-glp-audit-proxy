@@ -21,19 +21,31 @@ from pathlib import Path
 from typing import Any
 
 from .. import __version__
-from .rtm import community_gaps, junit_results, load_rtm
-
-ROOT = Path(__file__).resolve().parents[3]
+from .rtm import CheckoutError, checkout_root, community_gaps, junit_results, load_rtm
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mcp-glp-audit-proxy oq-report")
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=None,
+        help=(
+            "Repository root that contains tests/ and docs/verification/rtm.yaml. "
+            "Required when this install is not a source checkout."
+        ),
+    )
     parser.add_argument("--junit", type=Path, default=Path("junit.xml"))
     parser.add_argument("--markdown", type=Path, default=Path("oq-report.md"))
     parser.add_argument("--json", type=Path, dest="json_path", default=Path("oq-report.json"))
     parser.add_argument("--coverage-json", type=Path, default=Path("coverage.json"))
     parser.add_argument("--pytest-arg", action="append", default=[])
     args = parser.parse_args(argv)
+    try:
+        root = checkout_root(args.repo_root)
+    except CheckoutError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     command = [
         sys.executable,
@@ -52,8 +64,14 @@ def main(argv: list[str] | None = None) -> int:
     for key in list(env):
         if key.startswith("COVERAGE") or key.startswith("COV_"):
             env.pop(key, None)
-    completed = subprocess.run(command, cwd=ROOT, check=False, env=env)  # noqa: S603  # nosec B603
-    report = build_report(args.junit, pytest_exit=completed.returncode)
+    completed = subprocess.run(command, cwd=root, check=False, env=env)  # noqa: S603  # nosec B603
+    coverage_path = args.coverage_json if args.coverage_json.is_absolute() else root / args.coverage_json
+    report = build_report(
+        args.junit,
+        pytest_exit=completed.returncode,
+        coverage_path=coverage_path,
+        root=root,
+    )
     args.markdown.parent.mkdir(parents=True, exist_ok=True)
     args.json_path.parent.mkdir(parents=True, exist_ok=True)
     args.markdown.write_text(render_markdown(report), encoding="utf-8")
@@ -66,7 +84,13 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def build_report(junit_path: Path, *, pytest_exit: int) -> dict[str, Any]:
+def build_report(
+    junit_path: Path,
+    *,
+    pytest_exit: int,
+    coverage_path: Path | None = None,
+    root: Path | None = None,
+) -> dict[str, Any]:
     results = junit_results(junit_path) if junit_path.is_file() else {}
     cases = _cases(junit_path) if junit_path.is_file() else []
     rtm = load_rtm()
@@ -80,7 +104,7 @@ def build_report(junit_path: Path, *, pytest_exit: int) -> dict[str, Any]:
             "Designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows."
         ),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "environment": _environment(),
+        "environment": _environment(root),
         "pytest_exit": pytest_exit,
         "counts": {
             "tests": len(cases),
@@ -91,7 +115,7 @@ def build_report(junit_path: Path, *, pytest_exit: int) -> dict[str, Any]:
             "requirements_customer": _count(rtm, "customer"),
             "requirements_gap": _count(rtm, "gap"),
         },
-        "coverage_percent": _coverage_percent(),
+        "coverage_percent": _coverage_percent(coverage_path),
         "cases": cases,
         "traceability_problems": problems,
     }
@@ -190,24 +214,29 @@ def _file_from_class(classname: str) -> str:
     return "/".join(parts[:-1] + [parts[-1] + ".py"])
 
 
-def _environment() -> dict[str, Any]:
+def _environment(root: Path | None = None) -> dict[str, Any]:
     return {
         "os": platform.platform(),
         "python": sys.version.split()[0],
         "package_version": __version__,
-        "git_sha": _git_sha(),
+        "git_sha": _git_sha(root),
         "dependencies": _dependency_hashes(),
     }
 
 
-def _git_sha() -> str:
+def _git_sha(root: Path | None = None) -> str:
+    if root is None:
+        try:
+            root = checkout_root()
+        except CheckoutError:
+            return "unknown"
     try:
         git = shutil.which("git")
         if not git:
             return "unknown"
         completed = subprocess.run(  # noqa: S603  # nosec B603
             [git, "rev-parse", "HEAD"],
-            cwd=ROOT,
+            cwd=root,
             check=False,
             capture_output=True,
             text=True,
@@ -249,16 +278,16 @@ def _dependency_hashes() -> list[dict[str, str]]:
     return rows
 
 
-def _coverage_percent() -> str:
-    data = ROOT / "coverage.json"
-    if data.is_file():
-        try:
-            parsed = json.loads(data.read_text(encoding="utf-8"))
-            percent = parsed.get("totals", {}).get("percent_covered")
-            if isinstance(percent, (int, float)):
-                return f"{percent:.1f}"
-        except json.JSONDecodeError:
-            pass
+def _coverage_percent(path: Path | None) -> str:
+    if path is None or not path.is_file():
+        return "see pytest-cov output"
+    try:
+        parsed = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "see pytest-cov output"
+    percent = parsed.get("totals", {}).get("percent_covered") if isinstance(parsed, dict) else None
+    if isinstance(percent, (int, float)):
+        return f"{percent:.1f}"
     return "see pytest-cov output"
 
 

@@ -14,6 +14,7 @@ Declared in `pyproject.toml`. Each value is a factory, not the class.
 | `mcp_glp_audit_proxy.signers` | `unsigned` | `unsigned_signer(settings, options=None)` | `UnsignedSigner` |
 | `mcp_glp_audit_proxy.reporters` | `json`, `text` | `json_reporter(settings, options=None)`, `text_reporter(settings, options=None)` | `JsonReporter`, `TextReporter` |
 | `mcp_glp_audit_proxy.auth` | `env` | `env_identity(settings, options=None)` | `EnvIdentity` |
+| `mcp_glp_audit_proxy.wizard` | none | `factory(options=None)` | object with `questions()` and `validate(document)` |
 
 Each factory declares `licence_feature`, a string such as `storage.sql`. Community reads that attribute from the installed entry points. There is no built-in list of Pro names in this repository, and this repository does not ship a Pro backend.
 
@@ -98,6 +99,17 @@ The Community signer returns `{"algorithm": null, "signed": false, "value": null
 - `render(document: dict) -> bytes`
 
 `JsonReporter` renders RFC 8785 bytes. The verify CLI writes pretty JSON via `dumps_document` so a reviewer can search it; the manifest hashes are the chain hashes, not a hash of the pretty file.
+
+## Wizard
+
+`mcp-glp-audit-proxy init` asks for the audit log path, the allow list, the principal, and the retention profile and legal hold. `mcp-glp-audit-proxy config check` loads a config with the same rules as startup and prints one plain-language error. Neither command opens a socket. Prompts and the written file are ASCII.
+
+`init` discovers `mcp_glp_audit_proxy.wizard` with `load_group`, the same loader as storage. It calls `factory(options={})` only when the factory declares `licence_feature`, that feature is outside the Community set, and the feature is enabled. Declaring a Community feature such as `storage.jsonl` does not run the factory. The returned object provides:
+
+- `questions()` -> a list of `WizardQuestion` (`key`, `prompt`, optional `default`). `key` is a dotted ASCII path such as `lab_site`. It must not start with `principal`, `retention`, `policy`, or `audit`.
+- `validate(document)` -> raise `ConfigurationError` or `ValueError` with a plain ASCII message when the document is wrong.
+
+`init` asks those questions and stores each answer as a string at `key`. `config check` calls `validate` and does not ask questions. An unlicensed factory is not called. It adds no question and no validation. With no licence file, only Community features are enabled, so a Pro wizard factory is not called.
 
 ## Licence file
 
@@ -185,3 +197,5 @@ Startup computes that digest from the config and from the entry points installed
 - refuses to start if config selects a plugin whose declared feature is not enabled; the factory is not called
 
 Selecting a name that is not installed is an error, not a silent skip.
+
+The wizard group is part of the same discovery. Community registers no factory there, so a Community install does not change the fingerprint. A factory in that group whose `licence_feature` is outside the Community set is one of the names in the fingerprint array.

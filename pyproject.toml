@@ -71,6 +71,9 @@ text = "mcp_glp_audit_proxy.reporters.text_export:text_reporter"
 [project.entry-points."mcp_glp_audit_proxy.auth"]
 env = "mcp_glp_audit_proxy.identity:env_identity"
 
+# mcp_glp_audit_proxy.wizard is discovered the same way. Community does
+# not register a factory. A licensed plugin may add questions there.
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

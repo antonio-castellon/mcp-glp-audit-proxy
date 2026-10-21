@@ -62,6 +62,26 @@ mcp-glp-audit-proxy-verify data/audit.jsonl --print-head
 
 `--print-head` prints `seq` and `entry_hash`. Copy that line into a ticket, an email or a LIMS record. The sidecar `data/audit.jsonl.head` makes a cut of whole trailing lines fail verification. Someone who can edit both the log and the sidecar can move them together; the external copy is the control. Signed checkpoints and WORM storage are Pro.
 
+## Configure
+
+`init` asks for the audit log path, the tool allow list, the principal (id, name, role), and the retention profile and legal hold. It writes a JSON config the same loader as startup accepts. Prompts and the file are ASCII. The wizard does not open a network connection. If the destination already exists, it is left unchanged unless you answer yes to the overwrite question.
+
+```bash
+mcp-glp-audit-proxy init
+mcp-glp-audit-proxy init /srv/glp/config.json
+```
+
+The default path is `GLP_CONFIG` when that variable is set, otherwise `config.json`. That is the same file the proxy reads.
+
+`config check` loads a config and prints a plain-language error when it does not load. The process exits 0 when the file loads and 1 when it does not. It uses the same loader as startup, including the `GLP_*` overrides. The default path matches `init`.
+
+```bash
+mcp-glp-audit-proxy config check
+mcp-glp-audit-proxy config check config.json
+```
+
+A licensed plugin can add questions and a validation step through the `mcp_glp_audit_proxy.wizard` entry point. An unlicensed plugin is not called and adds nothing. See `docs/PLUGINS.md`.
+
 ## What is recorded
 
 Every mediated call, including denials and failures, is one JSON object on an append-only JSONL file. Each line is RFC 8785 canonical JSON. `entry_hash` is the SHA-256 of that object with `entry_hash` removed. `prev_hash` is the previous entry (64 zero digits for the first). `hash_algo` and `canonicalization` are stored on the entry. The open schema is `schema/audit-record.schema.json`. Cross-language vectors are in `schema/jcs-test-vectors.json`.
@@ -139,10 +159,17 @@ A mark means that edition includes the capability. Pro includes every Community 
 | GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument templates, advanced LOD/LOQ and molar units, batch processing, Ed25519 signed output) | :x: | :white_check_mark: |
 | TLS 1.3 to remote upstreams, no token passthrough | :white_check_mark: | :white_check_mark: |
 | Offline licence file, no phone-home | :white_check_mark: | :white_check_mark: reads the same file |
+| Config wizard and config check | :white_check_mark: | :white_check_mark: |
 
-Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, and the offline licence loader. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. An Ed25519 JSON licence must also list the feature. An LM1 file grants the features declared by the plugins in the matching fingerprint. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Part 11 signatures, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
+Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader, and `init` / `config check`. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. An Ed25519 JSON licence must also list the feature. An LM1 file grants the features declared by the plugins in the matching fingerprint. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Part 11 signatures, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
 
 Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the licence file are described in `docs/PLUGINS.md`.
+
+## Roadmap
+
+Approved Community items are recorded in this section. There is no separate roadmap file.
+
+- Config wizard and config check. `init` writes the audit log path, allow list, principal, and retention profile with legal hold, and it does not overwrite an existing file unless you confirm. `config check` reports whether the file loads. A licensed plugin may add questions through `mcp_glp_audit_proxy.wizard`. An unlicensed plugin adds nothing. This item is in this edition.
 
 ## Local tools
 

@@ -6,6 +6,8 @@ Startup refuses an unknown name, a factory that does not declare `licence_featur
 
 The upstream is still only in `upstreams`. A plugin does not add a second path from the host to the lab server.
 
+`init` and `config check` read the entry-point group `mcp_glp_audit_proxy.wizard` the same way. Community does not register a factory in that group. A factory is called only when its `licence_feature` is enabled. Otherwise it adds no question and no check.
+
 ## Prerequisites
 
 - `mcp-glp-audit-proxy` installed so the Community entry points are registered

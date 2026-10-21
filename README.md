@@ -109,34 +109,38 @@ This repository is the Community edition. Pro is available as a licensed / paid 
 
 Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamps, Part 11 e-signatures, PDF and CSV auditor reports, an IQ/OQ validation pack, and SSO. It also includes the GLP Lab Data Pack for [mcp-advanced-excel](https://github.com/antonio-castellon/mcp-advanced-excel), unlocked by the same offline licence key. The free mcp-advanced-excel server reads and writes lab spreadsheets. The Data Pack adds what a GLP lab needs on top: provenance hashes that tie every result back to its source file, instrument templates for common lab exports, advanced LOD/LOQ calculations and molar unit conversions, batch processing of many files in one run, and Ed25519 signed output.
 
+A mark means that edition includes the capability. Pro includes every Community capability. A note is added only where the mark alone would hide a limit. `:x: planned` is not shipped in this repository. Nothing in this table links to a Pro source tree.
+
 | Capability | Community (this repo) | Pro (licensed service) |
 |---|---|---|
-| Proxy core, both protocol eras | yes | plugs in, does not fork |
-| Append-only JSONL hash chain | yes | |
-| PostgreSQL / MSSQL append-only | | yes |
-| S3 Object Lock | | yes |
-| Verify CLI and searchable JSON export | yes | |
-| Plain-text verify listing | yes | |
-| PDF / CSV auditor reports | | yes |
-| Audit-trail review tooling (flags, reviewer sign-off) | search, filter, export | yes |
-| DE / FR / EN report templates | | later |
-| Old/new value capture for write tools | planned | change highlighting in reports |
-| Tool allowlist / denylist | yes | |
-| Local roles (operator, approver, qa, admin) | yes | |
-| Human approval before writes | yes (label: approval) | |
-| Part 11 electronic signatures | | yes |
-| Ed25519 / ECDSA signed checkpoints | unsigned checkpoints only | yes |
-| RFC 3161 timestamps | | yes |
-| IQ/OQ validation pack | | yes |
-| SSO / OAuth | | yes |
-| Syslog (RFC 5424) / SIEM export | | yes |
-| Key management (KMS/HSM), field-level encryption and redaction | | yes |
-| FIPS 140-3 mode | | on request |
-| Merkle log with inclusion / consistency proofs | | later |
-| OpenTelemetry spans (technical telemetry, not the audit record) | planned | |
-| GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument templates, advanced LOD/LOQ and molar units, batch processing, Ed25519 signed output) | | yes |
-| TLS 1.3 to remote upstreams, no token passthrough | yes | |
-| Offline licence file, no phone-home | yes | reads the same file |
+| Proxy core, both protocol eras | :white_check_mark: | :white_check_mark: plugs in, does not fork |
+| Append-only JSONL hash chain | :white_check_mark: | :white_check_mark: plus SQL/S3 |
+| PostgreSQL / MSSQL append-only | :x: | :white_check_mark: |
+| S3 Object Lock | :x: | :white_check_mark: |
+| Verify CLI and searchable JSON export | :white_check_mark: | :white_check_mark: |
+| Plain-text verify listing | :white_check_mark: | :white_check_mark: |
+| PDF / CSV auditor reports | :x: | :white_check_mark: |
+| Audit-trail review tooling (flags, reviewer sign-off) | :x: search, filter and export only | :white_check_mark: |
+| DE / FR / EN report templates | :x: | :x: planned |
+| Old/new value capture for write tools | :x: planned | :x: planned |
+| Tool allowlist / denylist | :white_check_mark: | :white_check_mark: |
+| Local roles (operator, approver, qa, admin) | :white_check_mark: | :white_check_mark: |
+| Human approval before writes | :white_check_mark: label approval, not an e-signature | :white_check_mark: |
+| Part 11 electronic signatures | :x: | :white_check_mark: |
+| Ed25519 / ECDSA signed checkpoints | :x: unsigned checkpoints only | :white_check_mark: |
+| RFC 3161 timestamps | :x: | :white_check_mark: |
+| IQ/OQ validation pack | :x: open OQ runner only | :white_check_mark: |
+| SSO / OAuth | :x: | :white_check_mark: |
+| Syslog (RFC 5424) / SIEM export | :x: | :white_check_mark: |
+| Key management (KMS/HSM), field-level encryption and redaction | :x: | :white_check_mark: |
+| FIPS 140-3 mode | :x: | :x: on request |
+| Merkle log with inclusion / consistency proofs | :x: | :x: planned |
+| OpenTelemetry spans (technical telemetry, not the audit record) | :x: planned | :x: planned |
+| GLP Lab Data Pack for mcp-advanced-excel (provenance hashes, instrument templates, advanced LOD/LOQ and molar units, batch processing, Ed25519 signed output) | :x: | :white_check_mark: |
+| TLS 1.3 to remote upstreams, no token passthrough | :white_check_mark: | :white_check_mark: |
+| Offline licence file, no phone-home | :white_check_mark: | :white_check_mark: reads the same file |
+
+Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, and the offline licence loader. Pro marks match `PRO_FEATURES` in `features.py` plus the edition column in `docs/COVERAGE.md`. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Part 11 signatures, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are reserved plugin names, not implementations in this tree. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, Merkle proofs, and FIPS 140-3 mode are `Pro (later)` there (FIPS is on customer request). Old/new capture and OpenTelemetry spans are `planned` and have no field in `schema/audit-record.schema.json`. `docs/COVERAGE.md` row 4 also names change highlighting in Pro reports. That row stays `:x: planned` on both sides: this tree has no old/new field, and highlighting is not a `PRO_FEATURES` flag. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
 
 Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the licence file are described in `docs/PLUGINS.md`.
 
@@ -152,7 +156,7 @@ Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the
 
 ## Manuals
 
-Host setup for Claude Desktop, Claude Code, Cursor, VS Code, Windsurf, Cline, Continue, a generic stdio client, the MCP Python SDK, LangChain, the OpenAI Agents SDK, Docker, a lab PC, a shared workstation, and an offline install is in [`docs/manual-guides/`](docs/manual-guides/README.md). The upstream MCP server must be reachable only through this proxy. The same pages cover anchoring, approval, plugin selection, and the fail-closed latch.
+Start with the five-minute terminal audit in [`docs/manual-guides/QUICKSTART.md`](docs/manual-guides/QUICKSTART.md). Host setup for Claude Desktop, Claude Code, Cursor, VS Code, Windsurf, Cline, Continue, a generic stdio client, the MCP Python SDK, LangChain, the OpenAI Agents SDK, Docker, a lab PC, a shared workstation, and an offline install is in [`docs/manual-guides/`](docs/manual-guides/README.md). The upstream MCP server must be reachable only through this proxy. The same pages cover anchoring, approval, plugin selection, and the fail-closed latch.
 
 ## Safety
 

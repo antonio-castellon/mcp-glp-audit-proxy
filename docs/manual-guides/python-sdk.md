@@ -98,6 +98,91 @@ mcp-glp-audit-proxy-verify /srv/glp/operator-1/audit.jsonl --print-head
 
 A direct check without the SDK is the `printf` initialize pipe in [generic-stdio.md](generic-stdio.md).
 
+## Hello world
+
+Audit two calls and one denied call through this host. Copy `examples/config.json` from a checkout and leave `require_approval_for_writes` false. The exposed tools are `lab__hello` and `lab__save_note`. Part 11 signatures are not part of this hello. The five-minute terminal run is [QUICKSTART.md](QUICKSTART.md).
+
+1. Install the package the host will launch.
+
+```bash
+python -m pip install mcp-glp-audit-proxy
+```
+
+2. Replace every `REPLACE_WITH_ABSOLUTE_PATH` in the copied config with the absolute path of the checkout. `audit.path` stays `./data/audit.jsonl`.
+
+3. Point the host at that file.
+
+The script is the client. `principal` in `examples/config.json` is the identity if you omit `env`. This script sets `env` because the SDK does not copy `GLP_*` from the parent.
+
+```python sdk
+import asyncio
+
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+
+async def main() -> None:
+    params = StdioServerParameters(
+        command="python",
+        args=["-m", "mcp_glp_audit_proxy", "--config", "REPLACE_WITH_ABSOLUTE_PATH/examples/config.json"],
+        env={
+            "GLP_PRINCIPAL_ID": "operator-1",
+            "GLP_PRINCIPAL_NAME": "Ada Analyst",
+            "GLP_PRINCIPAL_ROLE": "operator",
+        },
+    )
+    async with stdio_client(params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            hello = await session.call_tool("lab__hello", {"name": "Ada"})
+            saved = await session.call_tool("lab__save_note", {"text": "bench 1 is clean"})
+            denied = await session.call_tool("lab__drop_all", {})
+            print(hello, saved, denied)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+4. Run the script. Each run starts a new proxy process. There is no separate restart.
+
+5. Ask the assistant to call `lab__hello` with name `Ada`, then `lab__save_note` with text `bench 1 is clean`, then a name that is not on the allow list, such as `lab__drop_all`.
+
+You should see `Hello, Ada.`, `Saved: bench 1 is clean`, and `denied by policy (allow:none)`. The denied call is not forwarded. It is still logged with `status` `denied` and `result` null.
+
+6. Open the JSONL log. With `examples/config.json`, that is `data/audit.jsonl` next to the config file, unless `GLP_AUDIT_PATH` overrides it. On the `lab__hello` line:
+
+- `principal`: who called. `id`, `name`, and `role`.
+- `timestamp`: when, UTC. It changes every run.
+- `tool`: `lab__hello`.
+- `arguments`: the call arguments. A normal line has no separate args hash. `entry_hash` covers them.
+- `result`: what the proxy returned, including `Hello, Ada.`
+- `prev_hash`: the previous line's `entry_hash`. The first line uses 64 zeroes.
+- `entry_hash`: the chain hash. SHA-256 of the RFC 8785 JSON of the line with `entry_hash` removed.
+
+A desktop or agent host also logs `tools/list`, so the hello line is not always line 3. Hashes change every run. The terminal transcript is in [QUICKSTART.md](QUICKSTART.md).
+
+7. Check the chain. Exit 0. Stderr contains `chain ok`. `--print-head` adds `seq=<n> entry_hash=<64 hex>` on stdout. That hash equals the `head=` value.
+
+```bash
+python -m mcp_glp_audit_proxy verify REPLACE_WITH_ABSOLUTE_PATH/data/audit.jsonl
+python -m mcp_glp_audit_proxy verify REPLACE_WITH_ABSOLUTE_PATH/data/audit.jsonl --print-head
+```
+
+`mcp-glp-audit-proxy-verify` is the same checker.
+
+8. Copy the log aside. Change one character in one line (for example `Hello, Ada.` to `Hello, Ada!`). Run verify again. Stderr starts with `chain invalid` and includes `entry_hash mismatch`. Restore the original bytes. Verify prints `chain ok` again.
+
+## If it does not work
+
+- `REPLACE_WITH_ABSOLUTE_PATH` is still in the config or the host entry. `upstreams[].args` must be the absolute path of `examples/hello_upstream.py`, and `cwd` must be the `examples` directory.
+- `require_approval_for_writes` was turned on. This hello leaves it false. A write with the gate on is not forwarded.
+- `GLP_PRINCIPAL_ROLE` is not `operator`. Only that role may call `lab__hello` and `lab__save_note`.
+- The log is not where you looked. `./data/audit.jsonl` is resolved next to the config file. `GLP_AUDIT_PATH` moves it.
+- The host was not fully restarted, so it is still the old process.
+- A second MCP server points at `hello_upstream.py` directly, so the call never hits the proxy.
+- The proxy stderr shows a startup refusal and the process exits 1. There is no listening port.
+
 ## Pitfalls
 
 - `env` replaces nothing from the allow-list. It is merged on top. You do not need to resend `PATH`.

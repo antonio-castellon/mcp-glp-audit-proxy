@@ -11,6 +11,11 @@ def main() -> None:
         from .verification.oq import main as report
 
         raise SystemExit(report(sys.argv[2:]))
+    # Same runner as the mcp-glp-audit-proxy-verify console script.
+    if len(sys.argv) > 1 and sys.argv[1] == "verify":
+        from .cli import main as verify
+
+        raise SystemExit(verify(sys.argv[2:]))
     from .server import main as run
 
     run()

@@ -99,7 +99,7 @@ The log file and the sidecar `<log>.head` are opened with mode `0600` (still sub
 
 ## Verify CLI
 
-`mcp-glp-audit-proxy-verify` does not load `config.json` and does not load plugins. Exit 0 means the chain verified. Exit 1 means it did not, and `--json-export` is skipped.
+`mcp-glp-audit-proxy-verify` and `python -m mcp_glp_audit_proxy verify` call the same checker. Neither name loads `config.json` or plugins. Exit 0 means the chain verified. Exit 1 means it did not, and `--json-export` is skipped.
 
 ```bash
 mcp-glp-audit-proxy-verify data/audit.jsonl --print-head
@@ -127,6 +127,7 @@ A message larger than 1048576 bytes (1 MiB) with no newline ends the session. Th
 
 | Guide | Use it for |
 |---|---|
+| [QUICKSTART.md](QUICKSTART.md) | Five-minute terminal audit: hello, the log, verify, a tamper, a denied call |
 | [claude-desktop.md](claude-desktop.md) | Claude Desktop on macOS, Windows, and Linux |
 | [claude-code.md](claude-code.md) | Claude Code, including `.mcp.json` |
 | [cursor.md](cursor.md) | Cursor editor and Cursor CLI |
@@ -145,4 +146,4 @@ A message larger than 1048576 bytes (1 MiB) with no newline ends the session. Th
 | [plugins.md](plugins.md) | Storage, signer, reporter, auth, and the licence file |
 | [troubleshooting.md](troubleshooting.md) | Fail-closed latch, the 1 MiB cap, denied calls |
 
-Each guide has prerequisites, install, a minimal config, a hardened config, a verification step, and pitfalls.
+[QUICKSTART.md](QUICKSTART.md) is the terminal audit. Each other guide has prerequisites, install, a minimal config, a hardened config, a verification step, and pitfalls. The host guides also have a hello world that uses `examples/config.json` with the approval gate off.

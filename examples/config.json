@@ -1,0 +1,38 @@
+{
+  "principal": {
+    "id": "operator-1",
+    "name": "Ada Analyst",
+    "role": "operator"
+  },
+  "policy": {
+    "allow": ["lab__hello", "lab__save_note"],
+    "deny": [],
+    "write_tools": ["lab__save_note"],
+    "require_approval_for_writes": false,
+    "require_reason_for_writes": false
+  },
+  "audit": {
+    "path": "./data/audit.jsonl",
+    "fail_closed": true
+  },
+  "require_ntp": false,
+  "approval_ttl_seconds": 3600,
+  "export_dir": "./data/exports",
+  "plugins": {
+    "storage": "jsonl",
+    "signer": "unsigned",
+    "reporters": ["json", "text"],
+    "auth": "env"
+  },
+  "upstreams": [
+    {
+      "name": "lab",
+      "transport": "stdio",
+      "protocol": "legacy",
+      "command": "python",
+      "args": ["REPLACE_WITH_ABSOLUTE_PATH/examples/hello_upstream.py"],
+      "cwd": "REPLACE_WITH_ABSOLUTE_PATH/examples",
+      "env": {}
+    }
+  ]
+}

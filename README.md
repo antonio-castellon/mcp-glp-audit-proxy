@@ -14,7 +14,7 @@ mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
 # mcp-glp-audit-proxy
 
-Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.1.0.
+Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.2.0. Changes since 0.1.0 are in `CHANGELOG.md`.
 
 It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU GMP Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, Part 11 electronic signatures, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository.
 
@@ -48,7 +48,7 @@ export GLP_PRINCIPAL_ROLE=operator
 mcp-glp-audit-proxy --config config.json
 ```
 
-Stdio identity comes from the environment. There is no HTTP listener in 0.1.0. A Cursor snippet is in `mcp.json`. A full config is in `config.example.json`.
+Stdio identity comes from the environment. There is no HTTP listener in 0.2.0. A Cursor snippet is in `mcp.json`. A full config is in `config.example.json`.
 
 `plugins.storage`, `plugins.signer`, `plugins.reporters` and `plugins.auth` select entry points. The defaults are `jsonl`, `unsigned`, `json` plus `text`, and `env`. `env` returns the principal from `GLP_PRINCIPAL_*` or the config file. It is not an identity provider. An unknown plugin, or a plugin that is not licensed or not installed, refuses to start. The proxy does not fall back to another backend. See `docs/PLUGINS.md`.
 

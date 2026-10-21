@@ -1,6 +1,6 @@
 # Manual guides
 
-Usage and configuration for the Community edition of mcp-glp-audit-proxy (v0.1.0). The package is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Your own SOPs, reviews, and the systems around the proxy still decide whether a deployment meets those rules.
+Usage and configuration for the Community edition of mcp-glp-audit-proxy (v0.2.0). The package is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Your own SOPs, reviews, and the systems around the proxy still decide whether a deployment meets those rules.
 
 Every sample below was taken from the command line and the config loader in this repository. The proxy accepts no flags that are not listed here.
 
@@ -91,7 +91,7 @@ Each upstream object:
 | `protocol` | `auto` (default), `legacy`, or `modern` |
 | `command`, `args`, `env`, `cwd` | stdio. `command` is required for stdio. `env` is merged onto the SDK allow-list. It is the only place for that upstream's own credentials |
 | `url`, `headers` | https. `url` must be `https://`. TLS 1.3 only. `headers` are that backend's own credentials. The host's token is never copied here |
-| `timeout` | Positive number. Applied to stdio. Omitted stdio uses 60 seconds. Community 0.1.0 does not pass this field into the HTTPS client, which uses 30 seconds |
+| `timeout` | Positive number. Applied to stdio. Omitted stdio uses 60 seconds. Community 0.2.0 does not pass this field into the HTTPS client, which uses 30 seconds |
 
 `protocol` `auto` tries `server/discover` and falls back to `initialize` at protocol `2025-11-25`. `legacy` skips discovery. `modern` requires discovery.
 

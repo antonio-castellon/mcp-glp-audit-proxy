@@ -44,7 +44,7 @@ def test_sealed_lines_verify_and_a_byte_flip_does_not(values: list[int]) -> None
             status="ok",
             server="excel",
             principal=SYSTEM_PRINCIPAL,
-            client={"id": "proxy", "name": "proxy", "version": "0.1.0", "model_id": None},
+            client={"id": "proxy", "name": "proxy", "version": "0.2.0", "model_id": None},
             protocol_version="2025-11-25",
             session_id=None,
             tool="excel__read_cell",

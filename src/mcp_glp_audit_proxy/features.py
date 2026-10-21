@@ -44,6 +44,7 @@ COMMUNITY_FEATURES = frozenset(
 LICENCE_FORMAT = "mcp-glp-audit-proxy-licence"
 
 WIZARD_GROUP = "mcp_glp_audit_proxy.wizard"
+SIGNATURE_GROUP = "mcp_glp_audit_proxy.signatures"
 
 PLUGIN_GROUPS = (
     "mcp_glp_audit_proxy.storage",
@@ -51,6 +52,7 @@ PLUGIN_GROUPS = (
     "mcp_glp_audit_proxy.reporters",
     "mcp_glp_audit_proxy.auth",
     WIZARD_GROUP,
+    SIGNATURE_GROUP,
 )
 
 

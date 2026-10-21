@@ -73,6 +73,8 @@ env = "mcp_glp_audit_proxy.identity:env_identity"
 
 # mcp_glp_audit_proxy.wizard is discovered the same way. Community does
 # not register a factory. A licensed plugin may add questions there.
+# mcp_glp_audit_proxy.signatures is discovered the same way. Community
+# does not register a factory. A licensed plugin may implement glp_sign.
 
 [tool.setuptools.packages.find]
 where = ["src"]

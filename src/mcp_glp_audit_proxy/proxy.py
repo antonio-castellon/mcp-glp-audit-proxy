@@ -7,6 +7,7 @@ result. If the audit store cannot be written, the result is not returned.
 
 from __future__ import annotations
 
+import copy
 import json
 import uuid
 from datetime import timedelta
@@ -24,6 +25,7 @@ from .framing import MAX_MESSAGE_BYTES
 from .records import build_event, format_timestamp
 from .reporters.json_export import JsonReporter, dumps_document, export_document, filter_entries
 from .reporters.text_export import TextReporter, format_entry
+from .signatures import licensed_signature_names, load_signature
 from .upstream import MODERN_VERSION, SECRET_META, split_meta
 from .wiring import REPORTERS_GROUP
 
@@ -91,6 +93,25 @@ LOCAL_TOOLS: dict[str, dict[str, Any]] = {
                 "meaning": {"type": "string", "enum": ["approved", "reviewed", "rejected"]},
             },
             "required": ["approval_id", "meaning"],
+            "additionalProperties": False,
+        },
+    },
+    "glp_sign": {
+        "description": (
+            "Append a separate hash-chained signature entry linked by target_entry_hash. "
+            "Designed to support 21 CFR Part 11 workflows. "
+            "Listed only when a licensed signature plugin is installed. "
+            "This is not the Community approval record."
+        ),
+        "roles": frozenset({"approver"}),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "meaning": {"type": "string"},
+                "plugin": {"type": "string"},
+                "target_entry_hash": {"type": "string"},
+            },
+            "required": ["target_entry_hash", "meaning"],
             "additionalProperties": False,
         },
     },
@@ -988,6 +1009,8 @@ class AuditProxy:
             return self._export(message, arguments)
         if name == "glp_approve":
             return self._approve(message, arguments)
+        if name == "glp_sign":
+            return self._sign(message, arguments)
         if name == "glp_update_policy":
             return self._update_policy(message, arguments)
         return self._deny(
@@ -1260,6 +1283,167 @@ class AuditProxy:
             message,
             {"content": [{"type": "text", "text": note}], "isError": meaning == "rejected"},
         )
+
+    def _sign(self, message: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
+        """Delegate to one licensed signature plugin and append a new chain entry."""
+        names = licensed_signature_names(self.features)
+        if not names:
+            return self._deny(
+                message,
+                method="tools/call",
+                record_class="gxp_data",
+                server="proxy",
+                tool="glp_sign",
+                arguments=arguments,
+                rule="signature:none",
+                text="no licensed signature plugin",
+            )
+        requested = arguments.get("plugin")
+        if requested is None or requested == "":
+            if len(names) != 1:
+                return self._deny(
+                    message,
+                    method="tools/call",
+                    record_class="gxp_data",
+                    server="proxy",
+                    tool="glp_sign",
+                    arguments=arguments,
+                    rule="signature:plugin",
+                    text="name the signature plugin",
+                )
+            chosen = names[0]
+        elif not isinstance(requested, str) or requested not in names:
+            return self._deny(
+                message,
+                method="tools/call",
+                record_class="gxp_data",
+                server="proxy",
+                tool="glp_sign",
+                arguments=arguments,
+                rule="signature:plugin",
+                text=f"signature plugin {requested!r} is not licensed",
+            )
+        else:
+            chosen = requested
+        meaning = arguments.get("meaning")
+        if not isinstance(meaning, str) or not meaning.strip():
+            return self._deny(
+                message,
+                method="tools/call",
+                record_class="gxp_data",
+                server="proxy",
+                tool="glp_sign",
+                arguments=arguments,
+                rule="signature:meaning",
+                text="meaning is required",
+            )
+        meaning = meaning.strip()
+        target_hash = arguments.get("target_entry_hash")
+        if not isinstance(target_hash, str) or len(target_hash) != 64 or any(
+            ch not in "0123456789abcdef" for ch in target_hash
+        ):
+            return self._deny(
+                message,
+                method="tools/call",
+                record_class="gxp_data",
+                server="proxy",
+                tool="glp_sign",
+                arguments=arguments,
+                rule="signature:hash",
+                text="target_entry_hash must be 64 lowercase hex characters",
+            )
+        target = next(
+            (entry for entry in self.store.read_entries() if entry.get("entry_hash") == target_hash),
+            None,
+        )
+        if target is None:
+            return self._deny(
+                message,
+                method="tools/call",
+                record_class="gxp_data",
+                server="proxy",
+                tool="glp_sign",
+                arguments=arguments,
+                rule="signature:unknown",
+                text="no audit entry has that target_entry_hash",
+            )
+        recorded = {
+            "meaning": meaning,
+            "plugin": chosen,
+            "target_entry_hash": target_hash,
+        }
+        try:
+            tool = load_signature(self.features, self.settings, chosen)
+            produced = tool.sign(
+                target=copy.deepcopy(target),
+                meaning=meaning,
+                principal=self.settings.principal.as_dict(),
+            )
+            if not isinstance(produced, dict):
+                raise ConfigurationError("signature plugin did not return an object")
+            json.dumps(produced)
+        except Exception as exc:
+            return self._signature_failure(message, recorded, _signature_error_text(exc))
+        self._audit_simple(
+            message,
+            method="glp_sign",
+            record_class="gxp_data",
+            status="ok",
+            server="proxy",
+            tool="glp_sign",
+            arguments=recorded,
+            result={
+                "label": "signature",
+                "plugin": chosen,
+                "signature": produced,
+                "target_entry_hash": target_hash,
+            },
+            error=None,
+            policy_action="allow",
+            policy_rule="signature",
+            reason=meaning,
+        )
+        return _result(
+            message,
+            {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Recorded a signature entry linked by target_entry_hash. "
+                            "Designed to support 21 CFR Part 11 workflows."
+                        ),
+                    }
+                ],
+                "isError": False,
+                "structuredContent": {
+                    "plugin": chosen,
+                    "target_entry_hash": target_hash,
+                },
+            },
+        )
+
+    def _signature_failure(
+        self,
+        message: dict[str, Any],
+        recorded: dict[str, Any],
+        text: str,
+    ) -> dict[str, Any]:
+        self._audit_simple(
+            message,
+            method="glp_sign",
+            record_class="gxp_data",
+            status="failed",
+            server="proxy",
+            tool="glp_sign",
+            arguments=recorded,
+            result=None,
+            error={"message": text},
+            policy_action="allow",
+            policy_rule="signature:plugin",
+            reason=recorded.get("meaning"),
+        )
+        return _result(message, {"content": [{"type": "text", "text": text}], "isError": True})
 
     def _update_policy(self, message: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
         from .policy import Policy
@@ -1574,6 +1758,8 @@ class AuditProxy:
         role = self.settings.principal.role
         listed = []
         for name, spec in LOCAL_TOOLS.items():
+            if name == "glp_sign" and not licensed_signature_names(self.features):
+                continue
             if role in spec["roles"]:
                 listed.append(
                     {
@@ -1620,7 +1806,9 @@ def _instructions() -> str:
         "MCP audit proxy. Tool calls are forwarded to configured upstream servers "
         "and written to a local append-only hash chain before the response is returned. "
         "Write tools may require a reason and a human approval. "
-        "An approval is not an electronic signature."
+        "An approval is not an electronic signature. "
+        "glp_sign delegates to a licensed signature plugin and is designed to "
+        "support 21 CFR Part 11 workflows."
     )
 
 
@@ -1746,6 +1934,17 @@ def _encoded_size(message: dict[str, Any]) -> int:
     except (TypeError, ValueError):
         return MAX_MESSAGE_BYTES + 1
     return len(raw.encode("utf-8"))
+
+
+def _signature_error_text(exc: BaseException) -> str:
+    text = str(exc).strip() or "signature plugin failed"
+    try:
+        text.encode("ascii")
+    except UnicodeEncodeError:
+        return "signature plugin failed"
+    if "\n" in text:
+        text = text.split("\n", 1)[0]
+    return text[:200]
 
 
 def _fail_closed(message: dict[str, Any], detail: str) -> dict[str, Any]:

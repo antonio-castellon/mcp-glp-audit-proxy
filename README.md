@@ -45,6 +45,8 @@ mcp-glp-audit-proxy --config config.json
 
 Stdio identity comes from the environment. There is no HTTP listener in 0.1.0. A Cursor snippet is in `mcp.json`. A full config is in `config.example.json`.
 
+`plugins.storage`, `plugins.signer` and `plugins.reporters` select entry points. The defaults are `jsonl`, `unsigned`, and `json` plus `text`. An unknown plugin, or a plugin that is not licensed or not installed, refuses to start. The proxy does not fall back to another backend. See `docs/PLUGINS.md`.
+
 Verify a chain and write a searchable JSON export (the export is skipped when the chain does not verify):
 
 ```bash

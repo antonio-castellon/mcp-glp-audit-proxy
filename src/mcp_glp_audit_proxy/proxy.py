@@ -22,9 +22,10 @@ from .errors import AuditStoreError, ChainIntegrityError, ConfigurationError
 from .features import FeatureSet
 from .framing import MAX_MESSAGE_BYTES
 from .records import build_event, format_timestamp
-from .reporters.json_export import dumps_document, export_document, filter_entries
-from .reporters.text_export import format_entry
+from .reporters.json_export import JsonReporter, dumps_document, export_document, filter_entries
+from .reporters.text_export import TextReporter, format_entry
 from .upstream import MODERN_VERSION, SECRET_META, split_meta
+from .wiring import REPORTERS_GROUP, feature_for
 
 LEGACY_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
 MODERN_VERSIONS = (MODERN_VERSION,)
@@ -55,7 +56,10 @@ LOCAL_TOOLS: dict[str, dict[str, Any]] = {
         },
     },
     "glp_export_audit": {
-        "description": "Write a searchable JSON electronic export with a hash manifest. Not a PDF.",
+        "description": (
+            "Write an electronic export with a hash manifest. "
+            "format selects a configured reporter (default json). PDF is Pro."
+        ),
         "roles": frozenset({"qa", "admin", "approver"}),
         "inputSchema": {
             "type": "object",
@@ -69,6 +73,7 @@ LOCAL_TOOLS: dict[str, dict[str, Any]] = {
                 "server": {"type": "string"},
                 "since": {"type": "string"},
                 "until": {"type": "string"},
+                "format": {"type": "string"},
             },
             "additionalProperties": False,
         },
@@ -127,11 +132,17 @@ class AuditProxy:
         features: FeatureSet | None = None,
         now: Any | None = None,
         clock_probe: Any | None = None,
+        reporters: dict[str, Any] | None = None,
     ) -> None:
         self.settings = settings
         self.store = store
         self.upstreams = {item.name: item for item in (upstreams or [])}
         self.features = features or FeatureSet.community()
+        self.reporters = (
+            dict(reporters)
+            if reporters is not None
+            else {"json": JsonReporter(), "text": TextReporter()}
+        )
         self.session = Session()
         self._now = now or _default_now
         self._clock_probe = clock_probe
@@ -158,6 +169,11 @@ class AuditProxy:
                 "audit_enabled": True,
                 "clock": status,
                 "fail_closed": self.settings.fail_closed,
+                "plugins": {
+                    "reporters": list(self.reporters),
+                    "signer": getattr(getattr(self.store, "signer", None), "name", self.settings.signer),
+                    "storage": self.settings.storage,
+                },
                 "policy": self.settings.policy.as_dict(),
                 "retention": self.settings.retention.as_dict(),
             },
@@ -1053,7 +1069,8 @@ class AuditProxy:
         )
 
     def _export(self, message: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
-        if not self.features.allows("report.json"):
+        format_name = arguments.get("format") or "json"
+        if not isinstance(format_name, str) or format_name not in self.reporters:
             return self._deny(
                 message,
                 method="tools/call",
@@ -1061,9 +1078,22 @@ class AuditProxy:
                 server="proxy",
                 tool="glp_export_audit",
                 arguments=arguments,
-                rule="feature:report.json",
-                text="JSON export is not enabled",
+                rule="reporter:unknown",
+                text=f"reporter {format_name!r} is not configured",
             )
+        feature = feature_for(REPORTERS_GROUP, format_name)
+        if feature is not None and not self.features.allows(feature):
+            return self._deny(
+                message,
+                method="tools/call",
+                record_class="access",
+                server="proxy",
+                tool="glp_export_audit",
+                arguments=arguments,
+                rule=f"feature:{feature}",
+                text=f"{format_name} export is not enabled",
+            )
+        reporter = self.reporters[format_name]
         report = verify_anchored(self.settings.audit_path)
         if not report.ok:
             # Do not append onto a broken chain and do not write a partial copy.
@@ -1071,19 +1101,29 @@ class AuditProxy:
         full = report.entries
         filters = _filters(arguments)
         selected = filter_entries(full, **filters)
+        signer_name = getattr(getattr(self.store, "signer", None), "name", None) or "unsigned"
         document = export_document(
             selected,
             full_chain=full,
             chain_valid=True,
             filters=filters,
             exported_at=format_timestamp(self._now()),
+            signer=str(signer_name),
         )
+        rendered = reporter.render(document)
+        if not isinstance(rendered, (bytes, bytearray)):
+            raise ConfigurationError(f"reporter {format_name!r} did not return bytes")
         target = arguments.get("path")
         written = None
         if target:
             written = self._export_path(str(target))
             written.parent.mkdir(parents=True, exist_ok=True)
-            written.write_text(dumps_document(document), encoding="utf-8")
+            # The Community json reporter stays pretty-printed so a reviewer can search it.
+            # Other reporters write the bytes from render().
+            if format_name == "json":
+                written.write_text(dumps_document(document), encoding="utf-8")
+            else:
+                written.write_bytes(bytes(rendered))
         try:
             self._audit_simple(
                 message,
@@ -1092,7 +1132,11 @@ class AuditProxy:
                 status="ok",
                 server="proxy",
                 tool="glp_export_audit",
-                arguments={"filters": filters, "path": str(written) if written else None},
+                arguments={
+                    "filters": filters,
+                    "format": format_name,
+                    "path": str(written) if written else None,
+                },
                 result={
                     "complete": document["complete"],
                     "count": len(selected),

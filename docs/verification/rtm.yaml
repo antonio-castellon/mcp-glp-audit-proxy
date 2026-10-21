@@ -430,6 +430,12 @@ requirements:
     statement: "DE/FR/EN report templates."
     modules: []
     tests: []
+  - id: COV-71
+    source: "Community plugin selection"
+    scope: community
+    statement: "Config selects storage, signer and reporter entry points. Unknown, unlicensed and missing plugins refuse startup. Defaults stay JSONL, unsigned, JSON and text."
+    modules: [src/mcp_glp_audit_proxy/wiring.py, src/mcp_glp_audit_proxy/server.py, src/mcp_glp_audit_proxy/config.py]
+    tests: [tests/test_plugins.py::test_defaults_build_the_community_plugins, tests/test_plugins.py::test_unknown_unlicensed_and_missing_plugins_refuse_startup, tests/test_plugins.py::test_selected_signer_and_reporter_are_used]
   - id: GLP22-1
     source: "OECD GLP Series No. 22 data integrity, attributable and contemporaneous (see docs/STANDARDS.md)"
     scope: community

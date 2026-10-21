@@ -14,6 +14,8 @@ from .policy import Policy
 
 ROLES = frozenset({"operator", "approver", "qa", "admin"})
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,40}$")
+_PLUGIN = re.compile(r"^[a-z][a-z0-9_]{0,40}$")
+_DEFAULT_REPORTERS = ("json", "text")
 _TRUTHY = {"1", "true", "yes", "on"}
 _FALSY = {"0", "false", "no", "off"}
 
@@ -86,6 +88,9 @@ class Settings:
     require_ntp: bool = False
     export_dir: Path | None = None
     upstreams: list[UpstreamConfig] | None = None
+    storage: str = "jsonl"
+    signer: str = "unsigned"
+    reporters: tuple[str, ...] = _DEFAULT_REPORTERS
 
     def validate(self) -> None:
         if self.principal.role not in ROLES:
@@ -110,6 +115,14 @@ class Settings:
                 raise ConfigurationError(
                     f"upstream {upstream.name}: protocol must be auto, legacy or modern"
                 )
+        _check_plugin_name(self.storage, "plugins.storage")
+        _check_plugin_name(self.signer, "plugins.signer")
+        if not isinstance(self.reporters, tuple) or not self.reporters:
+            raise ConfigurationError("plugins.reporters must be a non-empty list of plugin names")
+        if len(set(self.reporters)) != len(self.reporters):
+            raise ConfigurationError("plugins.reporters must not repeat a name")
+        for name in self.reporters:
+            _check_plugin_name(name, "plugins.reporters")
 
 
 def load_settings(path: str | Path) -> Settings:
@@ -173,6 +186,7 @@ def load_settings(path: str | Path) -> Settings:
         export_dir = (config_path.parent / export_dir).resolve()
 
     upstreams = [_upstream(item) for item in raw.get("upstreams") or []]
+    storage, signer, reporters = _plugins(raw)
     settings = Settings(
         principal=principal,
         retention=retention,
@@ -185,9 +199,40 @@ def load_settings(path: str | Path) -> Settings:
         require_ntp=require_ntp,
         export_dir=export_dir,
         upstreams=upstreams,
+        storage=storage,
+        signer=signer,
+        reporters=reporters,
     )
     settings.validate()
     return settings
+
+
+def _plugins(raw: dict[str, Any]) -> tuple[str, str, tuple[str, ...]]:
+    block = raw.get("plugins", None)
+    if block is None:
+        return "jsonl", "unsigned", _DEFAULT_REPORTERS
+    if not isinstance(block, dict):
+        raise ConfigurationError("plugins must be an object")
+    unknown = set(block) - {"storage", "signer", "reporters"}
+    if unknown:
+        raise ConfigurationError(f"unknown plugins fields: {sorted(unknown)}")
+    storage = block.get("storage", "jsonl")
+    signer = block.get("signer", "unsigned")
+    reporters = block.get("reporters", list(_DEFAULT_REPORTERS))
+    _check_plugin_name(storage, "plugins.storage")
+    _check_plugin_name(signer, "plugins.signer")
+    if not isinstance(reporters, list) or not reporters:
+        raise ConfigurationError("plugins.reporters must be a non-empty list of plugin names")
+    for name in reporters:
+        _check_plugin_name(name, "plugins.reporters")
+    if len(set(reporters)) != len(reporters):
+        raise ConfigurationError("plugins.reporters must not repeat a name")
+    return str(storage), str(signer), tuple(str(name) for name in reporters)
+
+
+def _check_plugin_name(name: object, label: str) -> None:
+    if not isinstance(name, str) or not _PLUGIN.fullmatch(name):
+        raise ConfigurationError(f"{label} must be a plugin name")
 
 
 def _upstream(item: object) -> UpstreamConfig:

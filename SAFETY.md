@@ -10,6 +10,8 @@ There is a residual case you must design for: the upstream server may already ha
 
 Any failure to open, write or fsync the audit file, and any chain that no longer verifies, raises `AuditStoreError`. The process then latches into a blocked state: later calls are not forwarded until the process is restarted. A raw OS error does not skip that latch.
 
+Plugin names in the config are entry points (`plugins.storage`, `plugins.signer`, `plugins.reporters`). Startup refuses an unknown name, a name that is not licensed, and a licensed name whose plugin is not installed. It does not silently keep the JSONL store or the unsigned signer when the config asked for something else.
+
 Each fsynced line is followed by a sidecar file, `<audit-path>.head`. It stores the latest `seq` and `entry_hash` (temp file, fsync, atomic rename). The verify command fails when the log is shorter than that head or the hash does not match. A crash in the gap after the log fsync and before the head rename may leave the head one record behind. That one record must itself verify. Startup then advances the head. It is not treated as a broken trail. Any other disagreement refuses startup (`refusing to start`) and does not forward. A disagreement found on a later append latches the blocked state.
 
 A person who can edit both the log and the sidecar can move them together. `mcp-glp-audit-proxy-verify --print-head` prints `seq` and `entry_hash` so an operator can copy that line into a ticket, an email or a LIMS record. That external copy is the control. Signed checkpoints and WORM storage are Pro.

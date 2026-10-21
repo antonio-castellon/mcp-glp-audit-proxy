@@ -28,6 +28,16 @@ from ..signers.unsigned import UnsignedSigner
 _LOG = logging.getLogger("mcp_glp_audit_proxy.technical")
 
 
+def jsonl_store(settings: Any, signer: Any) -> JsonlAuditStore:
+    """Entry point factory. Pro stores use the same (settings, signer) signature."""
+    return JsonlAuditStore(
+        settings.audit_path,
+        signer=signer,
+        checkpoint_every=settings.checkpoint_every,
+        legal_hold=settings.retention.legal_hold,
+    )
+
+
 class JsonlAuditStore:
     def __init__(
         self,

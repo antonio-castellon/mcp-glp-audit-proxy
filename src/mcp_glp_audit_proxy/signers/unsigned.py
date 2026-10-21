@@ -10,6 +10,11 @@ from __future__ import annotations
 from typing import Any
 
 
+def unsigned_signer(_settings: Any) -> UnsignedSigner:
+    """Entry point factory. Pro signers use the same (settings,) signature."""
+    return UnsignedSigner()
+
+
 class UnsignedSigner:
     name = "unsigned"
 

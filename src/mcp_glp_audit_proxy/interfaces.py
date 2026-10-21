@@ -1,4 +1,8 @@
-"""Plugin contracts. Pro implements these; Community ships one of each."""
+"""Plugin contracts. Pro implements these; Community ships one of each.
+
+Entry points are factories. Selection and the factory signatures are described
+in docs/PLUGINS.md. This repository does not ship a Pro implementation.
+"""
 
 from __future__ import annotations
 

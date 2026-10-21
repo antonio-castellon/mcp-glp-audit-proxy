@@ -10,7 +10,7 @@ There is a residual case you must design for: the upstream server may already ha
 
 Any failure to open, write or fsync the audit file, and any chain that no longer verifies, raises `AuditStoreError`. The process then latches into a blocked state: later calls are not forwarded until the process is restarted. A raw OS error does not skip that latch.
 
-Plugin names in the config are entry points (`plugins.storage`, `plugins.signer`, `plugins.reporters`). Startup refuses an unknown name, a name that is not licensed, and a licensed name whose plugin is not installed. It does not silently keep the JSONL store or the unsigned signer when the config asked for something else.
+Plugin names in the config are entry points (`plugins.storage`, `plugins.signer`, `plugins.reporters`). Each factory declares `licence_feature`. Startup refuses an unknown name and a name whose feature is not enabled, and it does not call that factory. It does not silently keep the JSONL store or the unsigned signer when the config asked for something else.
 
 Each fsynced line is followed by a sidecar file, `<audit-path>.head`. It stores the latest `seq` and `entry_hash` (temp file, fsync, atomic rename). The verify command fails when the log is shorter than that head or the hash does not match. A crash in the gap after the log fsync and before the head rename may leave the head one record behind. That one record must itself verify. Startup then advances the head. It is not treated as a broken trail. Any other disagreement refuses startup (`refusing to start`) and does not forward. A disagreement found on a later append latches the blocked state.
 
@@ -26,7 +26,7 @@ Do not log the JSONL file into a system that can rewrite lines. The Community ba
 
 ## Identity
 
-On stdio the principal is the environment: `GLP_PRINCIPAL_ID`, `GLP_PRINCIPAL_NAME`, `GLP_PRINCIPAL_ROLE`, or the same fields in `config.json` when those variables are unset. The `auth` plugin defaults to `env` and returns that principal. It does not contact an identity provider. `plugins.auth` set to `sso` or `oauth` refuses to start unless a licence enables it and a plugin is installed. Those plugins are not in this repository. The host process must set the environment to the authenticated human. A shared service account for operators is a bad fit for attribution.
+On stdio the principal is the environment: `GLP_PRINCIPAL_ID`, `GLP_PRINCIPAL_NAME`, `GLP_PRINCIPAL_ROLE`, or the same fields in `config.json` when those variables are unset. The `auth` plugin defaults to `env` and returns that principal. It does not contact an identity provider. `plugins.auth` set to another name refuses to start unless that entry point is installed and the signed licence includes the feature it declares. Those plugins are not in this repository. The host process must set the environment to the authenticated human. A shared service account for operators is a bad fit for attribution.
 
 Roles are split on purpose. An operator cannot verify, search, export, approve or change policy. An approver, a QA reviewer and an admin cannot call upstream tools.
 

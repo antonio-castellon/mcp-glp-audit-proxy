@@ -10,54 +10,30 @@ from typing import Any
 
 from .config import Principal
 from .errors import ConfigurationError
-from .features import PRO_PLUGINS, FeatureSet
+from .features import FeatureSet, declared_feature
 
 STORAGE_GROUP = "mcp_glp_audit_proxy.storage"
 SIGNERS_GROUP = "mcp_glp_audit_proxy.signers"
 REPORTERS_GROUP = "mcp_glp_audit_proxy.reporters"
 AUTH_GROUP = "mcp_glp_audit_proxy.auth"
 
-# Community entry point name -> feature flag. Pro names come from PRO_PLUGINS.
-COMMUNITY_PLUGIN_FEATURES: dict[str, dict[str, str]] = {
-    STORAGE_GROUP: {"jsonl": "storage.jsonl"},
-    SIGNERS_GROUP: {"unsigned": "signer.unsigned"},
-    REPORTERS_GROUP: {"json": "report.json", "text": "report.text"},
-    AUTH_GROUP: {"env": "auth.env"},
-}
-
-
-def feature_for(group: str, name: str) -> str | None:
-    found = COMMUNITY_PLUGIN_FEATURES.get(group, {}).get(name)
-    if found:
-        return found
-    for feature, (grp, entry) in PRO_PLUGINS.items():
-        if grp == group and entry == name:
-            return feature
-    return None
-
-
 def load_named(features: FeatureSet, group: str, name: str) -> Any:
     """Return the factory for one plugin, or refuse to start.
 
-    Unknown names are refused even when an entry point is installed. A known
-    name is refused when the feature is not licensed or the plugin is absent.
-    The factory is not called in those cases.
+    The factory is not called unless it is installed, declares a licence
+    feature, and that feature is enabled. An unlicensed plugin does not load.
     """
-    feature = feature_for(group, name)
-    if feature is None:
-        raise ConfigurationError(f"unknown plugin {name!r} in {group}")
     table = features.plugins.get(group) or {}
-    installed = name in table
-    licensed = feature in features.enabled
-    if feature in features.unavailable and not installed:
-        raise ConfigurationError(f"plugin {name!r} is not installed")
-    if not licensed:
-        raise ConfigurationError(f"plugin {name!r} is not licensed")
-    if not installed:
-        raise ConfigurationError(f"plugin {name!r} is not installed")
+    if name not in table:
+        raise ConfigurationError(f"unknown plugin {name!r} in {group}")
     factory = table[name]
     if not callable(factory):
         raise ConfigurationError(f"plugin {name!r} is not callable")
+    feature = declared_feature(factory)
+    if feature is None:
+        raise ConfigurationError(f"plugin {name!r} does not declare a licence feature")
+    if feature not in features.enabled:
+        raise ConfigurationError(f"plugin {name!r} is not licensed")
     return factory
 
 

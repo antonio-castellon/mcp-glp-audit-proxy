@@ -17,8 +17,12 @@ def json_reporter(_settings: Any, options: dict[str, Any] | None = None) -> Json
     return JsonReporter()
 
 
+json_reporter.licence_feature = "report.json"
+
+
 class JsonReporter:
     name = "json"
+    licence_feature = "report.json"
     media_type = "application/json"
 
     def render(self, document: dict[str, Any]) -> bytes:

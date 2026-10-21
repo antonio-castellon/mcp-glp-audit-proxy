@@ -19,13 +19,13 @@ from .canonical import args_hash
 from .anchor import verify_anchored
 from .config import Settings
 from .errors import AuditStoreError, ChainIntegrityError, ConfigurationError
-from .features import FeatureSet
+from .features import FeatureSet, declared_feature
 from .framing import MAX_MESSAGE_BYTES
 from .records import build_event, format_timestamp
 from .reporters.json_export import JsonReporter, dumps_document, export_document, filter_entries
 from .reporters.text_export import TextReporter, format_entry
 from .upstream import MODERN_VERSION, SECRET_META, split_meta
-from .wiring import REPORTERS_GROUP, feature_for
+from .wiring import REPORTERS_GROUP
 
 LEGACY_VERSIONS = ("2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25")
 MODERN_VERSIONS = (MODERN_VERSION,)
@@ -1093,7 +1093,10 @@ class AuditProxy:
                 rule="reporter:unknown",
                 text=f"reporter {format_name!r} is not configured",
             )
-        feature = feature_for(REPORTERS_GROUP, format_name)
+        feature = declared_feature(self.reporters[format_name])
+        if feature is None:
+            factory = (self.features.plugins.get(REPORTERS_GROUP) or {}).get(format_name)
+            feature = declared_feature(factory)
         if feature is not None and not self.features.allows(feature):
             return self._deny(
                 message,

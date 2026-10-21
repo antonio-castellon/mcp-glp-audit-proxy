@@ -21,6 +21,11 @@ from mcp_glp_audit_proxy.wiring import AUTH_GROUP, REPORTERS_GROUP, SIGNERS_GROU
 from conftest import call_tool
 
 
+def _plugin(factory: object, feature: str) -> object:
+    factory.licence_feature = feature  # type: ignore[attr-defined]
+    return factory
+
+
 def _settings(tmp_path: Path, **overrides: object) -> Settings:
     settings = Settings(
         principal=Principal(id="qa-1", name="Cara QA", role="qa"),
@@ -53,6 +58,7 @@ def _config(tmp_path: Path, **extra: object) -> Path:
 def test_defaults_build_the_community_plugins(tmp_path: Path) -> None:
     loaded = load_group("mcp_glp_audit_proxy.storage")
     assert loaded["jsonl"].__name__ == "jsonl_store"
+    assert loaded["jsonl"].licence_feature == "storage.jsonl"
     assert load_group("mcp_glp_audit_proxy.signers")["unsigned"].__name__ == "unsigned_signer"
     reporters = load_group("mcp_glp_audit_proxy.reporters")
     assert reporters["json"].__name__ == "json_reporter"
@@ -95,21 +101,32 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
         raise AssertionError("unknown plugin was called")
 
     flags.plugins[STORAGE_GROUP]["nope"] = trap
-    with pytest.raises(ConfigurationError, match="unknown plugin 'nope'"):
+    with pytest.raises(ConfigurationError, match="does not declare a licence feature"):
         build_proxy(settings, flags)
     assert called["hit"] is False
 
     unlicensed = _settings(tmp_path, storage="postgres")
-    with pytest.raises(ConfigurationError, match="not licensed"):
+    with pytest.raises(ConfigurationError, match="unknown plugin 'postgres'"):
         build_proxy(unlicensed, flags)
 
-    flags.plugins[STORAGE_GROUP]["postgres"] = lambda settings, signer, **_extra: None
+    def undeclared(_settings: object, _signer: object, **_extra: object) -> None:
+        raise AssertionError("undeclared plugin was called")
+
+    flags.plugins[STORAGE_GROUP]["postgres"] = undeclared
+    with pytest.raises(ConfigurationError, match="does not declare a licence feature"):
+        build_proxy(unlicensed, flags)
+
+    def unlicensed_factory(_settings: object, _signer: object, **_extra: object) -> None:
+        raise AssertionError("unlicensed plugin was called")
+
+    unlicensed_factory.licence_feature = "storage.sql"
+    flags.plugins[STORAGE_GROUP]["postgres"] = unlicensed_factory
     with pytest.raises(ConfigurationError, match="not licensed"):
         build_proxy(unlicensed, flags)
 
     missing = FeatureSet.community()
     missing.unavailable.append("storage.postgres")
-    with pytest.raises(ConfigurationError, match="not installed"):
+    with pytest.raises(ConfigurationError, match="unknown plugin 'postgres'"):
         build_proxy(_settings(tmp_path, storage="postgres"), missing)
 
     flags.plugins[SIGNERS_GROUP]["ed25519"] = "not-a-factory"
@@ -120,6 +137,7 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
     def boom(_settings: object, **_extra: object) -> None:
         raise RuntimeError("signer init failed")
 
+    boom.licence_feature = "signer.ed25519"
     flags.plugins[SIGNERS_GROUP]["ed25519"] = boom
     with pytest.raises(ConfigurationError, match="failed to load"):
         build_proxy(_settings(tmp_path, signer="ed25519"), flags)
@@ -131,11 +149,15 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
         def verify(self, _payload: bytes, _signature: dict[str, object]) -> bool:
             return False
 
-    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings, **_extra: Nameless()
+    flags.plugins[SIGNERS_GROUP]["ed25519"] = _plugin(
+        lambda _settings, **_extra: Nameless(), "signer.ed25519"
+    )
     with pytest.raises(ConfigurationError, match="no name"):
         build_proxy(_settings(tmp_path, signer="ed25519"), flags)
 
-    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings, **_extra: Nameless
+    flags.plugins[SIGNERS_GROUP]["ed25519"] = _plugin(
+        lambda _settings, **_extra: Nameless, "signer.ed25519"
+    )
     with pytest.raises(ConfigurationError, match="instance"):
         build_proxy(_settings(tmp_path, signer="ed25519"), flags)
 
@@ -143,11 +165,15 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
         pass
 
     flags.enabled.add("storage.postgres")
-    flags.plugins[STORAGE_GROUP]["postgres"] = lambda _settings, _signer, **_extra: HalfStore()
+    flags.plugins[STORAGE_GROUP]["postgres"] = _plugin(
+        lambda _settings, _signer, **_extra: HalfStore(), "storage.postgres"
+    )
     with pytest.raises(ConfigurationError, match="AuditStore.health"):
         build_proxy(_settings(tmp_path, storage="postgres"), flags)
 
-    flags.plugins[STORAGE_GROUP]["postgres"] = lambda _settings, _signer, **_extra: HalfStore
+    flags.plugins[STORAGE_GROUP]["postgres"] = _plugin(
+        lambda _settings, _signer, **_extra: HalfStore, "storage.postgres"
+    )
     with pytest.raises(ConfigurationError, match="instance"):
         build_proxy(_settings(tmp_path, storage="postgres"), flags)
 
@@ -158,7 +184,9 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
             return b""
 
     flags.enabled.add("report.pdf")
-    flags.plugins[REPORTERS_GROUP]["pdf"] = lambda _settings, **_extra: BareReporter()
+    flags.plugins[REPORTERS_GROUP]["pdf"] = _plugin(
+        lambda _settings, **_extra: BareReporter(), "report.pdf"
+    )
     with pytest.raises(ConfigurationError, match="media_type"):
         build_proxy(_settings(tmp_path, reporters=("pdf",)), flags)
 
@@ -207,8 +235,12 @@ def test_selected_signer_and_reporter_are_used(tmp_path: Path) -> None:
     flags = FeatureSet.community()
     flags.enabled.add("signer.ed25519")
     flags.enabled.add("report.csv")
-    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings, **_extra: FakeSigner()
-    flags.plugins[REPORTERS_GROUP]["csv"] = lambda _settings, **_extra: CsvReporter()
+    flags.plugins[SIGNERS_GROUP]["ed25519"] = _plugin(
+        lambda _settings, **_extra: FakeSigner(), "signer.ed25519"
+    )
+    flags.plugins[REPORTERS_GROUP]["csv"] = _plugin(
+        lambda _settings, **_extra: CsvReporter(), "report.csv"
+    )
     settings = _settings(
         tmp_path,
         signer="ed25519",
@@ -263,12 +295,12 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
     assert proxy.startup()["principal"]["id"] == "operator-9"
 
     flags = FeatureSet.community()
-    with pytest.raises(ConfigurationError, match="not licensed"):
+    with pytest.raises(ConfigurationError, match="unknown plugin 'sso'"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
     missing = FeatureSet.community()
     missing.unavailable.append("auth.sso")
-    with pytest.raises(ConfigurationError, match="not installed"):
+    with pytest.raises(ConfigurationError, match="unknown plugin 'sso'"):
         build_proxy(_settings(tmp_path, auth="sso"), missing)
 
     class Other:
@@ -278,7 +310,7 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
             return {"id": "from-plugin", "name": "Plugin User", "role": "qa"}
 
     flags.enabled.add("auth.sso")
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: Other()
+    flags.plugins[AUTH_GROUP]["sso"] = _plugin(lambda _settings, **_extra: Other(), "auth.sso")
     replaced = build_proxy(_settings(tmp_path, auth="sso"), flags)
     assert replaced.settings.principal.id == "from-plugin"
     assert replaced.settings.principal.role == "qa"
@@ -289,7 +321,7 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
         def resolve(self) -> dict[str, str]:
             return {"id": "x", "name": "Y", "role": "root"}
 
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: BadRole()
+    flags.plugins[AUTH_GROUP]["sso"] = _plugin(lambda _settings, **_extra: BadRole(), "auth.sso")
     with pytest.raises(ConfigurationError, match="role must be"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
@@ -299,7 +331,9 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
         def resolve(self) -> list[str]:
             return ["nope"]
 
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: NotAPrincipal()
+    flags.plugins[AUTH_GROUP]["sso"] = _plugin(
+        lambda _settings, **_extra: NotAPrincipal(), "auth.sso"
+    )
     with pytest.raises(ConfigurationError, match="did not return a principal"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
@@ -307,11 +341,11 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
         def resolve(self) -> dict[str, str]:
             return {"id": "x", "name": "Y", "role": "qa"}
 
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: Nameless()
+    flags.plugins[AUTH_GROUP]["sso"] = _plugin(lambda _settings, **_extra: Nameless(), "auth.sso")
     with pytest.raises(ConfigurationError, match="no name"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: Nameless
+    flags.plugins[AUTH_GROUP]["sso"] = _plugin(lambda _settings, **_extra: Nameless, "auth.sso")
     with pytest.raises(ConfigurationError, match="instance"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
@@ -342,13 +376,19 @@ def test_plugin_options_are_passed_to_the_factory(tmp_path: Path) -> None:
         seen["signer"] = options
         return FakeSigner()
 
+    signer_factory.licence_feature = "signer.ed25519"
+
     def store_factory(_settings: object, signer: object, options: dict[str, object] | None = None):
         seen["storage"] = options
         return JsonlAuditStore(_settings.audit_path, signer=signer, checkpoint_every=0)  # type: ignore[attr-defined]
 
+    store_factory.licence_feature = "storage.postgres"
+
     def reporter_factory(_settings: object, options: dict[str, object] | None = None) -> CsvReporter:
         seen["reporter"] = options
         return CsvReporter()
+
+    reporter_factory.licence_feature = "report.csv"
 
     flags = FeatureSet.community()
     flags.enabled.update({"storage.postgres", "signer.ed25519", "report.csv"})

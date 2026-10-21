@@ -80,7 +80,7 @@ A JSON object. Unknown `policy` keys and unknown `plugins` keys refuse startup. 
 | `plugins.auth` | Default `env`. Same shape as `plugins.storage` |
 | `upstreams` | List. See below |
 
-Plugin names match `^[a-z][a-z0-9_]{0,40}$`. Selecting a name that is unknown, not licensed, or not installed refuses startup. There is no fallback. See [plugins.md](plugins.md).
+Plugin names match `^[a-z][a-z0-9_]{0,40}$`. Selecting a name that is unknown or not licensed refuses startup. There is no fallback. See [plugins.md](plugins.md).
 
 Each upstream object:
 

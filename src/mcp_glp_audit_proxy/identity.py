@@ -14,6 +14,7 @@ from .config import Principal
 
 class EnvIdentity:
     name = "env"
+    licence_feature = "auth.env"
 
     def __init__(self, principal: Principal) -> None:
         self._principal = principal
@@ -29,3 +30,6 @@ def env_identity(settings: Any, options: dict[str, Any] | None = None) -> EnvIde
     """
     del options
     return EnvIdentity(settings.principal)
+
+
+env_identity.licence_feature = "auth.env"

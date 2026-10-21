@@ -29,6 +29,8 @@ dependencies = [
   "mcp>=2.2.0,<3",
   # Pinned: audit hashes must be reproducible. See schema/jcs-test-vectors.json.
   "rfc8785==0.1.4",
+  # Ed25519 check of the offline licence file. The private key is not in this repo.
+  "cryptography>=50.0.2",
 ]
 
 [project.optional-dependencies]

@@ -42,7 +42,12 @@ def jsonl_store(settings: Any, signer: Any, options: dict[str, Any] | None = Non
     )
 
 
+jsonl_store.licence_feature = "storage.jsonl"
+
+
 class JsonlAuditStore:
+    licence_feature = "storage.jsonl"
+
     def __init__(
         self,
         path: Path,

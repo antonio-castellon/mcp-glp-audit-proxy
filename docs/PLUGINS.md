@@ -14,28 +14,10 @@ Declared in `pyproject.toml`. Each value is a factory, not the class.
 | `mcp_glp_audit_proxy.signers` | `unsigned` | `unsigned_signer(settings, options=None)` | `UnsignedSigner` |
 | `mcp_glp_audit_proxy.reporters` | `json`, `text` | `json_reporter(settings, options=None)`, `text_reporter(settings, options=None)` | `JsonReporter`, `TextReporter` |
 | `mcp_glp_audit_proxy.auth` | `env` | `env_identity(settings, options=None)` | `EnvIdentity` |
-| `mcp_glp_audit_proxy.licence` | (none) | zero-arg factory | object with `verify(raw)` |
 
-Pro names reserved by `mcp_glp_audit_proxy.features.PRO_PLUGINS` (not implemented here):
+Each factory declares `licence_feature`, a string such as `storage.sql`. Community reads that attribute from the installed entry points. There is no built-in list of Pro names in this repository, and this repository does not ship a Pro backend.
 
-| Feature flag | Group | Entry point name |
-|---|---|---|
-| `storage.postgres` | `mcp_glp_audit_proxy.storage` | `postgres` |
-| `storage.mssql` | `mcp_glp_audit_proxy.storage` | `mssql` |
-| `storage.s3_object_lock` | `mcp_glp_audit_proxy.storage` | `s3` |
-| `signer.ed25519` | `mcp_glp_audit_proxy.signers` | `ed25519` |
-| `signer.ecdsa` | `mcp_glp_audit_proxy.signers` | `ecdsa_p256` |
-| `timestamp.rfc3161` | `mcp_glp_audit_proxy.signers` | `rfc3161` |
-| `signature.part11` | `mcp_glp_audit_proxy.signers` | `part11` |
-| `report.pdf` | `mcp_glp_audit_proxy.reporters` | `pdf` |
-| `report.csv` | `mcp_glp_audit_proxy.reporters` | `csv` |
-| `validation.iqoq` | `mcp_glp_audit_proxy.reporters` | `iqoq` |
-| `auth.sso` | `mcp_glp_audit_proxy.auth` | `sso` |
-| `auth.oauth` | `mcp_glp_audit_proxy.auth` | `oauth` |
-
-The auth group stays reserved. Dropping `sso` and `oauth` would remove names `PRO_PLUGINS` already publishes. Community does not add an identity provider. `IdentityProvider` is the contract, and `env` is the default: it returns the principal `load_settings` already took from `GLP_PRINCIPAL_*` or `config.json`. `resolve()` returns `{"id", "name", "role"}`. A Pro plugin uses the same `(settings, options=)` factory signature and the same method. This repository does not implement `sso` or `oauth`.
-
-`mcp_glp_audit_proxy.licence` is the signature verifier. This repository does not register one. `FeatureSet.load` uses `CommunityLicenceVerifier` until a package registers a factory in that group. One installed factory is used. If several are installed, the name `default` is required.
+Community does not add an identity provider. `IdentityProvider` is the contract, and `env` is the default: it returns the principal `load_settings` already took from `GLP_PRINCIPAL_*` or `config.json`. `resolve()` returns `{"id", "name", "role"}`. Another auth plugin uses the same `(settings, options=)` factory signature and the same method, and it declares its own `licence_feature`. This repository does not implement one.
 
 `load_group` in `mcp_glp_audit_proxy.plugins` returns `{name: loaded object}`. A missing group is an empty dict.
 
@@ -74,18 +56,18 @@ Missing `plugins` uses the string defaults and passes an empty options object. `
 3. Resolves the storage factory and calls it with `(settings, signer, options=)`.
 4. Resolves each reporter factory and calls it with `(settings, options=)` for that reporter's object.
 
-A Pro package uses the same signatures. This repository only maps names to feature flags and calls the factory. It does not contain a Pro backend.
+Another package uses the same signatures and sets `licence_feature` on its factory. This repository calls that factory only when the declared feature is enabled. It does not contain a Pro backend.
 
 Startup records the selected names on the `audit/startup` entry (`arguments.plugins`).
 
 The process refuses to start (`ConfigurationError`, exit 1) when:
 
-- the name is not a Community name and not one of the reserved Pro names (unknown)
-- the name is a Pro feature and the licence does not enable it (not licensed)
-- the licence names it but no entry point is installed (not installed)
-- the factory is missing, not callable, raises, or returns an object that does not match the contract
+- the name is not an installed entry point (`unknown plugin`)
+- the factory does not declare `licence_feature`
+- the declared feature is not enabled (`not licensed`); the factory is not called
+- the factory is not callable, raises, or returns an object that does not match the contract
 
-An unknown entry point that happens to be installed is not called. There is no fallback to `jsonl` or `unsigned` when the config named something else.
+There is no fallback to `jsonl` or `unsigned` when the config named something else.
 
 `glp_export_audit` takes an optional `format` (default `json`). The name must be one of the configured reporters. `json` is still written as pretty JSON so a reviewer can search it. Any other reporter writes the bytes from `render()`. The verify CLI does not read `plugins` from config: it prints text with `format_entry` and, with `--json-export`, pretty JSON. Its manifest signer field stays `unsigned`.
 
@@ -122,30 +104,38 @@ The Community signer returns `{"algorithm": null, "signed": false, "value": null
 ```json
 {
   "format": "mcp-glp-audit-proxy-licence",
-  "features": ["storage.postgres", "signer.ed25519"]
+  "features": ["storage.jsonl", "report.json"]
 }
 ```
 
-Point config `licence_path` or `GLP_LICENCE_PATH` at that file. With no licence file, `FeatureSet.load` does not call a verifier and enables only Community features.
+Point config `licence_path` or `GLP_LICENCE_PATH` at that file. With no licence file, `FeatureSet.load` enables only Community features and does not check a signature.
 
-`expires` is optional. When present it is an RFC 3339 timestamp with a time zone. `FeatureSet.load` compares it with the local clock and raises `LicenceError` (`licence expired`) when the time is not still in the future. A missing zone or a value that is not a timestamp is rejected. This is not a clock check against a vendor.
+`expires` is optional. When present it is an RFC 3339 timestamp with a time zone. `FeatureSet.load` compares it with the local clock and raises `LicenceError` (`licence expired`) when the time is not still in the future. A missing zone or a value that is not a timestamp is rejected. The check runs after a signature check, so `expires` is the signed value. This is not a clock check against a vendor.
 
-`signature` is optional. When present it must be an object. `FeatureSet.load` delegates that object to the licence verifier (`validate_licence`). With no verifier installed, a signature is rejected (`licence signature cannot be verified`). A verifier that raises, or returns false, rejects the file. Features in a rejected file are not enabled.
+Community features do not need a signature. Any other feature in `features`, and any file that carries a `signature`, must verify as Ed25519 before a feature is enabled. A missing signature in that case raises `LicenceError` (`licence signature is required`). A bad signature raises `LicenceError` (`licence signature is invalid`). Features in a rejected file are not enabled.
+
+The signature covers the RFC 8785 bytes of the licence object with the `signature` field removed. `algorithm` must be `ed25519`. `value` is standard base64 of the 64-byte signature. `key_id` sits inside `signature`, so it is not part of the signed bytes and it does not select a key. The trust anchor is the raw 32-byte public key `LICENCE_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence` (`LICENCE_KEY_ID` is `mcp-glp-audit-proxy-licence`). The private key is not in this repository. Replace `LICENCE_PUBLIC_KEY` to rotate the anchor.
 
 ```json
 {
   "format": "mcp-glp-audit-proxy-licence",
-  "features": ["storage.postgres", "signer.ed25519"],
+  "features": ["storage.sql"],
   "expires": "2027-01-01T00:00:00+00:00",
-  "signature": {"algorithm": "ed25519", "key_id": "example", "value": "<verifier-defined>"}
+  "signature": {
+    "algorithm": "ed25519",
+    "key_id": "mcp-glp-audit-proxy-licence",
+    "value": "<standard base64 of the 64-byte signature>"
+  }
 }
 ```
+
+That `value` is the field shape. It is not a signature this repository can verify.
 
 `FeatureSet.load`:
 
 - always enables Community features (`storage.jsonl`, `signer.unsigned`, `report.json`, `report.text`, `verify`, `policy.allowlist`, `approval.local`, `rbac.local`, `auth.env`) when the file is accepted
-- enables a Pro feature only when the licence lists it and the matching entry point is installed
-- records anything else on `unavailable` and the server prints that list to stderr
-- still refuses to start if config selects a feature that is not both licensed and installed
+- enables any other feature only when the signature verifies and an installed factory declares that same `licence_feature`
+- records a verified feature that no installed factory declares on `unavailable`, and the server prints that list to stderr
+- refuses to start if config selects a plugin whose declared feature is not enabled; the factory is not called
 
-There is no network call and no grace period fetched from anywhere. If the plugin is not installed, the feature stays off. Selecting it in config is an error, not a silent skip. A file with neither `expires` nor `signature` still loads.
+There is no network call and no grace period fetched from anywhere. Selecting a name that is not installed is an error, not a silent skip. A file that lists only Community features, and has no signature, still loads.

@@ -442,6 +442,12 @@ requirements:
     statement: "Config selects storage, signer and reporter entry points. Unknown, unlicensed and missing plugins refuse startup. Defaults stay JSONL, unsigned, JSON and text."
     modules: [src/mcp_glp_audit_proxy/wiring.py, src/mcp_glp_audit_proxy/server.py, src/mcp_glp_audit_proxy/config.py]
     tests: [tests/test_plugins.py::test_defaults_build_the_community_plugins, tests/test_plugins.py::test_unknown_unlicensed_and_missing_plugins_refuse_startup, tests/test_plugins.py::test_selected_signer_and_reporter_are_used]
+  - id: COV-73
+    source: "Community config wizard"
+    scope: community
+    statement: "init writes a config the loader accepts and refuses to overwrite without confirmation. config check prints a plain-language error and exits non-zero when the file does not load. A wizard entry point runs only when its licence feature is enabled."
+    modules: [src/mcp_glp_audit_proxy/wizard.py, src/mcp_glp_audit_proxy/__main__.py]
+    tests: [tests/test_wizard.py::test_init_writes_a_config_the_loader_accepts, tests/test_wizard.py::test_init_refuses_to_overwrite_without_confirmation, tests/test_wizard.py::test_config_check_reports_a_plain_error, tests/test_wizard.py::test_unlicensed_wizard_plugin_is_not_called]
   - id: GLP22-1
     source: "OECD GLP Series No. 22 data integrity, attributable and contemporaneous (see docs/STANDARDS.md)"
     scope: community

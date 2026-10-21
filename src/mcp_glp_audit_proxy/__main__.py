@@ -16,6 +16,14 @@ def main() -> None:
         from .cli import main as verify
 
         raise SystemExit(verify(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "init":
+        from .wizard import init_main
+
+        raise SystemExit(init_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "config":
+        from .wizard import config_main
+
+        raise SystemExit(config_main(sys.argv[2:]))
     from .server import main as run
 
     run()

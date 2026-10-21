@@ -27,6 +27,12 @@
   "require_ntp": false,
   "export_dir": "./data/exports",
   "licence_path": null,
+  "plugins": {
+    "storage": "jsonl",
+    "signer": "unsigned",
+    "reporters": ["json", "text"],
+    "auth": "env"
+  },
   "upstreams": [
     {
       "name": "excel",

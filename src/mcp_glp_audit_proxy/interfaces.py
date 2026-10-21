@@ -1,4 +1,8 @@
-"""Plugin contracts. Pro implements these; Community ships one of each."""
+"""Plugin contracts. Pro implements these; Community ships one of each.
+
+Entry points are factories. Selection and the factory signatures are described
+in docs/PLUGINS.md. This repository does not ship a Pro implementation.
+"""
 
 from __future__ import annotations
 
@@ -32,3 +36,17 @@ class Reporter(Protocol):
     media_type: str
 
     def render(self, document: dict[str, Any]) -> bytes: ...
+
+
+class IdentityProvider(Protocol):
+    """Names the principal for this process.
+
+    Community returns the principal the process was already given (environment
+    or config). This is not an identity provider. SSO and OAuth are Pro plugins
+    in the same entry-point group.
+    """
+
+    name: str
+
+    def resolve(self) -> dict[str, str]:
+        """Return {"id", "name", "role"}."""

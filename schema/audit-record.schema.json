@@ -36,7 +36,10 @@
     "utc_offset"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {
+      "description": "1.0.0 is the original record. 1.1.0 adds status reviewed on the record and on approval.status. A 1.0.0 line may store meaning reviewed with status approved. Both versions remain valid hash-chain records.",
+      "enum": ["1.0.0", "1.1.0"]
+    },
     "record_id": {"type": "string", "minLength": 1},
     "seq": {"type": "integer", "minimum": 1},
     "timestamp": {"type": "string", "minLength": 20},
@@ -75,7 +78,8 @@
     "arguments": {"type": ["object", "null"]},
     "result": {},
     "status": {
-      "enum": ["ok", "denied", "failed", "pending_approval", "approved", "rejected"]
+      "description": "reviewed is a glp_approve decision that does not authorise a write. Schema 1.0.0 stored that decision as approved.",
+      "enum": ["ok", "denied", "failed", "pending_approval", "approved", "rejected", "reviewed"]
     },
     "error": {
       "type": ["object", "null"],
@@ -108,7 +112,10 @@
         "expires_at": {"type": ["string", "null"]},
         "label": {"const": "approval"},
         "meaning": {"type": ["string", "null"]},
-        "status": {"enum": ["pending", "approved", "rejected", "consumed"]},
+        "status": {
+          "description": "reviewed does not authorise a write. Schema 1.0.0 used approved for that meaning.",
+          "enum": ["pending", "approved", "rejected", "consumed", "reviewed"]
+        },
         "tool": {"type": "string"}
       }
     },

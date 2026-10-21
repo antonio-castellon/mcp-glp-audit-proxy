@@ -57,14 +57,17 @@ Documentation = "https://github.com/antonio-castellon/mcp-glp-audit-proxy/blob/m
 # The licensed Pro edition registers additional names in these
 # groups. This repo ships only the Community implementations.
 [project.entry-points."mcp_glp_audit_proxy.storage"]
-jsonl = "mcp_glp_audit_proxy.storage.jsonl:JsonlAuditStore"
+jsonl = "mcp_glp_audit_proxy.storage.jsonl:jsonl_store"
 
 [project.entry-points."mcp_glp_audit_proxy.signers"]
-unsigned = "mcp_glp_audit_proxy.signers.unsigned:UnsignedSigner"
+unsigned = "mcp_glp_audit_proxy.signers.unsigned:unsigned_signer"
 
 [project.entry-points."mcp_glp_audit_proxy.reporters"]
-json = "mcp_glp_audit_proxy.reporters.json_export:JsonReporter"
-text = "mcp_glp_audit_proxy.reporters.text_export:TextReporter"
+json = "mcp_glp_audit_proxy.reporters.json_export:json_reporter"
+text = "mcp_glp_audit_proxy.reporters.text_export:text_reporter"
+
+[project.entry-points."mcp_glp_audit_proxy.auth"]
+env = "mcp_glp_audit_proxy.identity:env_identity"
 
 [tool.setuptools.packages.find]
 where = ["src"]

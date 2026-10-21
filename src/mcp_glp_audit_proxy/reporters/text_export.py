@@ -5,6 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 
+def text_reporter(_settings: Any) -> TextReporter:
+    """Entry point factory. Pro reporters use the same (settings,) signature."""
+    return TextReporter()
+
+
 class TextReporter:
     name = "text"
     media_type = "text/plain"

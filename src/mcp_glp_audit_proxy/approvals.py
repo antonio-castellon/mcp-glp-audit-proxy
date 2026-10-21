@@ -54,13 +54,23 @@ def load_approvals(entries: list[dict[str, Any]]) -> dict[str, ApprovalRecord]:
         current = found.get(approval_id)
         if current is None:
             continue
-        if entry.get("method") == "glp_approve" and entry.get("status") in {"approved", "rejected"}:
+        if entry.get("method") == "glp_approve" and entry.get("status") in {
+            "approved",
+            "rejected",
+            "reviewed",
+        }:
             principal = entry.get("principal") or {}
-            current.status = str(entry["status"])
+            meaning = approval.get("meaning")
+            status = str(entry["status"])
+            # Schema 1.0.0 stored meaning=reviewed as status approved. Do not
+            # treat that line as an authorisation. The bytes stay as written.
+            if status == "approved" and meaning == "reviewed":
+                status = "reviewed"
+            current.status = status
             current.approver_id = principal.get("id")
             current.approver_name = principal.get("name")
             current.approver_role = principal.get("role")
-            current.meaning = approval.get("meaning")
+            current.meaning = meaning
             current.decided_at = entry.get("timestamp")
             continue
         if entry.get("status") == "ok" and approval.get("status") == "consumed":

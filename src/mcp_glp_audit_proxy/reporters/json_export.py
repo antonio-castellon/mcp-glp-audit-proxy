@@ -8,6 +8,11 @@ from typing import Any
 from ..canonical import CANON, GENESIS, HASH_ALGO, canonicalize
 
 
+def json_reporter(_settings: Any) -> JsonReporter:
+    """Entry point factory. Pro reporters use the same (settings,) signature."""
+    return JsonReporter()
+
+
 class JsonReporter:
     name = "json"
     media_type = "application/json"
@@ -58,6 +63,7 @@ def export_document(
     chain_valid: bool,
     filters: dict[str, Any],
     exported_at: str,
+    signer: str = "unsigned",
 ) -> dict[str, Any]:
     filtered = any(value not in (None, "", [], {}) for value in filters.values())
     head = full_chain[-1]["entry_hash"] if full_chain else GENESIS
@@ -76,7 +82,7 @@ def export_document(
             "full_chain_count": len(full_chain),
             "full_head_hash": head,
             "hash_algo": HASH_ALGO,
-            "signer": "unsigned",
+            "signer": signer,
         },
         "schema": "audit-record.schema.json",
         "schema_version": "1.0.0",

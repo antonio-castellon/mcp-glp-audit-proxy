@@ -6,6 +6,7 @@ from __future__ import annotations
 def main() -> None:
     import sys
 
+    # Same runner as the mcp-glp-audit-proxy-oq console script.
     if len(sys.argv) > 1 and sys.argv[1] == "oq-report":
         from .verification.oq import main as report
 

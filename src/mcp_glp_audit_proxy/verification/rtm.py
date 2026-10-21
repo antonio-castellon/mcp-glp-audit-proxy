@@ -9,14 +9,53 @@ from typing import Any
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[3]
-RTM_PATH = ROOT / "docs" / "verification" / "rtm.yaml"
-
 COMMUNITY_SCOPES = frozenset({"community"})
+_CHECKOUT_MESSAGE = (
+    "OQ runner: this command needs a source checkout. "
+    "It runs pytest on tests/ and reads docs/verification/rtm.yaml. "
+    "A PyPI install does not include that tree. "
+    "Pass --repo-root PATH to the repository root, or run it from a clone."
+)
+
+
+class CheckoutError(Exception):
+    """The OQ runner was not pointed at a source checkout."""
+
+
+def is_checkout(root: Path) -> bool:
+    return (root / "docs" / "verification" / "rtm.yaml").is_file() and (root / "tests").is_dir()
+
+
+def checkout_root(explicit: Path | None = None) -> Path:
+    """Return a repository root that contains the suite and the matrix.
+
+    An editable install is found from this file. A wheel is not: pass
+    ``explicit`` or run the command from a clone. Anything else raises
+    CheckoutError before pytest starts.
+    """
+    if explicit is not None:
+        root = explicit.expanduser().resolve()
+        if not is_checkout(root):
+            raise CheckoutError(_CHECKOUT_MESSAGE)
+        return root
+    candidates: list[Path] = []
+    parents = Path(__file__).resolve().parents
+    if len(parents) > 3:
+        candidates.append(parents[3])
+    candidates.append(Path.cwd())
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if is_checkout(resolved):
+            return resolved
+    raise CheckoutError(_CHECKOUT_MESSAGE)
 
 
 def load_rtm(path: Path | None = None) -> dict[str, Any]:
-    target = path or RTM_PATH
+    target = path or (checkout_root() / "docs" / "verification" / "rtm.yaml")
     raw = yaml.safe_load(target.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or not isinstance(raw.get("requirements"), list):
         raise ValueError("rtm.yaml must contain a requirements list")
@@ -75,12 +114,17 @@ def main(argv: list[str] | None = None) -> int:
     if len(args) != 1:
         print("usage: python -m mcp_glp_audit_proxy.verification.rtm JUNIT.xml", file=sys.stderr)
         return 2
-    problems = community_gaps(load_rtm(), junit_results(Path(args[0])))
+    try:
+        matrix_path = checkout_root() / "docs" / "verification" / "rtm.yaml"
+        problems = community_gaps(load_rtm(matrix_path), junit_results(Path(args[0])))
+    except CheckoutError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     if problems:
         for problem in problems:
             print(problem, file=sys.stderr)
         return 1
-    print(f"traceability ok ({RTM_PATH})")
+    print(f"traceability ok ({matrix_path})")
     return 0
 
 

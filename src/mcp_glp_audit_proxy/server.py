@@ -17,21 +17,17 @@ from .features import FeatureSet
 from .framing import BoundedLineReader, LineTooLong
 from .proxy import MAX_MESSAGE_BYTES, AuditProxy
 from .sdkcheck import assert_mcp_floor
-from .storage.jsonl import JsonlAuditStore
 from .upstream import HttpsTransport, JsonRpcUpstream, StdioTransport
+from .wiring import apply_identity, build_components
 
 
 def build_proxy(settings: Settings, features: FeatureSet | None = None) -> AuditProxy:
     flags = features or FeatureSet.load(settings.licence_path)
-    if "storage.jsonl" not in flags.enabled:
-        raise ConfigurationError("Community JSONL storage is not enabled")
-    store = JsonlAuditStore(
-        settings.audit_path,
-        checkpoint_every=settings.checkpoint_every,
-        legal_hold=settings.retention.legal_hold,
-    )
+    settings.validate()
+    apply_identity(settings, flags)
+    store, reporters = build_components(settings, flags)
     upstreams = [_build_upstream(item) for item in settings.upstreams or []]
-    return AuditProxy(settings, store, upstreams, features=flags)
+    return AuditProxy(settings, store, upstreams, features=flags, reporters=reporters)
 
 
 def serve_stdio(proxy: AuditProxy) -> None:

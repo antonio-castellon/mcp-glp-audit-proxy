@@ -24,6 +24,7 @@ COMMUNITY_FEATURES = frozenset(
         "policy.allowlist",
         "approval.local",
         "rbac.local",
+        "auth.env",
     }
 )
 

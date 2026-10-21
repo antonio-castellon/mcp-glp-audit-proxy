@@ -15,10 +15,13 @@ OECD GLP Series No. 22 is the data-integrity advisory cited in `docs/STANDARDS.m
 
 A host or upstream that never sends a newline is capped at 1 MiB. The session ends. The refusal is audited without the body (`VER-LIMITS`).
 
-Regenerate the verification report with:
+The OQ runner needs a source checkout. It runs pytest on `tests/` and reads `docs/verification/rtm.yaml`. A PyPI install does not include that tree. Pass `--repo-root` or run the command from a clone. If the checkout cannot be found, the command exits 2 and does not start pytest.
+
+Regenerate the verification report from a clone with either command name. They call the same runner and neither is deprecated. `mcp-glp-audit-proxy-oq` is the installed console script. `mcp-glp-audit-proxy oq-report` is the module subcommand.
 
 ```bash
-mcp-glp-audit-proxy oq-report --markdown docs/verification/sample/oq-report.md --json docs/verification/sample/oq-report.json
+mcp-glp-audit-proxy-oq --repo-root . --markdown docs/verification/sample/oq-report.md --json docs/verification/sample/oq-report.json
+mcp-glp-audit-proxy oq-report --repo-root . --markdown docs/verification/sample/oq-report.md --json docs/verification/sample/oq-report.json
 ```
 
 or `python -m mcp_glp_audit_proxy.verification`.

@@ -76,6 +76,7 @@ def test_defaults_build_the_community_plugins(tmp_path: Path) -> None:
     assert plain.storage == "jsonl"
     assert plain.signer == "unsigned"
     assert plain.reporters == ("json", "text")
+    assert plain.plugin_options == {}
     example = load_settings(Path(__file__).resolve().parents[1] / "config.example.json")
     assert example.storage == "jsonl"
     assert example.reporters == ("json", "text")
@@ -102,7 +103,7 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
     with pytest.raises(ConfigurationError, match="not licensed"):
         build_proxy(unlicensed, flags)
 
-    flags.plugins[STORAGE_GROUP]["postgres"] = lambda settings, signer: None
+    flags.plugins[STORAGE_GROUP]["postgres"] = lambda settings, signer, **_extra: None
     with pytest.raises(ConfigurationError, match="not licensed"):
         build_proxy(unlicensed, flags)
 
@@ -116,7 +117,7 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
     with pytest.raises(ConfigurationError, match="not callable"):
         build_proxy(_settings(tmp_path, signer="ed25519"), flags)
 
-    def boom(_settings: object) -> None:
+    def boom(_settings: object, **_extra: object) -> None:
         raise RuntimeError("signer init failed")
 
     flags.plugins[SIGNERS_GROUP]["ed25519"] = boom
@@ -130,11 +131,11 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
         def verify(self, _payload: bytes, _signature: dict[str, object]) -> bool:
             return False
 
-    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings: Nameless()
+    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings, **_extra: Nameless()
     with pytest.raises(ConfigurationError, match="no name"):
         build_proxy(_settings(tmp_path, signer="ed25519"), flags)
 
-    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings: Nameless
+    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings, **_extra: Nameless
     with pytest.raises(ConfigurationError, match="instance"):
         build_proxy(_settings(tmp_path, signer="ed25519"), flags)
 
@@ -142,11 +143,11 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
         pass
 
     flags.enabled.add("storage.postgres")
-    flags.plugins[STORAGE_GROUP]["postgres"] = lambda _settings, _signer: HalfStore()
+    flags.plugins[STORAGE_GROUP]["postgres"] = lambda _settings, _signer, **_extra: HalfStore()
     with pytest.raises(ConfigurationError, match="AuditStore.health"):
         build_proxy(_settings(tmp_path, storage="postgres"), flags)
 
-    flags.plugins[STORAGE_GROUP]["postgres"] = lambda _settings, _signer: HalfStore
+    flags.plugins[STORAGE_GROUP]["postgres"] = lambda _settings, _signer, **_extra: HalfStore
     with pytest.raises(ConfigurationError, match="instance"):
         build_proxy(_settings(tmp_path, storage="postgres"), flags)
 
@@ -157,7 +158,7 @@ def test_unknown_unlicensed_and_missing_plugins_refuse_startup(tmp_path: Path, c
             return b""
 
     flags.enabled.add("report.pdf")
-    flags.plugins[REPORTERS_GROUP]["pdf"] = lambda _settings: BareReporter()
+    flags.plugins[REPORTERS_GROUP]["pdf"] = lambda _settings, **_extra: BareReporter()
     with pytest.raises(ConfigurationError, match="media_type"):
         build_proxy(_settings(tmp_path, reporters=("pdf",)), flags)
 
@@ -206,8 +207,8 @@ def test_selected_signer_and_reporter_are_used(tmp_path: Path) -> None:
     flags = FeatureSet.community()
     flags.enabled.add("signer.ed25519")
     flags.enabled.add("report.csv")
-    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings: FakeSigner()
-    flags.plugins[REPORTERS_GROUP]["csv"] = lambda _settings: CsvReporter()
+    flags.plugins[SIGNERS_GROUP]["ed25519"] = lambda _settings, **_extra: FakeSigner()
+    flags.plugins[REPORTERS_GROUP]["csv"] = lambda _settings, **_extra: CsvReporter()
     settings = _settings(
         tmp_path,
         signer="ed25519",
@@ -222,6 +223,7 @@ def test_selected_signer_and_reporter_are_used(tmp_path: Path) -> None:
     ]
     assert checkpoints
     assert checkpoints[0]["result"]["signature"]["algorithm"] == "ed25519"
+    assert checkpoints[0]["reason"] == "checkpoint signed by ed25519"
     assert proxy.store.read_entries()[0]["arguments"]["plugins"]["signer"] == "ed25519"
 
     exported = proxy.handle(
@@ -276,7 +278,7 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
             return {"id": "from-plugin", "name": "Plugin User", "role": "qa"}
 
     flags.enabled.add("auth.sso")
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: Other()
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: Other()
     replaced = build_proxy(_settings(tmp_path, auth="sso"), flags)
     assert replaced.settings.principal.id == "from-plugin"
     assert replaced.settings.principal.role == "qa"
@@ -287,7 +289,7 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
         def resolve(self) -> dict[str, str]:
             return {"id": "x", "name": "Y", "role": "root"}
 
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: BadRole()
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: BadRole()
     with pytest.raises(ConfigurationError, match="role must be"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
@@ -297,7 +299,7 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
         def resolve(self) -> list[str]:
             return ["nope"]
 
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: NotAPrincipal()
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: NotAPrincipal()
     with pytest.raises(ConfigurationError, match="did not return a principal"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
@@ -305,16 +307,83 @@ def test_env_identity_is_the_default_and_other_auth_plugins_fail_closed(
         def resolve(self) -> dict[str, str]:
             return {"id": "x", "name": "Y", "role": "qa"}
 
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: Nameless()
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: Nameless()
     with pytest.raises(ConfigurationError, match="no name"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
-    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings: Nameless
+    flags.plugins[AUTH_GROUP]["sso"] = lambda _settings, **_extra: Nameless
     with pytest.raises(ConfigurationError, match="instance"):
         build_proxy(_settings(tmp_path, auth="sso"), flags)
 
     with pytest.raises(ConfigurationError, match="unknown plugin 'nope'"):
         build_proxy(_settings(tmp_path, auth="nope"), flags)
+
+
+def test_plugin_options_are_passed_to_the_factory(tmp_path: Path) -> None:
+    seen: dict[str, object] = {}
+
+    class FakeSigner:
+        name = "ed25519"
+
+        def sign(self, _payload: bytes) -> dict[str, object]:
+            return {"algorithm": "ed25519", "signed": True, "value": "abc"}
+
+        def verify(self, _payload: bytes, _signature: dict[str, object]) -> bool:
+            return True
+
+    class CsvReporter:
+        name = "csv"
+        media_type = "text/csv"
+
+        def render(self, _document: dict[str, object]) -> bytes:
+            return b"ok"
+
+    def signer_factory(_settings: object, options: dict[str, object] | None = None) -> FakeSigner:
+        seen["signer"] = options
+        return FakeSigner()
+
+    def store_factory(_settings: object, signer: object, options: dict[str, object] | None = None):
+        seen["storage"] = options
+        return JsonlAuditStore(_settings.audit_path, signer=signer, checkpoint_every=0)  # type: ignore[attr-defined]
+
+    def reporter_factory(_settings: object, options: dict[str, object] | None = None) -> CsvReporter:
+        seen["reporter"] = options
+        return CsvReporter()
+
+    flags = FeatureSet.community()
+    flags.enabled.update({"storage.postgres", "signer.ed25519", "report.csv"})
+    flags.plugins[SIGNERS_GROUP]["ed25519"] = signer_factory
+    flags.plugins[STORAGE_GROUP]["postgres"] = store_factory
+    flags.plugins[REPORTERS_GROUP]["csv"] = reporter_factory
+    loaded = load_settings(
+        _config(
+            tmp_path,
+            plugins={
+                "storage": {"name": "postgres", "options": {"dsn": "postgresql://db/lab"}},
+                "signer": {"name": "ed25519", "options": {"key_id": "lab-1"}},
+                "reporters": {"names": ["csv"], "options": {"csv": {"delimiter": ","}}},
+                "auth": {"name": "env", "options": {}},
+            },
+        )
+    )
+    assert loaded.plugin_options["storage"] == {"dsn": "postgresql://db/lab"}
+    proxy = build_proxy(loaded, flags)
+    assert seen["storage"] == {"dsn": "postgresql://db/lab"}
+    assert seen["signer"] == {"key_id": "lab-1"}
+    assert seen["reporter"] == {"delimiter": ","}
+    assert proxy.store.signer.name == "ed25519"
+
+    with pytest.raises(ConfigurationError, match="options must be an object"):
+        load_settings(_config(tmp_path, plugins={"storage": {"name": "jsonl", "options": []}}))
+    with pytest.raises(ConfigurationError, match="unknown plugins.storage fields"):
+        load_settings(_config(tmp_path, plugins={"storage": {"name": "jsonl", "extra": 1}}))
+    with pytest.raises(ConfigurationError, match="not selected"):
+        load_settings(
+            _config(
+                tmp_path,
+                plugins={"reporters": {"names": ["json"], "options": {"text": {}}}},
+            )
+        )
 
 
 def test_text_export_and_unknown_format(build) -> None:

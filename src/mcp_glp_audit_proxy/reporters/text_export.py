@@ -5,8 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 
-def text_reporter(_settings: Any) -> TextReporter:
-    """Entry point factory. Pro reporters use the same (settings,) signature."""
+def text_reporter(_settings: Any, options: dict[str, Any] | None = None) -> TextReporter:
+    """Entry point factory. Pro reporters use (settings, options=).
+
+    Community ignores ``options``. The mapping is plugins.reporters.options.text.
+    """
+    del options
     return TextReporter()
 
 

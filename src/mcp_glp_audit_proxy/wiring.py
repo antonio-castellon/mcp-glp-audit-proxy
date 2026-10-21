@@ -67,7 +67,12 @@ def apply_identity(settings: Any, features: FeatureSet) -> None:
     The default plugin returns the principal load_settings already resolved.
     An unknown, unlicensed or missing auth plugin refuses startup.
     """
-    provider = _call(load_named(features, AUTH_GROUP, settings.auth), settings, label=settings.auth)
+    provider = _call(
+        load_named(features, AUTH_GROUP, settings.auth),
+        settings,
+        options=_group_options(settings, "auth"),
+        label=settings.auth,
+    )
     _check_identity(provider)
     resolved = provider.resolve()
     if not isinstance(resolved, dict):
@@ -82,30 +87,56 @@ def apply_identity(settings: Any, features: FeatureSet) -> None:
 
 def build_components(settings: Any, features: FeatureSet) -> tuple[Any, dict[str, Any]]:
     """Build the signer, store and reporters selected by settings."""
-    signer = _call(load_named(features, SIGNERS_GROUP, settings.signer), settings, label=settings.signer)
+    signer = _call(
+        load_named(features, SIGNERS_GROUP, settings.signer),
+        settings,
+        options=_group_options(settings, "signer"),
+        label=settings.signer,
+    )
     _check_signer(signer)
     store = _call(
         load_named(features, STORAGE_GROUP, settings.storage),
         settings,
         signer,
+        options=_group_options(settings, "storage"),
         label=settings.storage,
     )
     _check_store(store)
     reporters: dict[str, Any] = {}
+    reporter_options = _group_options(settings, "reporters")
     for name in settings.reporters:
-        reporter = _call(load_named(features, REPORTERS_GROUP, name), settings, label=name)
+        one = reporter_options.get(name) or {}
+        if not isinstance(one, dict):
+            raise ConfigurationError(f"plugins.reporters.options[{name!r}] must be an object")
+        reporter = _call(
+            load_named(features, REPORTERS_GROUP, name),
+            settings,
+            options=dict(one),
+            label=name,
+        )
         _check_reporter(reporter)
         reporters[name] = reporter
     return store, reporters
 
 
-def _call(factory: Any, *args: Any, label: str) -> Any:
+def _call(factory: Any, *args: Any, options: dict[str, Any], label: str) -> Any:
+    """Call a plugin factory. ``options`` is the plugins.<group>.options object."""
     try:
-        return factory(*args)
+        return factory(*args, options=dict(options))
     except ConfigurationError:
         raise
     except Exception as exc:
         raise ConfigurationError(f"plugin {label!r} failed to load: {exc}") from exc
+
+
+def _group_options(settings: Any, group: str) -> dict[str, Any]:
+    block = getattr(settings, "plugin_options", None) or {}
+    if not isinstance(block, dict):
+        raise ConfigurationError("plugin options must be an object")
+    selected = block.get(group) or {}
+    if not isinstance(selected, dict):
+        raise ConfigurationError(f"plugins.{group}.options must be an object")
+    return dict(selected)
 
 
 def _check_identity(provider: Any) -> None:

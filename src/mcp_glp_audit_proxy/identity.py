@@ -22,6 +22,10 @@ class EnvIdentity:
         return self._principal.as_dict()
 
 
-def env_identity(settings: Any) -> EnvIdentity:
-    """Entry point factory. Pro auth plugins use the same (settings,) signature."""
+def env_identity(settings: Any, options: dict[str, Any] | None = None) -> EnvIdentity:
+    """Entry point factory. Pro auth plugins use (settings, options=).
+
+    Community ignores ``options``. The mapping is plugins.auth.options.
+    """
+    del options
     return EnvIdentity(settings.principal)

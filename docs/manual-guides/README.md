@@ -74,10 +74,10 @@ A JSON object. Unknown `policy` keys and unknown `plugins` keys refuse startup. 
 | `require_ntp` | Default false. When true, startup refuses unless `timedatectl` reports `NTPSynchronized=yes` |
 | `export_dir` | Default `<audit directory>/exports`. `glp_export_audit` cannot write outside it |
 | `licence_path` | Local licence JSON, or null. Overridden by `GLP_LICENCE_PATH` |
-| `plugins.storage` | Default `jsonl` |
-| `plugins.signer` | Default `unsigned` |
-| `plugins.reporters` | Default `["json", "text"]`. Non-empty, no duplicates |
-| `plugins.auth` | Default `env` |
+| `plugins.storage` | Default `jsonl`. A name, or `{"name", "options"}`. `options` is passed to the factory and is not written to the audit log |
+| `plugins.signer` | Default `unsigned`. Same shape as `plugins.storage` |
+| `plugins.reporters` | Default `["json", "text"]`. A non-empty list, or `{"names", "options"}`. `options` maps each reporter name to an object. No duplicates |
+| `plugins.auth` | Default `env`. Same shape as `plugins.storage` |
 | `upstreams` | List. See below |
 
 Plugin names match `^[a-z][a-z0-9_]{0,40}$`. Selecting a name that is unknown, not licensed, or not installed refuses startup. There is no fallback. See [plugins.md](plugins.md).

@@ -19,8 +19,12 @@ def unsigned_signer(_settings: Any, options: dict[str, Any] | None = None) -> Un
     return UnsignedSigner()
 
 
+unsigned_signer.licence_feature = "signer.unsigned"
+
+
 class UnsignedSigner:
     name = "unsigned"
+    licence_feature = "signer.unsigned"
 
     def sign(self, payload: bytes) -> dict[str, Any]:
         if not isinstance(payload, (bytes, bytearray)):

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import LicenceError
+from .licence import verify_ed25519_licence
 from .plugins import load_group
 
 COMMUNITY_FEATURES = frozenset(
@@ -31,118 +32,59 @@ COMMUNITY_FEATURES = frozenset(
     }
 )
 
-# Implemented only by the licensed Pro edition. Names are the contract.
-PRO_FEATURES = frozenset(
-    {
-        "storage.postgres",
-        "storage.mssql",
-        "storage.s3_object_lock",
-        "signer.ed25519",
-        "signer.ecdsa",
-        "timestamp.rfc3161",
-        "signature.part11",
-        "report.pdf",
-        "report.csv",
-        "validation.iqoq",
-        "auth.sso",
-        "auth.oauth",
-    }
+LICENCE_FORMAT = "mcp-glp-audit-proxy-licence"
+
+PLUGIN_GROUPS = (
+    "mcp_glp_audit_proxy.storage",
+    "mcp_glp_audit_proxy.signers",
+    "mcp_glp_audit_proxy.reporters",
+    "mcp_glp_audit_proxy.auth",
 )
 
-# feature -> (entry point group, entry point name)
-PRO_PLUGINS: dict[str, tuple[str, str]] = {
-    "storage.postgres": ("mcp_glp_audit_proxy.storage", "postgres"),
-    "storage.mssql": ("mcp_glp_audit_proxy.storage", "mssql"),
-    "storage.s3_object_lock": ("mcp_glp_audit_proxy.storage", "s3"),
-    "signer.ed25519": ("mcp_glp_audit_proxy.signers", "ed25519"),
-    "signer.ecdsa": ("mcp_glp_audit_proxy.signers", "ecdsa_p256"),
-    "timestamp.rfc3161": ("mcp_glp_audit_proxy.signers", "rfc3161"),
-    "signature.part11": ("mcp_glp_audit_proxy.signers", "part11"),
-    "report.pdf": ("mcp_glp_audit_proxy.reporters", "pdf"),
-    "report.csv": ("mcp_glp_audit_proxy.reporters", "csv"),
-    "validation.iqoq": ("mcp_glp_audit_proxy.reporters", "iqoq"),
-    "auth.sso": ("mcp_glp_audit_proxy.auth", "sso"),
-    "auth.oauth": ("mcp_glp_audit_proxy.auth", "oauth"),
-}
 
-LICENCE_FORMAT = "mcp-glp-audit-proxy-licence"
-LICENCE_GROUP = "mcp_glp_audit_proxy.licence"
+def declared_feature(factory: Any) -> str | None:
+    """Return the licence feature a plugin factory declares, if it declares one."""
+    value = getattr(factory, "licence_feature", None)
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
-class CommunityLicenceVerifier:
-    """Signature check used when no licence verifier entry point is installed.
-
-    A licence with no signature is accepted. Expiry is checked separately by
-    ``validate_licence`` before this method runs. A signature cannot be checked
-    here: this package has no vendor key and does not open a socket.
-    """
-
-    name = "community"
-
-    def verify(self, raw: dict[str, Any]) -> None:
-        signature = raw.get("signature", None)
-        if signature is None:
-            return
-        if not isinstance(signature, dict):
-            raise LicenceError("licence signature must be an object")
-        raise LicenceError(
-            "licence signature cannot be verified; no licence verifier is installed"
-        )
-
-
-def resolve_licence_verifier() -> Any:
-    """Return the installed licence verifier, or the Community one.
-
-    The entry-point group is ``mcp_glp_audit_proxy.licence``. Each value is a
-    zero-argument factory. One factory is used. When several are installed,
-    the name ``default`` is required. This repository registers none.
-    """
-    group = load_group(LICENCE_GROUP)
-    if not group:
-        return CommunityLicenceVerifier()
-    if "default" in group:
-        factory = group["default"]
-    elif len(group) == 1:
-        factory = next(iter(group.values()))
-    else:
-        raise LicenceError(
-            "multiple licence verifiers are installed; register the name 'default'"
-        )
-    if not callable(factory):
-        raise LicenceError("licence verifier is not callable")
-    try:
-        verifier = factory()
-    except LicenceError:
-        raise
-    except Exception as exc:
-        raise LicenceError(f"licence verifier failed to load: {exc}") from exc
-    if not callable(getattr(verifier, "verify", None)):
-        raise LicenceError("licence verifier does not implement verify")
-    return verifier
+def discover_features(plugins: dict[str, dict[str, Any]]) -> set[str]:
+    """Features declared by installed entry points. There is no built-in Pro list."""
+    found: set[str] = set()
+    for table in plugins.values():
+        for factory in table.values():
+            feature = declared_feature(factory)
+            if feature is not None:
+                found.add(feature)
+    return found
 
 
 def validate_licence(
     raw: dict[str, Any],
     *,
-    verifier: Any | None = None,
+    public_key: bytes | None = None,
     now: datetime | None = None,
 ) -> None:
-    """Reject an expired licence, then delegate the signature.
+    """Reject a licence that is not a valid signed grant of its extra features.
 
-    ``expires``, when present, is compared with the local clock. There is no
-    network call and no grace period fetched from a vendor. A ``signature`` is
-    accepted only when ``verifier`` (or the installed entry point) accepts it.
+    Community features do not need a signature. Any other feature, and any
+    file that carries a signature, is checked with Ed25519 against the trust
+    anchor. ``expires``, when present, is then compared with the local clock.
+    There is no network call and no grace period fetched from a vendor.
     """
+    features = raw.get("features") or []
+    extra = [
+        item
+        for item in features
+        if isinstance(item, str) and item not in COMMUNITY_FEATURES
+    ]
+    if raw.get("signature", None) is not None or extra:
+        if raw.get("signature", None) is None:
+            raise LicenceError("licence signature is required")
+        verify_ed25519_licence(raw, public_key=public_key)
     _reject_expired(raw, now=now)
-    checker = verifier if verifier is not None else resolve_licence_verifier()
-    try:
-        result = checker.verify(raw)
-    except LicenceError:
-        raise
-    except Exception as exc:
-        raise LicenceError(f"licence rejected: {exc}") from exc
-    if result is False:
-        raise LicenceError("licence signature is invalid")
 
 
 def _reject_expired(raw: dict[str, Any], *, now: datetime | None) -> None:
@@ -182,7 +124,7 @@ class FeatureSet:
         cls,
         path: Path | None,
         *,
-        verifier: Any | None = None,
+        public_key: bytes | None = None,
         now: datetime | None = None,
     ) -> FeatureSet:
         requested: list[str] = []
@@ -196,28 +138,19 @@ class FeatureSet:
             if not isinstance(features, list) or not all(isinstance(item, str) for item in features):
                 raise ValueError("licence features must be a list of strings")
             # No licence file skips this entirely. Community features stay on.
-            validate_licence(raw, verifier=verifier, now=now)
+            validate_licence(raw, public_key=public_key, now=now)
             requested = list(features)
 
-        groups = (
-            "mcp_glp_audit_proxy.storage",
-            "mcp_glp_audit_proxy.signers",
-            "mcp_glp_audit_proxy.reporters",
-            "mcp_glp_audit_proxy.auth",
-        )
-        plugins = {group: load_group(group) for group in groups}
+        plugins = {group: load_group(group) for group in PLUGIN_GROUPS}
+        discovered = discover_features(plugins)
         enabled = set(COMMUNITY_FEATURES)
         unavailable: list[str] = []
         for feature in requested:
             if feature in COMMUNITY_FEATURES:
                 continue
-            if feature not in PRO_FEATURES:
-                unavailable.append(feature)
-                continue
-            group, name = PRO_PLUGINS[feature]
-            if name in plugins.get(group, {}):
+            if feature in discovered:
                 enabled.add(feature)
-            else:
-                # Requested, but this install has no plugin. Do not pretend.
-                unavailable.append(feature)
+                continue
+            # Named by the licence, but no installed plugin declares it.
+            unavailable.append(feature)
         return cls(enabled=enabled, unavailable=unavailable, plugins=plugins)

@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import base64
 import io
 import json
 import sys
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mcp_glp_audit_proxy.anchor import verify_anchored
+from mcp_glp_audit_proxy.canonical import canonicalize
 from mcp_glp_audit_proxy.config import Settings, UpstreamConfig
-from mcp_glp_audit_proxy.errors import ConfigurationError, TlsRequired, UpstreamError
+from mcp_glp_audit_proxy.errors import ConfigurationError, LicenceError, TlsRequired, UpstreamError
 from mcp_glp_audit_proxy.features import FeatureSet
 from mcp_glp_audit_proxy.proxy import AuditProxy
 from mcp_glp_audit_proxy.reporters.text_export import TextReporter
@@ -101,16 +104,29 @@ def test_serve_stdio_last_resort_and_unknown_licence(tmp_path: Path, monkeypatch
     assert "fail_closed" in sys.stdout.getvalue()
     assert proxy._dead is True
 
-    licence = tmp_path / "licence.json"
-    licence.write_text(
+    unsigned = tmp_path / "unsigned.json"
+    unsigned.write_text(
         json.dumps({"format": "mcp-glp-audit-proxy-licence", "features": ["not-a-feature"]}),
         encoding="utf-8",
     )
+    with pytest.raises(LicenceError, match="signature is required"):
+        FeatureSet.load(unsigned)
+
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes_raw()
+    body = {"format": "mcp-glp-audit-proxy-licence", "features": ["not-a-feature"]}
+    body["signature"] = {
+        "algorithm": "ed25519",
+        "key_id": "test",
+        "value": base64.b64encode(private.sign(canonicalize(body))).decode("ascii"),
+    }
+    licence = tmp_path / "licence.json"
+    licence.write_text(json.dumps(body), encoding="utf-8")
     flagged = AuditProxy(
         stack["proxies"]["qa"].settings,
         stack["store"],
         [],
-        features=FeatureSet.load(licence),
+        features=FeatureSet.load(licence, public_key=public),
         now=stack["clock"],
         clock_probe=lambda: {"detail": "yes", "ntp_synchronized": True, "source": "test"},
     )

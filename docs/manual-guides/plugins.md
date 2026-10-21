@@ -1,8 +1,8 @@
 # Plugin configuration
 
-`plugins` in `config.json` selects entry points. Community ships `storage` `jsonl`, `signer` `unsigned`, reporters `json` and `text`, and `auth` `env`. The factories are in `pyproject.toml`. Pro names exist only as reserved feature flags. This page does not describe how a Pro backend stores or signs data. The contracts are in `docs/PLUGINS.md`.
+`plugins` in `config.json` selects entry points. Community ships `storage` `jsonl`, `signer` `unsigned`, reporters `json` and `text`, and `auth` `env`. The factories are in `pyproject.toml`. Each factory declares `licence_feature` (for example `storage.sql`). This page does not describe how another backend stores or signs data. The contracts are in `docs/PLUGINS.md`.
 
-Startup refuses an unknown name, a name the licence does not enable, or a name that is not installed. The factory is not called in those cases. There is no silent fallback to `jsonl` or `unsigned`.
+Startup refuses an unknown name, a factory that does not declare `licence_feature`, and a declared feature the licence does not enable. The factory is not called in those cases. There is no silent fallback to `jsonl` or `unsigned`.
 
 The upstream is still only in `upstreams`. A plugin does not add a second path from the host to the lab server.
 
@@ -98,7 +98,7 @@ Same Community plugins, stated explicitly, licence file present, reporters limit
 }
 ```
 
-Licence file. `format` must be `mcp-glp-audit-proxy-licence`. `features` is a list of strings. An empty list leaves Community features on. A Pro feature name is enabled only when this list contains it and the entry point is installed. Otherwise it is printed on stderr as unavailable, and selecting it under `plugins` refuses startup. `expires`, when set, is an RFC 3339 timestamp with a time zone; a time that is not still in the future is rejected. `signature`, when set, is checked by a licence verifier entry point. This repository does not ship that verifier, so a signature is rejected here. A file with neither field still loads.
+Licence file. `format` must be `mcp-glp-audit-proxy-licence`. `features` is a list of strings. An empty list leaves Community features on. A feature outside that set is enabled only when the file carries a valid Ed25519 signature and an installed factory declares the same `licence_feature`. Otherwise the name is not loaded. A verified feature that no factory declares is printed on stderr as unavailable. `expires`, when set, is an RFC 3339 timestamp with a time zone; a time that is not still in the future is rejected after the signature check. The signature covers the RFC 8785 bytes of the file with the `signature` field removed. `algorithm` is `ed25519`. `value` is standard base64. The public key is `LICENCE_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence`. The private key is not in this repository. A file that lists only Community features, and has no signature, still loads.
 
 A plugin value may be a name, or `{"name": "<plugin>", "options": {}}`. Reporters may be `{"names": ["json", "text"], "options": {}}`. `options` is `plugins.<group>.options` and is passed to that factory. Community factories ignore it. It is not written to the audit log.
 
@@ -130,5 +130,5 @@ mcp-glp-audit-proxy-verify /srv/glp/admin-1/audit.jsonl --method audit/startup
 - `plugins.reporters` must be a non-empty list without duplicates. `[]` refuses startup.
 - Names are lowercase. `JSONL` is not `jsonl`.
 - The verify CLI ignores `plugins` and always reports signer `unsigned` on its export.
-- Setting `plugins.signer` to a reserved Pro name without a licence and an installed entry point refuses startup. Do not do that to "turn signing on" in this repository. The Community signer returns `signed: false`.
-- `auth` values other than `env` are reserved names. They are not implemented here. A missing or unlicensed selection fails closed.
+- Setting `plugins.signer` to a name that is not installed, or whose `licence_feature` is not enabled, refuses startup. Do not do that to turn signing on in this repository. The Community signer returns `signed: false`.
+- `auth` values other than `env` are not implemented here. A missing or unlicensed selection fails closed. The factory is not called.

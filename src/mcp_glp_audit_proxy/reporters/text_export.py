@@ -14,8 +14,12 @@ def text_reporter(_settings: Any, options: dict[str, Any] | None = None) -> Text
     return TextReporter()
 
 
+text_reporter.licence_feature = "report.text"
+
+
 class TextReporter:
     name = "text"
+    licence_feature = "report.text"
     media_type = "text/plain"
 
     def render(self, document: dict[str, Any]) -> bytes:

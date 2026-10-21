@@ -159,7 +159,7 @@ A denial is still an audit line. If you need the call, change policy as `admin` 
 | `config is not JSON` | Trailing commas, comments, or a single trailing quote. JSON has no comments |
 | `role must be one of` | `GLP_PRINCIPAL_ROLE` is not `operator`, `approver`, `qa`, or `admin` |
 | `unknown plugins fields` or `must be a plugin name` | `plugins` keys or a name outside the lowercase pattern |
-| `not licensed` or `not installed` | `plugins` selected a name this process cannot use. Community values are `jsonl`, `unsigned`, `json`, `text`, `env` |
+| `unknown plugin` or `not licensed` | `plugins` selected a name this process cannot use. Community values are `jsonl`, `unsigned`, `json`, `text`, `env`. An unlicensed factory is not called |
 | `require_ntp is set and the clock is not reported synchronized` | `timedatectl` missing or not reporting `yes`. Windows has no `timedatectl`. Leave `require_ntp` false there |
 | `https transport requires url` or `remote transports require TLS 1.3` | `transport` `https` needs an `https://` URL. `http://` is refused |
 | `stdio transport requires command` | stdio upstream with no `command` |

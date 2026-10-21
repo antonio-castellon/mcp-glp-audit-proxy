@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A licence file is checked before its features are enabled. `expires`, when set, is compared with the local clock, and an expired file is rejected. `signature` is delegated to the `mcp_glp_audit_proxy.licence` verifier. With no verifier installed, a signed licence is rejected. No licence file still enables only Community features.
+- `PRO_PLUGINS` and `PRO_FEATURES` are removed. Each plugin factory declares `licence_feature` (for example `storage.sql`). Community discovers installed entry points. A feature outside the Community set is enabled only when the Ed25519-signed licence lists it. The signature covers the RFC 8785 bytes of the licence with the `signature` field removed, and it is checked against the public key in `mcp_glp_audit_proxy.licence`. An unlicensed plugin is not loaded. No licence file still enables only Community features. `expires`, when set, is compared with the local clock after that check.
 - `plugins.<group>.options` is passed to the plugin factory. Community factories accept the object and ignore it. The options are not written to the audit log.
 - A JSONL checkpoint `reason` names the active signer. The unsigned sentence is used only when the unsigned signer is used.
 

@@ -50,7 +50,7 @@ mcp-glp-audit-proxy --config config.json
 
 Stdio identity comes from the environment. There is no HTTP listener in 0.2.0. A Cursor snippet is in `mcp.json`. A full config is in `config.example.json`.
 
-`plugins.storage`, `plugins.signer`, `plugins.reporters` and `plugins.auth` select entry points. The defaults are `jsonl`, `unsigned`, `json` plus `text`, and `env`. `env` returns the principal from `GLP_PRINCIPAL_*` or the config file. It is not an identity provider. An unknown plugin, or a plugin that is not licensed or not installed, refuses to start. The proxy does not fall back to another backend. See `docs/PLUGINS.md`.
+`plugins.storage`, `plugins.signer`, `plugins.reporters` and `plugins.auth` select entry points. The defaults are `jsonl`, `unsigned`, `json` plus `text`, and `env`. `env` returns the principal from `GLP_PRINCIPAL_*` or the config file. It is not an identity provider. An unknown plugin, or a plugin whose declared licence feature is not enabled, refuses to start. The factory is not called. The proxy does not fall back to another backend. See `docs/PLUGINS.md`.
 
 Verify a chain and write a searchable JSON export (the export is skipped when the chain does not verify):
 
@@ -140,7 +140,7 @@ A mark means that edition includes the capability. Pro includes every Community 
 | TLS 1.3 to remote upstreams, no token passthrough | :white_check_mark: | :white_check_mark: |
 | Offline licence file, no phone-home | :white_check_mark: | :white_check_mark: reads the same file |
 
-Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, and the offline licence loader. Pro marks match `PRO_FEATURES` in `features.py` plus the edition column in `docs/COVERAGE.md`. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Part 11 signatures, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are reserved plugin names, not implementations in this tree. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
+Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, and the offline licence loader. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`, and Community enables that feature only when the signed licence includes it. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Part 11 signatures, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
 
 Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the licence file are described in `docs/PLUGINS.md`.
 

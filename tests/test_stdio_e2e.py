@@ -251,7 +251,9 @@ def test_audit_store_failure_latches_blocked(tmp_path: Path) -> None:
             },
         )
         assert "error" not in first
-        os.chmod(tmp_path / "audit.jsonl", 0o444)
+        audit = tmp_path / "audit.jsonl"
+        audit.unlink()
+        audit.mkdir()
         before = _tool_calls(log)
         blocked = _rpc(
             proc,
@@ -278,7 +280,9 @@ def test_audit_store_failure_latches_blocked(tmp_path: Path) -> None:
         assert _tool_calls(log) == mid
     finally:
         audit = tmp_path / "audit.jsonl"
-        if audit.exists():
+        if audit.is_dir():
+            audit.rmdir()
+        elif audit.exists():
             os.chmod(audit, 0o644)
         _stop(proc)
 

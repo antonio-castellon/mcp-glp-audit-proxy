@@ -1,8 +1,8 @@
 # Log anchoring and verification
 
-The Community store appends RFC 8785 JSON lines. Each line carries `prev_hash` and `entry_hash` (SHA-256). After every fsynced line the store writes `<audit-path>.head` with `seq` and `entry_hash`, via a temp file in the same directory, an fsync, and an atomic rename. Mode `0600` is requested for the log and the head.
+The Community store appends RFC 8785 JSON lines. Each line carries `prev_hash` and `entry_hash` (SHA-256). After every fsynced line the store writes `<audit-path>.head` with `seq` and `entry_hash`, via a temp file in the same directory, an fsync, and an atomic rename. The log and the head are set to mode `0600` on open. A change to an existing file is logged as a warning. A log directory created by the store is mode `0700`.
 
-Someone who can edit both the log and the sidecar can move them together. The control on this machine is an external copy of the tip. Signed checkpoints and WORM storage are not in this edition.
+Someone who can edit both the log and the sidecar can move them together. The control on this machine is an external copy of the tip, checked with `--expect-head` or `--expect-head-file`. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro.
 
 The upstream must still be reached only through the proxy. Verification reads a file. It does not replace that rule.
 
@@ -19,7 +19,7 @@ python -m pip install mcp-glp-audit-proxy
 mcp-glp-audit-proxy-verify --help
 ```
 
-The verify flags are `--json-export`, `--record-class`, `--tool`, `--status`, `--principal`, `--method`, `--server`, `--since`, `--until`, and `--print-head`. There is no `--config` on this command. It does not load plugins. The JSON export's signer field stays `unsigned`.
+The verify flags are `--json-export`, `--record-class`, `--tool`, `--status`, `--principal`, `--method`, `--server`, `--since`, `--until`, `--print-head`, `--expect-head`, `--expect-head-file`, and `--pubkey`. There is no `--config` on this command. Without `--pubkey` it does not load plugins. `--pubkey` passes the file bytes to the licensed signer plugin. Unsigned checkpoints do not satisfy that check. The JSON export's signer field stays `unsigned` unless a licensed signer produced the checkpoint.
 
 ## Minimal config
 
@@ -108,6 +108,7 @@ Checkpoints more often, a dedicated export directory, and a filtered export that
 
 ```bash
 mcp-glp-audit-proxy-verify /srv/glp/qa-1/audit.jsonl --json-export /srv/glp/qa-1/exports/audit.json --print-head
+mcp-glp-audit-proxy-verify /srv/glp/qa-1/audit.jsonl --expect-head-file /srv/glp/qa-1/expected-head.txt
 mcp-glp-audit-proxy-verify /srv/glp/qa-1/audit.jsonl --record-class gxp_data --since 2026-01-01T00:00:00Z
 ```
 
@@ -117,16 +118,16 @@ Inside a QA session the same check is the tool `glp_verify_chain` with no argume
 
 ## Verification
 
-Compare today's stdout line with the line you stored outside the machine.
+Compare today's stdout line with the line you stored outside the machine, or pass that line to `--expect-head-file`.
 
 - Exit 0 and `chain ok`: the file matches its hashes. If stderr also says `head lags by 1 verified record`, the last record verifies and startup will advance the sidecar. That is the crash window between the log fsync and the head rename. Restart, run the command again, and the lag note should be gone. Do not hand-edit the sidecar.
 - Exit 1 and `chain invalid`: stop. Do not export. Follow `docs/RECONCILIATION_SOP.md`. A missing head, a short log, or a hash mismatch is in this group.
-- A cut of whole trailing lines that also rewrites `.head` is not detected on this machine. The off-host `seq=` line is what detects it.
+- A cut of whole trailing lines that also rewrites `.head` is not detected on this machine unless `--expect-head` or `--expect-head-file` names the earlier tip. The off-host `seq=` line is what detects it.
 
 ## Pitfalls
 
 - `checkpoint_every` 0 is stored as 100. It does not disable checkpoints.
-- The CLI does not take `--config`, `GLP_AUDIT_PATH`, or plugin names. Pass the log path as the positional argument.
-- Editing a sealed line, then hoping verify will rewrite it, fails. Verify never rewrites the log.
+- The CLI does not take `--config` or `GLP_AUDIT_PATH`. Pass the log path as the positional argument. `--pubkey` is the only flag that loads a signer plugin.
+- Editing a sealed line, then hoping verify will rewrite it, fails. Verify does not change entry bytes. It does set the log and the head to mode `0600` when it can, and it warns when an existing mode changes.
 - Reconciliation when the upstream applied a write and the append failed is `docs/RECONCILIATION_SOP.md`. The host was shown a JSON-RPC error, code `-32000`, `data.reason` `fail_closed`, and the upstream payload was not returned.
 - QA's empty `upstreams` is correct for a review station. An operator station still names the upstream only in its own proxy config.

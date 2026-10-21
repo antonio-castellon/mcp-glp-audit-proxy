@@ -37,9 +37,15 @@ class UnsignedSigner:
             "value": None,
         }
 
-    def verify(self, payload: bytes, signature: dict[str, Any]) -> bool:
+    def verify(
+        self,
+        payload: bytes,
+        signature: dict[str, Any],
+        public_key: bytes | None = None,
+    ) -> bool:
         # An unsigned checkpoint has no signature to check. Chain hashes are
-        # the Community integrity control. A signed checkpoint is verified by
-        # the Pro signer that produced it.
+        # the Community integrity control. A pinned key is for a Pro signer.
         del payload
+        if public_key is not None:
+            return False
         return signature.get("signed") is False and signature.get("value") is None

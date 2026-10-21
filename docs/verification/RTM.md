@@ -7,7 +7,7 @@ How to read `scope`:
 - `community`: this repository claims the control. CI fails unless every named test passed.
 - `pro`: out of scope (Pro). Not tested here.
 - `customer`: customer responsibility. Not tested here.
-- `gap`: documented limit. Not claimed as a Community control. Personal Part 11 e-signatures are `gap`, not `pro`. Neither edition provides them. The proxy writes an automatic, non-blocking trace and signs that trace itself.
+- `gap`: documented limit. Not claimed as a Community control. Personal Part 11 e-signatures are `gap`, not `pro`. Neither edition provides them. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro.
 
 OECD GLP Series No. 22 is the data-integrity advisory cited in `docs/STANDARDS.md`. Rows `GLP22-1` through `GLP22-3` map the attributes this proxy actually exercises. They do not quote paragraph numbers.
 

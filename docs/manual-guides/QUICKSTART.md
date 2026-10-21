@@ -128,4 +128,4 @@ Recorded an approval. This is not an electronic signature.
 
 The approval id travels only in `_meta["io.github.antonio-castellon/approvalId"]` on the later write. It is not an argument. The later write has to repeat the same arguments, including `_glp_reason`, because `args_hash` is a hash of those arguments. A changed argument does not match the approval. Many chat clients cannot set `_meta`. This gate is for a client that can send that field, or for a small JSON-RPC script. It is not part of the hello world above. A run of this path returned the pending text above, then `Recorded an approval. This is not an electronic signature.`, then `Saved: bench 1 is clean`.
 
-The stored label remains `approval`. Personal Part 11 e-signatures are out of scope. The proxy writes an automatic, non-blocking trace and signs that trace itself.
+The stored label remains `approval`. Personal Part 11 e-signatures are out of scope. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro.

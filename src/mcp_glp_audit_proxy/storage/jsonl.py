@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from ..anchor import assess, read_head, write_head
+from ..permissions import ensure_private_dir, open_private
 from ..canonical import GENESIS, canonicalize, seal
 from ..chain import VerifyReport, verify_bytes
 from ..errors import AuditStoreError, ChainIntegrityError
@@ -65,8 +66,8 @@ class JsonlAuditStore:
 
     def health(self) -> bool:
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+            ensure_private_dir(self.path.parent)
+            fd = open_private(self.path, os.O_RDWR | os.O_CREAT)
         except OSError:
             return False
         os.close(fd)
@@ -114,7 +115,7 @@ class JsonlAuditStore:
         if not self.health():
             raise AuditStoreError("audit store unavailable")
         try:
-            fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+            fd = open_private(self.path, os.O_RDWR | os.O_CREAT)
         except OSError as exc:
             raise _write_failure(exc) from exc
         checkpoint: dict[str, Any] | None = None

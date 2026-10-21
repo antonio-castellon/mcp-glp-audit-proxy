@@ -5,35 +5,35 @@
       "expected": "pass",
       "id": "tests/test_anchor.py::test_truncating_whole_lines_fails_verification",
       "status": "pass",
-      "time": "0.017"
+      "time": "0.016"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_anchor.py::test_consistent_truncation_of_log_and_head_is_a_residual_risk",
       "status": "pass",
-      "time": "0.011"
+      "time": "0.014"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_anchor.py::test_corrupt_or_missing_head_fails",
       "status": "pass",
-      "time": "0.011"
+      "time": "0.008"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_anchor.py::test_one_record_lag_is_recovered_not_a_false_alarm",
       "status": "pass",
-      "time": "0.024"
+      "time": "0.022"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_anchor.py::test_startup_disagreement_refuses_to_start",
       "status": "pass",
-      "time": "1.232"
+      "time": "1.297"
     },
     {
       "actual": "pass",
@@ -47,49 +47,49 @@
       "expected": "pass",
       "id": "tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts",
       "status": "pass",
-      "time": "0.125"
+      "time": "0.143"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_approval.py::test_reviewed_and_rejected_do_not_authorise",
       "status": "pass",
-      "time": "0.196"
+      "time": "0.208"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_approval.py::test_legacy_reviewed_approval_still_verifies_and_does_not_authorise",
       "status": "pass",
-      "time": "0.143"
+      "time": "0.152"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_approval.py::test_operator_cannot_approve_and_cannot_self_approve",
       "status": "pass",
-      "time": "0.120"
+      "time": "0.125"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_approval.py::test_changed_arguments_do_not_match_the_approval",
       "status": "pass",
-      "time": "0.119"
+      "time": "0.129"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_approval.py::test_matching_approval_is_consumed_when_the_gate_is_turned_off",
       "status": "pass",
-      "time": "0.151"
+      "time": "0.154"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_approval.py::test_expired_approval_is_refused",
       "status": "pass",
-      "time": "0.120"
+      "time": "0.129"
     },
     {
       "actual": "pass",
@@ -103,21 +103,21 @@
       "expected": "pass",
       "id": "tests/test_chain.py::test_chain_links_and_matches_schema",
       "status": "pass",
-      "time": "0.089"
+      "time": "0.084"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_docs.py::test_readme_is_ascii_and_states_the_boundary",
       "status": "pass",
-      "time": "0.022"
+      "time": "0.020"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_docs.py::test_source_has_no_pro_implementations",
       "status": "pass",
-      "time": "0.004"
+      "time": "0.003"
     },
     {
       "actual": "pass",
@@ -138,133 +138,133 @@
       "expected": "pass",
       "id": "tests/test_export.py::test_entries_match_the_published_schema",
       "status": "pass",
-      "time": "0.160"
+      "time": "0.179"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_export.py::test_qa_can_search_and_export_operator_cannot",
       "status": "pass",
-      "time": "0.152"
+      "time": "0.159"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_export.py::test_export_path_cannot_escape",
       "status": "pass",
-      "time": "0.107"
+      "time": "0.119"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_export.py::test_verify_cli_exports_only_a_valid_chain",
       "status": "pass",
-      "time": "0.114"
+      "time": "0.125"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_fail_closed.py::test_unhealthy_store_does_not_forward",
       "status": "pass",
-      "time": "0.105"
+      "time": "0.119"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_fail_closed.py::test_append_failure_hides_upstream_result",
       "status": "pass",
-      "time": "0.105"
+      "time": "0.120"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded",
       "status": "pass",
-      "time": "0.111"
+      "time": "0.124"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_fail_closed.py::test_failed_upstream_call_is_logged",
       "status": "pass",
-      "time": "0.110"
+      "time": "0.122"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_fail_closed.py::test_tool_is_error_is_logged_as_failed",
       "status": "pass",
-      "time": "0.109"
+      "time": "0.121"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_fail_closed.py::test_tampered_chain_does_not_forward",
       "status": "pass",
-      "time": "0.104"
+      "time": "0.119"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_fail_closed.py::test_store_refuses_disposal",
       "status": "pass",
-      "time": "0.105"
+      "time": "0.116"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_faults.py::test_fsync_enospc_latches_the_proxy",
       "status": "pass",
-      "time": "0.106"
+      "time": "0.119"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_faults.py::test_eio_and_permission_errors_are_store_errors",
       "status": "pass",
-      "time": "0.004"
+      "time": "0.005"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_faults.py::test_broken_chain_latches_and_does_not_retry",
       "status": "pass",
-      "time": "0.104"
+      "time": "0.120"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_faults.py::test_partial_line_is_detected_and_blocks_the_next_append",
       "status": "pass",
-      "time": "0.009"
+      "time": "0.006"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_faults.py::test_insert_duplicate_and_tail_shapes",
       "status": "pass",
-      "time": "0.010"
+      "time": "0.007"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_faults.py::test_parallel_appends_stay_one_record_per_line",
       "status": "pass",
-      "time": "0.147"
+      "time": "0.141"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_faults.py::test_backwards_clock_is_stored_as_given",
       "status": "pass",
-      "time": "0.115"
+      "time": "0.126"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_faults.py::test_upstream_crash_is_logged_and_does_not_consume_approval",
       "status": "pass",
-      "time": "0.011"
+      "time": "0.012"
     },
     {
       "actual": "pass",
@@ -278,28 +278,28 @@
       "expected": "pass",
       "id": "tests/test_faults.py::test_transport_failure_keeps_the_approval",
       "status": "pass",
-      "time": "0.127"
+      "time": "0.150"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_features.py::test_licence_is_local_and_does_not_phone_home",
       "status": "pass",
-      "time": "0.051"
+      "time": "0.059"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_features.py::test_community_entry_points_only",
       "status": "pass",
-      "time": "0.021"
+      "time": "0.022"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_features.py::test_remote_transport_is_tls_1_3",
       "status": "pass",
-      "time": "0.016"
+      "time": "0.015"
     },
     {
       "actual": "pass",
@@ -327,7 +327,7 @@
       "expected": "pass",
       "id": "tests/test_framing.py::test_bounded_reader_stops_at_the_limit",
       "status": "pass",
-      "time": "0.001"
+      "time": "0.000"
     },
     {
       "actual": "pass",
@@ -341,35 +341,35 @@
       "expected": "pass",
       "id": "tests/test_framing.py::test_host_stream_without_a_newline_ends_the_session",
       "status": "pass",
-      "time": "1.153"
+      "time": "1.178"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_framing.py::test_upstream_stream_without_a_newline_is_refused",
       "status": "pass",
-      "time": "0.011"
+      "time": "0.012"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_hello_example.py::test_walkthrough_audits_and_detects_tamper",
       "status": "pass",
-      "time": "1.724"
+      "time": "1.794"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_hello_example.py::test_module_verify_subcommand",
       "status": "pass",
-      "time": "0.003"
+      "time": "0.004"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_hello_example.py::test_guides_point_at_the_audit_hello",
       "status": "pass",
-      "time": "0.001"
+      "time": "0.002"
     },
     {
       "actual": "pass",
@@ -383,14 +383,14 @@
       "expected": "pass",
       "id": "tests/test_limits.py::test_secrets_are_stripped_from_meta_and_the_log",
       "status": "pass",
-      "time": "0.112"
+      "time": "0.126"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_limits.py::test_malformed_and_oversized_messages_are_not_forwarded",
       "status": "pass",
-      "time": "0.107"
+      "time": "0.128"
     },
     {
       "actual": "pass",
@@ -411,14 +411,14 @@
       "expected": "pass",
       "id": "tests/test_manual_guides.py::test_proxy_configs_load_and_start",
       "status": "pass",
-      "time": "22.525"
+      "time": "22.353"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_manual_guides.py::test_licence_snippets_load",
       "status": "pass",
-      "time": "0.030"
+      "time": "0.032"
     },
     {
       "actual": "pass",
@@ -446,7 +446,7 @@
       "expected": "pass",
       "id": "tests/test_manual_guides.py::test_bash_flags_match_help",
       "status": "pass",
-      "time": "1.352"
+      "time": "1.372"
     },
     {
       "actual": "pass",
@@ -460,35 +460,35 @@
       "expected": "pass",
       "id": "tests/test_manual_guides.py::test_official_sdk_handshake",
       "status": "pass",
-      "time": "0.580"
+      "time": "0.579"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_manual_guides.py::test_airgap_wheel_builds_without_deps",
       "status": "pass",
-      "time": "7.582"
+      "time": "7.587"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_oq_runner.py::test_oq_report_happy_path",
       "status": "pass",
-      "time": "0.540"
+      "time": "0.551"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_oq_runner.py::test_oq_report_failing_test_path",
       "status": "pass",
-      "time": "0.512"
+      "time": "0.535"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_oq_runner.py::test_oq_report_module_entry",
       "status": "pass",
-      "time": "0.687"
+      "time": "0.698"
     },
     {
       "actual": "pass",
@@ -502,7 +502,7 @@
       "expected": "pass",
       "id": "tests/test_oq_runner.py::test_oq_report_accepts_an_explicit_repo_root",
       "status": "pass",
-      "time": "0.517"
+      "time": "0.526"
     },
     {
       "actual": "pass",
@@ -523,140 +523,140 @@
       "expected": "pass",
       "id": "tests/test_oq_runner.py::test_coverage_percent_reads_the_requested_file",
       "status": "pass",
-      "time": "0.003"
+      "time": "0.002"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_plugins.py::test_defaults_build_the_community_plugins",
       "status": "pass",
-      "time": "0.054"
+      "time": "0.062"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_plugins.py::test_unknown_unlicensed_and_missing_plugins_refuse_startup",
       "status": "pass",
-      "time": "0.083"
+      "time": "0.095"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_plugins.py::test_selected_signer_and_reporter_are_used",
       "status": "pass",
-      "time": "0.044"
+      "time": "0.059"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_plugins.py::test_env_identity_is_the_default_and_other_auth_plugins_fail_closed",
       "status": "pass",
-      "time": "0.090"
+      "time": "0.100"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_plugins.py::test_text_export_and_unknown_format",
       "status": "pass",
-      "time": "0.116"
+      "time": "0.136"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_policy.py::test_allowlist_and_denylist",
       "status": "pass",
-      "time": "0.110"
+      "time": "0.135"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_policy.py::test_empty_allow_denies_upstream",
       "status": "pass",
-      "time": "0.109"
+      "time": "0.127"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_policy.py::test_write_requires_reason",
       "status": "pass",
-      "time": "0.113"
+      "time": "0.129"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_policy.py::test_qa_and_admin_cannot_call_upstream",
       "status": "pass",
-      "time": "0.117"
+      "time": "0.130"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed",
       "status": "pass",
-      "time": "0.119"
+      "time": "0.129"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_policy.py::test_retention_floor_and_swiss_default",
       "status": "pass",
-      "time": "0.000"
+      "time": "0.001"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_properties.py::test_canonical_form_is_stable",
       "status": "pass",
-      "time": "0.189"
+      "time": "0.187"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_properties.py::test_sealed_lines_verify_and_a_byte_flip_does_not",
       "status": "pass",
-      "time": "0.070"
+      "time": "0.069"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_protocol.py::test_legacy_host_and_legacy_upstream_record_session_ids",
       "status": "pass",
-      "time": "0.127"
+      "time": "0.141"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_protocol.py::test_modern_host_has_no_session_and_ignores_a_session_hint",
       "status": "pass",
-      "time": "0.113"
+      "time": "0.129"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_protocol.py::test_modern_host_against_legacy_upstream_falls_back",
       "status": "pass",
-      "time": "0.108"
+      "time": "0.127"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_protocol.py::test_resources_and_prompts_are_logged",
       "status": "pass",
-      "time": "0.120"
+      "time": "0.140"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_protocol.py::test_stdio_subprocess_upstream_does_not_inherit_parent_secrets",
       "status": "pass",
-      "time": "0.078"
+      "time": "0.088"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_protocol.py::test_proxy_stdio_speaks_discover",
       "status": "pass",
-      "time": "1.136"
+      "time": "1.151"
     },
     {
       "actual": "pass",
@@ -684,14 +684,14 @@
       "expected": "pass",
       "id": "tests/test_reconciliation_sop.py::test_sop_snippet_appends_a_verifiable_entry",
       "status": "pass",
-      "time": "0.011"
+      "time": "0.014"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_reconciliation_sop.py::test_sop_is_linked",
       "status": "pass",
-      "time": "0.001"
+      "time": "0.000"
     },
     {
       "actual": "pass",
@@ -719,28 +719,28 @@
       "expected": "pass",
       "id": "tests/test_server_loop.py::test_serve_stdio_session_parse_and_call",
       "status": "pass",
-      "time": "0.111"
+      "time": "0.127"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_server_loop.py::test_serve_stdio_ends_a_newline_less_stream",
       "status": "pass",
-      "time": "0.109"
+      "time": "0.129"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_server_loop.py::test_serve_stdio_refuses_a_disagreeing_head",
       "status": "pass",
-      "time": "0.130"
+      "time": "0.151"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_server_loop.py::test_serve_stdio_last_resort_and_unknown_licence",
       "status": "pass",
-      "time": "0.138"
+      "time": "0.155"
     },
     {
       "actual": "pass",
@@ -754,14 +754,14 @@
       "expected": "pass",
       "id": "tests/test_server_loop.py::test_https_transport_errors",
       "status": "pass",
-      "time": "0.073"
+      "time": "0.069"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_server_loop.py::test_text_reporter_and_unsigned_signer",
       "status": "pass",
-      "time": "0.001"
+      "time": "0.000"
     },
     {
       "actual": "pass",
@@ -775,7 +775,7 @@
       "expected": "pass",
       "id": "tests/test_server_loop.py::test_rtm_cli_and_junit_statuses",
       "status": "pass",
-      "time": "0.175"
+      "time": "0.163"
     },
     {
       "actual": "pass",
@@ -789,63 +789,63 @@
       "expected": "pass",
       "id": "tests/test_server_loop.py::test_verification_module_entry",
       "status": "pass",
-      "time": "0.527"
+      "time": "0.537"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_stdio_e2e.py::test_allowed_denied_and_verify_cli",
       "status": "pass",
-      "time": "1.304"
+      "time": "1.327"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_stdio_e2e.py::test_approval_flow_across_two_processes",
       "status": "pass",
-      "time": "2.355"
+      "time": "2.400"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_stdio_e2e.py::test_upstream_crash_and_hang",
       "status": "pass",
-      "time": "4.954"
+      "time": "5.024"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_stdio_e2e.py::test_audit_store_failure_latches_blocked",
       "status": "pass",
-      "time": "1.183"
+      "time": "1.210"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_tamper.py::test_valid_chain",
       "status": "pass",
-      "time": "0.011"
+      "time": "0.012"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_tamper.py::test_modified_payload_is_detected",
       "status": "pass",
-      "time": "0.011"
+      "time": "0.010"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_tamper.py::test_whitespace_is_detected",
       "status": "pass",
-      "time": "0.009"
+      "time": "0.005"
     },
     {
       "actual": "pass",
       "expected": "pass",
       "id": "tests/test_tamper.py::test_deleted_line_is_a_gap",
       "status": "pass",
-      "time": "0.007"
+      "time": "0.005"
     },
     {
       "actual": "pass",
@@ -859,7 +859,7 @@
       "expected": "pass",
       "id": "tests/test_tamper.py::test_unknown_hash_algo_is_rejected",
       "status": "pass",
-      "time": "0.007"
+      "time": "0.006"
     }
   ],
   "counts": {
@@ -905,14 +905,14 @@
         "version": "6.0.1"
       }
     ],
-    "git_sha": "5d54ac4b7952389c3e4fcdcbc07e751888c7b7d4",
+    "git_sha": "f90d8ac52d00ddaddbbeccc9a0afadade3171c08",
     "os": "Linux-6.12.94+-x86_64-with-glibc2.39",
     "package_version": "0.2.0",
     "python": "3.12.3"
   },
-  "generated_at": "2026-10-21T13:09:43+00:00",
+  "generated_at": "2026-10-21T13:52:04+00:00",
   "pytest_exit": 0,
-  "report_sha256": "d1d391948d4fa96d1bae35d6118170fa0bc365a31038856e0a241d980350a182",
+  "report_sha256": "404a1ba62b2db14e7e8fbae2a11419c36e0ffff823be802439b174adfbf856df",
   "statement": "Evidence that supports a customer's own records. Designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows.",
   "title": "Community verification report",
   "traceability_problems": []

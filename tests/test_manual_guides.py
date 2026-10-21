@@ -102,7 +102,8 @@ def test_guides_are_ascii_and_use_the_allowed_words() -> None:
         for word in BANNED:
             assert word not in lowered, f"{path.name} contains {word}"
         assert PRIVATE not in text
-        if path.name != "README.md":
+        # QUICKSTART.md is the terminal audit, not a host page.
+        if path.name not in {"README.md", "QUICKSTART.md"}:
             for heading in HEADINGS:
                 assert heading in text, f"{path.name} missing {heading}"
         for invented in INVENTED:
@@ -226,6 +227,8 @@ def test_bash_flags_match_help(help_flags: dict[str, set[str]]) -> None:
                         mode = help_flags["oq"]
                     elif token == "oq-report" and mode == help_flags["proxy"]:
                         mode = help_flags["oq"]
+                    elif token == "verify" and mode == help_flags["proxy"]:
+                        mode = help_flags["verify"]
                     elif token.startswith("--") and mode is not None:
                         assert token in mode, f"{path.name}: {token} not in {sorted(mode)}"
                         checked += 1

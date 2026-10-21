@@ -80,3 +80,30 @@ def test_registry_metadata_matches_the_package() -> None:
     assert (ROOT / "docs" / "COVERAGE.md").is_file()
     assert (ROOT / "schema" / "audit-record.schema.json").is_file()
     assert (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License")
+
+
+def test_community_pro_table_is_filled() -> None:
+    """Every Community/Pro cell has a mark. Pro includes each Community capability."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    start = readme.index("| Capability | Community (this repo) | Pro (licensed service) |")
+    rows = []
+    for line in readme[start:].splitlines()[2:]:
+        if not line.startswith("|"):
+            break
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        assert len(cells) == 3, line
+        rows.append(cells)
+    assert len(rows) >= 20
+    has = ":white_check_mark:"
+    lacks = ":x:"
+    for capability, community, pro in rows:
+        assert capability
+        for cell in (community, pro):
+            assert cell.startswith(has) or cell.startswith(lacks), cell
+            assert cell.strip() not in {"", "yes", "later"}
+        if community.startswith(has):
+            assert pro.startswith(has), capability
+    # The capability table lives in the README only.
+    for path in (ROOT / "docs").rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        assert "Proxy core, both protocol eras" not in text

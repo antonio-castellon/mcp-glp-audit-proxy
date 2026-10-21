@@ -120,16 +120,16 @@ A mark means that edition includes the capability. Pro includes every Community 
 | Verify CLI and searchable JSON export | :white_check_mark: | :white_check_mark: |
 | Plain-text verify listing | :white_check_mark: | :white_check_mark: |
 | PDF / CSV auditor reports | :x: | :white_check_mark: |
-| Audit-trail review tooling (flags, reviewer sign-off) | :x: search, filter and export only | :white_check_mark: |
+| Audit-trail review tooling (flags, reviewer sign-off) | :x: | :white_check_mark: |
 | DE / FR / EN report templates | :x: | :white_check_mark: |
 | Old/new value capture for write tools | :x: | :white_check_mark: |
 | Tool allowlist / denylist | :white_check_mark: | :white_check_mark: |
 | Local roles (operator, approver, qa, admin) | :white_check_mark: | :white_check_mark: |
-| Human approval before writes | :white_check_mark: label approval, not an e-signature | :white_check_mark: |
+| Human approval before writes | :white_check_mark: | :white_check_mark: |
 | Part 11 electronic signatures | :x: | :white_check_mark: |
-| Ed25519 / ECDSA signed checkpoints | :x: unsigned checkpoints only | :white_check_mark: |
+| Ed25519 / ECDSA signed checkpoints | :x: | :white_check_mark: |
 | RFC 3161 timestamps | :x: | :white_check_mark: |
-| IQ/OQ validation pack | :x: open OQ runner only | :white_check_mark: |
+| IQ/OQ validation pack | :x: | :white_check_mark: |
 | SSO / OAuth | :x: | :white_check_mark: |
 | Syslog (RFC 5424) / SIEM export | :x: | :white_check_mark: |
 | Key management (KMS/HSM), field-level encryption and redaction | :x: | :white_check_mark: |

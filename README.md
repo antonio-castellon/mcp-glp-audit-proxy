@@ -160,8 +160,9 @@ A mark means that edition includes the capability. Pro includes every Community 
 | TLS 1.3 to remote upstreams, no token passthrough | :white_check_mark: | :white_check_mark: |
 | Offline licence file, no phone-home | :white_check_mark: | :white_check_mark: reads the same file |
 | Config wizard and config check | :white_check_mark: | :white_check_mark: |
+| glp_sign signature plugin hook | :white_check_mark: | :white_check_mark: |
 
-Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader, and `init` / `config check`. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. An Ed25519 JSON licence must also list the feature. An LM1 file grants the features declared by the plugins in the matching fingerprint. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Part 11 signatures, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
+Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader, `init` / `config check`, and the `glp_sign` hook. A signature plugin is not implemented in this tree. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. An Ed25519 JSON licence must also list the feature. An LM1 file grants the features declared by the plugins in the matching fingerprint. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Part 11 signatures, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
 
 Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the licence file are described in `docs/PLUGINS.md`.
 
@@ -170,6 +171,11 @@ Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the
 Approved Community items are recorded in this section. There is no separate roadmap file.
 
 - Config wizard and config check. `init` writes the audit log path, allow list, principal, and retention profile with legal hold, and it does not overwrite an existing file unless you confirm. `config check` reports whether the file loads. A licensed plugin may add questions through `mcp_glp_audit_proxy.wizard`. An unlicensed plugin adds nothing. This item is in this edition.
+- `glp_sign` signature plugin hook. The tool appends a separate hash-chained entry linked by `target_entry_hash` and delegates to a licensed plugin in `mcp_glp_audit_proxy.signatures`. With no licensed plugin the tool is absent. It is designed to support 21 CFR Part 11 workflows. This repository does not ship a signature plugin. This item is in this edition.
+
+## Signatures
+
+`glp_sign` appends a separate hash-chained entry linked by `target_entry_hash` (the `entry_hash` of an existing line). It does not rewrite that line. The record is not an approval. It is designed to support 21 CFR Part 11 workflows. The tool is listed for an approver only when a licensed signature plugin is installed. The group is `mcp_glp_audit_proxy.signatures`, discovered the same way as storage. A factory runs only when its declared feature, for example `signature.part11`, is enabled and is outside the Community set. With no licensed plugin, `glp_sign` is absent and a direct call returns `no licensed signature plugin`. This repository does not ship a signature plugin. See `docs/PLUGINS.md`.
 
 ## Local tools
 
@@ -179,6 +185,7 @@ Approved Community items are recorded in this section. There is no separate road
 | `glp_search_audit` | qa, approver, admin | Filter entries. The audit of the search stores the filter and the count, not a second copy of every row. |
 | `glp_export_audit` | qa, approver, admin | JSON electronic export with a hash manifest. A filtered export is marked `complete: false`. A broken chain is not exported. |
 | `glp_approve` | approver | Record meaning `approved`, `reviewed` or `rejected`. |
+| `glp_sign` | approver, and only when a licensed signature plugin is installed | Append a signature entry linked by `target_entry_hash`. Designed to support 21 CFR Part 11 workflows. Absent without a licensed plugin. |
 | `glp_update_policy` | admin | Append a config event. Policy is replayed from the log. |
 
 ## Manuals

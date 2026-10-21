@@ -8,6 +8,8 @@ The upstream is still only in `upstreams`. A plugin does not add a second path f
 
 `init` and `config check` read the entry-point group `mcp_glp_audit_proxy.wizard` the same way. Community does not register a factory in that group. A factory is called only when its `licence_feature` is enabled. Otherwise it adds no question and no check.
 
+`glp_sign` uses the entry-point group `mcp_glp_audit_proxy.signatures`. Community does not register a factory. A factory is called only when its `licence_feature` is enabled and is outside the Community set. Otherwise the tool is absent. It is designed to support 21 CFR Part 11 workflows.
+
 ## Prerequisites
 
 - `mcp-glp-audit-proxy` installed so the Community entry points are registered

@@ -4,10 +4,13 @@ Two file shapes are accepted.
 
 * JSON. An Ed25519 signature over the RFC 8785 bytes of the object with the
   ``signature`` field removed. The trust anchor is ``LICENCE_PUBLIC_KEY``.
-* LM1 text. Three lines: ``LM1``, base64 of the RFC 8785 JSON body, and base64
-  of an RSA-2048 PSS signature over those raw body bytes. PSS uses MGF1 with
-  SHA-256 and a salt length equal to the SHA-256 digest. The trust anchor is
-  the PEM SubjectPublicKeyInfo in ``LICENCE_RSA_PUBLIC_PEM``.
+* LM1 text. Three lines: ``LM1``, base64 of the JSON body, and base64 of an
+  RSA-2048 PSS signature over those raw body bytes. The body is
+  ``json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=False)``
+  encoded as UTF-8. PSS uses MGF1 with SHA-256 and a salt length equal to the
+  SHA-256 digest. The trust anchor is the PEM SubjectPublicKeyInfo in
+  ``LICENCE_RSA_PUBLIC_PEM``. The signature is checked against the raw body
+  bytes. This module does not re-encode that JSON.
 
 Both shapes carry a fingerprint. It is the lowercase SHA-256 hex of the RFC
 8785 bytes of ``[client_id, app, sorted licensed entry-point names]``. The app
@@ -23,8 +26,9 @@ import base64
 import binascii
 import hmac
 import json
+import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Iterable
 
 from cryptography.exceptions import InvalidSignature
@@ -44,7 +48,22 @@ LICENCE_PUBLIC_KEY = bytes.fromhex(
 )
 LICENCE_KEY_ID = "mcp-glp-audit-proxy-licence"
 LICENCE_APP = "mcp-glp-audit-proxy"
-LICENCE_KINDS = frozenset({"30d", "365d", "perpetual"})
+LICENCE_KINDS = frozenset({"trial", "year", "perpetual"})
+_LM1_FIELDS = frozenset(
+    {
+        "app",
+        "expires",
+        "fingerprint",
+        "holder",
+        "issued",
+        "kind",
+        "updates_until",
+        "version",
+    }
+)
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_FINGERPRINT = re.compile(r"^[0-9a-f]{64}$")
 LICENCE_RSA_PUBLIC_PEM = """-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmbqqoHuPlSeAy1NoMM+P
 ciKPVTkHY6Sp6IcCsNSWbtU9a497X7j+rfnK3Zvml4xgVPoYiCiveGwu241kPoxg
@@ -59,11 +78,17 @@ HwIDAQAB
 
 @dataclass(frozen=True)
 class LicenceBody:
-    """A verified licence body. ``fingerprint`` is None when the file is not bound."""
+    """A verified licence body. ``fingerprint`` is None when the file is not bound.
+
+    ``grant_installed`` is set for LM1. That file has no feature list. A
+    matching fingerprint enables the ``licence_feature`` of each installed
+    licensed plugin.
+    """
 
     features: list[str]
     fingerprint: str | None
-    expires_at: datetime | None
+    expires_at: datetime | date | None
+    grant_installed: bool = False
 
 
 def licence_fingerprint(client_id: str, plugin_names: Iterable[str]) -> str:
@@ -116,7 +141,7 @@ def verify_ed25519_licence(raw: dict[str, Any], *, public_key: bytes | None = No
 def verify_lm1(text: str, *, public_pem: bytes | None = None) -> dict[str, Any]:
     """Verify an LM1 file and return its JSON body.
 
-    The signature is over the raw body bytes, which must already be RFC 8785.
+    The signature is over the raw body bytes. Those bytes are not re-encoded.
     """
     if not text.endswith("\n"):
         raise LicenceError("licence LM1 text must be three lines")
@@ -135,8 +160,6 @@ def verify_lm1(text: str, *, public_pem: bytes | None = None) -> dict[str, Any]:
         raise LicenceError("licence LM1 body must be JSON") from exc
     if not isinstance(parsed, dict):
         raise LicenceError("licence LM1 body must be a JSON object")
-    if canonicalize(parsed) != body:
-        raise LicenceError("licence LM1 body is not canonical")
     return parsed
 
 
@@ -185,41 +208,54 @@ def parse_expiry(value: Any, *, label: str) -> datetime:
     return moment
 
 
-def assert_not_expired(moment: datetime | None, *, now: datetime | None) -> None:
+def assert_not_expired(moment: datetime | date | None, *, now: datetime | None) -> None:
     if moment is None:
         return
     current = now or datetime.now(timezone.utc)
     if current.tzinfo is None:
         current = current.replace(tzinfo=timezone.utc)
-    if current >= moment:
+    if isinstance(moment, datetime):
+        if current >= moment:
+            raise LicenceError("licence expired")
+        return
+    if current.date() > moment:
         raise LicenceError("licence expired")
 
 
+def parse_iso_date(value: Any, *, label: str) -> date:
+    """Parse ``YYYY-MM-DD``. The clock comparison is done by the caller."""
+    if not isinstance(value, str) or not _ISO_DATE.fullmatch(value):
+        raise LicenceError(f"licence {label} must be an ISO date")
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise LicenceError(f"licence {label} must be an ISO date") from exc
+
+
 def lm1_body(raw: dict[str, Any]) -> LicenceBody:
-    """Read features, fingerprint, kind and expiry from a verified LM1 object."""
+    """Read an issuer LM1 object. It has no feature list and no ``expiry`` field."""
+    if set(raw) != _LM1_FIELDS:
+        raise LicenceError("licence LM1 fields do not match the issuer")
+    if raw.get("app") != LICENCE_APP:
+        raise LicenceError("licence app must be mcp-glp-audit-proxy")
     fingerprint = raw.get("fingerprint")
-    if not isinstance(fingerprint, str) or not fingerprint:
-        raise LicenceError("licence fingerprint is required")
-    kind = raw.get("kind")
-    if kind not in LICENCE_KINDS:
-        raise LicenceError("licence kind must be 30d, 365d or perpetual")
-    if "features" not in raw:
-        raise LicenceError("licence features must be a list of strings")
-    features = _feature_list(raw.get("features"))
-    if kind == "perpetual":
-        if raw.get("expiry", None) is not None:
-            raise LicenceError("perpetual licence has an expiry")
-        return LicenceBody(features=features, fingerprint=fingerprint, expires_at=None)
-    if "expiry" not in raw or raw.get("expiry") is None:
-        raise LicenceError("licence expiry is required")
+    if not isinstance(fingerprint, str) or not _FINGERPRINT.fullmatch(fingerprint):
+        raise LicenceError("licence fingerprint is invalid")
+    if raw.get("kind") not in LICENCE_KINDS:
+        raise LicenceError("licence kind must be trial, year or perpetual")
+    holder = raw.get("holder")
+    if not isinstance(holder, str) or not _EMAIL.fullmatch(holder):
+        raise LicenceError("licence holder must be an email")
+    parse_iso_date(raw.get("issued"), label="issued")
+    parse_iso_date(raw.get("updates_until"), label="updates_until")
+    version = raw.get("version")
+    if isinstance(version, bool) or not isinstance(version, (int, str)) or version == "":
+        raise LicenceError("licence version is required")
+    expires = raw.get("expires")
+    expires_on = None if expires is None else parse_iso_date(expires, label="expires")
     return LicenceBody(
-        features=features,
+        features=[],
         fingerprint=fingerprint,
-        expires_at=parse_expiry(raw.get("expiry"), label="expiry"),
+        expires_at=expires_on,
+        grant_installed=True,
     )
-
-
-def _feature_list(features: Any) -> list[str]:
-    if not isinstance(features, list) or not all(isinstance(item, str) for item in features):
-        raise LicenceError("licence features must be a list of strings")
-    return list(features)

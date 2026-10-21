@@ -122,28 +122,45 @@ The signature covers the RFC 8785 bytes of the licence object with the `signatur
 
 ### LM1 text, RSA-2048 PSS
 
-The file is ASCII, three lines, and it ends with a newline:
+The file is three lines and it ends with a newline:
 
 ```text
 LM1
-<base64 of the RFC 8785 JSON body>
+<base64 of the JSON body>
 <base64 of the RSA-PSS signature>
 ```
 
-The body is a JSON object with `fingerprint`, `kind`, `features`, and `expiry` unless `kind` is `perpetual`. `kind` is `30d`, `365d`, or `perpetual`. `30d` and `365d` require `expiry`, an RFC 3339 timestamp with a time zone, still in the future. `perpetual` must not include `expiry`. `features` is a list of strings, the same names the JSON shape uses.
+The body bytes are UTF-8 from `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. The signature is RSA 2048, PSS, MGF1 with SHA-256, salt length equal to the SHA-256 digest length, hash SHA-256, over those raw bytes. The loader verifies those bytes. It does not re-encode the JSON. The trust anchor is the PEM SubjectPublicKeyInfo `LICENCE_RSA_PUBLIC_PEM` in `mcp_glp_audit_proxy.licence`.
 
-The signature is RSA 2048, PSS, MGF1 with SHA-256, salt length equal to the SHA-256 digest length, hash SHA-256. It covers the raw body bytes (the canonical JSON, not the base64 line). Those bytes must be RFC 8785. The trust anchor is the PEM SubjectPublicKeyInfo `LICENCE_RSA_PUBLIC_PEM` in `mcp_glp_audit_proxy.licence`.
+The object has these keys and no others. It has no `features` field.
+
+| Key | Value |
+|---|---|
+| `app` | Must be `mcp-glp-audit-proxy` |
+| `expires` | ISO date `YYYY-MM-DD`, or null. Null does not expire. A past date is `licence expired` |
+| `fingerprint` | 64 lowercase hex characters. Same digest as the JSON shape |
+| `holder` | Email address |
+| `issued` | ISO date `YYYY-MM-DD` |
+| `kind` | `trial`, `year`, or `perpetual`. The clock uses `expires`, not `kind` |
+| `updates_until` | ISO date `YYYY-MM-DD`. Recorded and not checked yet |
+| `version` | JSON number or string. Recorded and not checked yet |
 
 ```json
 {
-  "fingerprint": "<lowercase sha256 hex>",
-  "kind": "365d",
-  "expiry": "2027-01-01T00:00:00+00:00",
-  "features": ["storage.sql"]
+  "app": "mcp-glp-audit-proxy",
+  "expires": "2027-01-01",
+  "fingerprint": "<64 lowercase hex>",
+  "holder": "qa@lab.example",
+  "issued": "2026-01-01",
+  "kind": "year",
+  "updates_until": "2027-06-01",
+  "version": 1
 }
 ```
 
-That object is the body before base64. The placeholders above are the field shape. They are not a signature this repository can verify.
+That object is the body before base64. The fingerprint above is a placeholder. It is not a signature this repository can verify.
+
+When the fingerprint matches, LM1 enables the `licence_feature` of each installed licensed plugin in that set. It does not read a feature list from the file.
 
 ### Fingerprint
 
@@ -162,8 +179,9 @@ Startup computes that digest from the config and from the entry points installed
 `FeatureSet.load`:
 
 - always enables Community features (`storage.jsonl`, `signer.unsigned`, `report.json`, `report.text`, `verify`, `policy.allowlist`, `approval.local`, `rbac.local`, `auth.env`) when the file is accepted
-- enables any other feature only when the signature verifies, the fingerprint matches, and an installed factory declares that same `licence_feature`
-- records a verified feature that no installed factory declares on `unavailable`, and the server prints that list to stderr
+- for a JSON licence, enables any other listed feature only when the signature verifies, the fingerprint matches, and an installed factory declares that same `licence_feature`
+- for an LM1 file, enables the `licence_feature` of each installed licensed plugin whose names produced the matching fingerprint
+- records a JSON feature that no installed factory declares on `unavailable`, and the server prints that list to stderr
 - refuses to start if config selects a plugin whose declared feature is not enabled; the factory is not called
 
 Selecting a name that is not installed is an error, not a silent skip.

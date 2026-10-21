@@ -294,16 +294,36 @@ def test_expired_or_bad_signature_is_rejected(tmp_path) -> None:
     assert load_pem_public_key(LICENCE_RSA_PUBLIC_PEM.encode("ascii")).key_size == 2048
 
 
-def _lm1(body: dict, private: rsa.RSAPrivateKey) -> str:
-    raw = canonicalize(body)
+def _lm1_bytes(body: dict) -> bytes:
+    """Bytes the issuer signs: compact JSON, sorted keys, raw non-ASCII."""
+    return json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _lm1(body: dict, private: rsa.RSAPrivateKey, *, raw: bytes | None = None) -> str:
+    payload = _lm1_bytes(body) if raw is None else raw
     signature = private.sign(
-        raw,
+        payload,
         padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH),
         hashes.SHA256(),
     )
-    encoded_body = base64.b64encode(raw).decode("ascii")
+    encoded_body = base64.b64encode(payload).decode("ascii")
     encoded_sig = base64.b64encode(signature).decode("ascii")
     return f"LM1\n{encoded_body}\n{encoded_sig}\n"
+
+
+def _issuer_lm1(names: list[str], **overrides: object) -> dict:
+    body: dict[str, object] = {
+        "app": "mcp-glp-audit-proxy",
+        "expires": "2027-01-01",
+        "fingerprint": licence_fingerprint(_CLIENT, names),
+        "holder": "qa@lab.example",
+        "issued": "2026-01-01",
+        "kind": "year",
+        "updates_until": "2020-01-01",
+        "version": 1,
+    }
+    body.update(overrides)
+    return body
 
 
 def _rsa_pair() -> tuple[rsa.RSAPrivateKey, bytes]:
@@ -346,19 +366,16 @@ def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
     assert licence_fingerprint(_CLIENT, ["pdf", "sql"]) == licence_fingerprint(_CLIENT, ["sql", "pdf"])
     assert licence_fingerprint(_CLIENT, []) != licence_fingerprint(_CLIENT, ["jsonl"])
 
-    def accept(text: str, *, rsa_public_key: bytes | None = None) -> None:
+    def load_text(text: str, *, rsa_public_key: bytes | None = None):
         path = tmp_path / "bound.txt"
         path.write_text(text, encoding="utf-8")
-        flags = FeatureSet.load(
+        return FeatureSet.load(
             path,
             public_key=ed_public,
             rsa_public_key=rsa_public_key,
             client_id=_CLIENT,
             now=now,
         )
-        assert "storage.sql" in flags.enabled
-        assert "not-a-feature" in flags.unavailable
-        assert called == {"sql": False, "pdf": False}
 
     json_body = _sign(
         _bound(
@@ -371,19 +388,33 @@ def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
         ),
         ed_private,
     )
-    accept(json.dumps(json_body))
-    lm1_payload = {
-        "fingerprint": licence_fingerprint(_CLIENT, ["sql"]),
-        "kind": "365d",
-        "expiry": "2027-01-01T00:00:00+00:00",
-        "features": ["storage.sql", "not-a-feature"],
-    }
-    accept(_lm1(lm1_payload, rsa_private), rsa_public_key=rsa_pem)
+    json_flags = load_text(json.dumps(json_body))
+    assert "storage.sql" in json_flags.enabled
+    assert "not-a-feature" in json_flags.unavailable
 
-    perpetual = dict(lm1_payload)
-    del perpetual["expiry"]
-    perpetual["kind"] = "perpetual"
-    accept(_lm1(perpetual, rsa_private), rsa_public_key=rsa_pem)
+    lm1_payload = _issuer_lm1(["sql"])
+    signed_bytes = _lm1_bytes(lm1_payload)
+    assert b" " not in signed_bytes
+    assert signed_bytes == json.dumps(
+        lm1_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    lm1_flags = load_text(_lm1(lm1_payload, rsa_private), rsa_public_key=rsa_pem)
+    assert "storage.sql" in lm1_flags.enabled
+    assert "report.pdf" not in lm1_flags.enabled
+    assert lm1_flags.unavailable == []
+    assert "features" not in lm1_payload
+    assert called == {"sql": False, "pdf": False}
+
+    spaced = json.dumps(lm1_payload).encode("utf-8")
+    assert b" " in spaced
+    spaced_flags = load_text(_lm1(lm1_payload, rsa_private, raw=spaced), rsa_public_key=rsa_pem)
+    assert "storage.sql" in spaced_flags.enabled
+
+    perpetual = _issuer_lm1(["sql"], expires=None, kind="perpetual")
+    perpetual_flags = load_text(_lm1(perpetual, rsa_private), rsa_public_key=rsa_pem)
+    assert "storage.sql" in perpetual_flags.enabled
+    trial = _issuer_lm1(["sql"], kind="trial", expires="2026-12-01")
+    assert "storage.sql" in load_text(_lm1(trial, rsa_private), rsa_public_key=rsa_pem).enabled
 
     missing = _sign(
         {key: value for key, value in json_body.items() if key not in {"signature", "fingerprint"}},
@@ -410,8 +441,7 @@ def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
     with pytest.raises(LicenceError, match="client_id is required"):
         FeatureSet.load(wrong_path, public_key=ed_public, now=now)
 
-    wrong_lm1 = dict(lm1_payload)
-    wrong_lm1["fingerprint"] = licence_fingerprint("other-lab", ["sql"])
+    wrong_lm1 = _issuer_lm1(["sql"], fingerprint=licence_fingerprint("other-lab", ["sql"]))
     lm1_path = tmp_path / "wrong.lm1"
     lm1_path.write_text(_lm1(wrong_lm1, rsa_private), encoding="utf-8")
     with pytest.raises(LicenceError, match="does not match"):
@@ -443,45 +473,34 @@ def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
         FeatureSet.load(extra_json, public_key=ed_public, client_id=_CLIENT, now=now)
     assert called == {"sql": False, "pdf": False}
 
+    both = _issuer_lm1(["pdf", "sql"], kind="year")
+    both_flags = load_text(_lm1(both, rsa_private), rsa_public_key=rsa_pem)
+    assert "storage.sql" in both_flags.enabled
+    assert "report.pdf" in both_flags.enabled
+    assert called == {"sql": False, "pdf": False}
+
     installed["pdf"] = False
-    expired = dict(lm1_payload)
-    expired["kind"] = "30d"
-    expired["expiry"] = "2020-01-01T00:00:00+00:00"
+    expired = _issuer_lm1(["sql"], expires="2020-01-01", kind="year")
     expired_path = tmp_path / "expired.lm1"
     expired_path.write_text(_lm1(expired, rsa_private), encoding="utf-8")
     with pytest.raises(LicenceError, match="expired"):
         FeatureSet.load(expired_path, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
-    missing_expiry = dict(expired)
-    del missing_expiry["expiry"]
-    missing_path = tmp_path / "missing-expiry.lm1"
-    missing_path.write_text(_lm1(missing_expiry, rsa_private), encoding="utf-8")
-    with pytest.raises(LicenceError, match="expiry is required"):
-        FeatureSet.load(missing_path, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
-    bad_kind = dict(lm1_payload)
-    bad_kind["kind"] = "trial"
+    bad_kind = _issuer_lm1(["sql"], kind="30d")
     kind_path = tmp_path / "kind.lm1"
     kind_path.write_text(_lm1(bad_kind, rsa_private), encoding="utf-8")
-    with pytest.raises(LicenceError, match="kind"):
+    with pytest.raises(LicenceError, match="trial, year or perpetual"):
         FeatureSet.load(kind_path, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
-
-    loose = {"features": ["storage.sql"], "fingerprint": licence_fingerprint(_CLIENT, ["sql"]), "kind": "perpetual"}
-    loose_bytes = json.dumps(loose).encode("utf-8")
-    loose_sig = rsa_private.sign(
-        loose_bytes,
-        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH),
-        hashes.SHA256(),
-    )
-    loose_text = (
-        "LM1\n"
-        + base64.b64encode(loose_bytes).decode("ascii")
-        + "\n"
-        + base64.b64encode(loose_sig).decode("ascii")
-        + "\n"
-    )
-    loose_path = tmp_path / "loose.lm1"
-    loose_path.write_text(loose_text, encoding="utf-8")
-    with pytest.raises(LicenceError, match="not canonical"):
-        FeatureSet.load(loose_path, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
+    wrong_app = _issuer_lm1(["sql"], app="other-app")
+    app_path = tmp_path / "app.lm1"
+    app_path.write_text(_lm1(wrong_app, rsa_private), encoding="utf-8")
+    with pytest.raises(LicenceError, match="app must be mcp-glp-audit-proxy"):
+        FeatureSet.load(app_path, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
+    with_features = _issuer_lm1(["sql"])
+    with_features["features"] = ["storage.sql"]
+    feature_path = tmp_path / "features.lm1"
+    feature_path.write_text(_lm1(with_features, rsa_private), encoding="utf-8")
+    with pytest.raises(LicenceError, match="do not match the issuer"):
+        FeatureSet.load(feature_path, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
     assert called == {"sql": False, "pdf": False}
 
 

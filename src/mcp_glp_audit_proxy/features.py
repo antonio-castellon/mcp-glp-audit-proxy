@@ -85,6 +85,17 @@ def licensed_plugin_names(plugins: dict[str, dict[str, Any]]) -> list[str]:
     return sorted(set(names))
 
 
+def licensed_plugin_features(plugins: dict[str, dict[str, Any]]) -> list[str]:
+    """Features declared by the entry points that go into the fingerprint."""
+    found: list[str] = []
+    for table in plugins.values():
+        for factory in table.values():
+            feature = declared_feature(factory)
+            if feature is not None and feature not in COMMUNITY_FEATURES:
+                found.append(feature)
+    return found
+
+
 def _json_needs_signature(raw: dict[str, Any]) -> bool:
     features = raw.get("features") or []
     extra = any(
@@ -163,7 +174,10 @@ class FeatureSet:
                 raise LicenceError("licence fingerprint does not match")
         if body is not None:
             assert_not_expired(body.expires_at, now=now)
-        requested = [] if body is None else body.features
+        if body is not None and body.grant_installed:
+            requested = licensed_plugin_features(plugins)
+        else:
+            requested = [] if body is None else body.features
         discovered = discover_features(plugins)
         enabled = set(COMMUNITY_FEATURES)
         unavailable: list[str] = []

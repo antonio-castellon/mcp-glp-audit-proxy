@@ -145,6 +145,10 @@ Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the
 | `glp_approve` | approver | Record meaning `approved`, `reviewed` or `rejected`. |
 | `glp_update_policy` | admin | Append a config event. Policy is replayed from the log. |
 
+## Manuals
+
+Host setup for Claude Desktop, Claude Code, Cursor, VS Code, Windsurf, Cline, Continue, a generic stdio client, the MCP Python SDK, LangChain, the OpenAI Agents SDK, Docker, a lab PC, a shared workstation, and an offline install is in [`docs/manual-guides/`](docs/manual-guides/README.md). The upstream MCP server must be reachable only through this proxy. The same pages cover anchoring, approval, plugin selection, and the fail-closed latch.
+
 ## Safety
 
 Read `SAFETY.md`. Short version: fail closed, no token passthrough, secrets are stripped from `_meta`, stdio children do not inherit the parent environment, an approval is not an electronic signature, and the JSONL file is tamper-evident, not a WORM store.

@@ -1,0 +1,29 @@
+{
+  "principal": {
+    "id": "discovery",
+    "name": "Discovery",
+    "role": "qa"
+  },
+  "policy": {
+    "allow": [],
+    "deny": [],
+    "write_tools": [],
+    "require_approval_for_writes": true,
+    "require_reason_for_writes": true
+  },
+  "audit": {
+    "path": "/tmp/mcp-glp-audit-proxy-discovery.jsonl",
+    "fail_closed": true,
+    "checkpoint_every": 100
+  },
+  "require_ntp": false,
+  "export_dir": "/tmp/mcp-glp-audit-proxy-discovery-exports",
+  "licence_path": null,
+  "plugins": {
+    "storage": "jsonl",
+    "signer": "unsigned",
+    "reporters": ["json", "text"],
+    "auth": "env"
+  },
+  "upstreams": []
+}

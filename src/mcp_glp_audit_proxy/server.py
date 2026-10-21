@@ -22,7 +22,7 @@ from .wiring import apply_identity, build_components
 
 
 def build_proxy(settings: Settings, features: FeatureSet | None = None) -> AuditProxy:
-    flags = features or FeatureSet.load(settings.licence_path)
+    flags = features or FeatureSet.load(settings.licence_path, client_id=settings.client_id)
     settings.validate()
     apply_identity(settings, flags)
     store, reporters = build_components(settings, flags)

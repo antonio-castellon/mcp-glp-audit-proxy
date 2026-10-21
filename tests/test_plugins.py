@@ -55,6 +55,29 @@ def _config(tmp_path: Path, **extra: object) -> Path:
     return path
 
 
+def test_client_id_from_config_is_passed_to_the_licence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+    original = FeatureSet.load.__func__
+
+    def spy(path: object, **kwargs: object) -> FeatureSet:
+        captured["path"] = path
+        captured["client_id"] = kwargs.get("client_id")
+        return original(FeatureSet, None)
+
+    monkeypatch.setattr(FeatureSet, "load", spy)
+    loaded = load_settings(_config(tmp_path, client_id="lab-1", licence_path="licence.json"))
+    assert loaded.client_id == "lab-1"
+    build_proxy(loaded)
+    assert captured["client_id"] == "lab-1"
+    assert captured["path"] == loaded.licence_path
+    absent = load_settings(_config(tmp_path, client_id=None))
+    assert absent.client_id is None
+    with pytest.raises(ConfigurationError, match="client_id"):
+        load_settings(_config(tmp_path, client_id=""))
+    with pytest.raises(ConfigurationError, match="client_id"):
+        load_settings(_config(tmp_path, client_id=["lab-1"]))
+
+
 def test_defaults_build_the_community_plugins(tmp_path: Path) -> None:
     loaded = load_group("mcp_glp_audit_proxy.storage")
     assert loaded["jsonl"].__name__ == "jsonl_store"

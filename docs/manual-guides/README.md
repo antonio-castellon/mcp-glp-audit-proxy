@@ -73,7 +73,8 @@ A JSON object. Unknown `policy` keys and unknown `plugins` keys refuse startup. 
 | `approval_ttl_seconds` | Default 3600. A missing or zero value is stored as 3600 |
 | `require_ntp` | Default false. When true, startup refuses unless `timedatectl` reports `NTPSynchronized=yes` |
 | `export_dir` | Default `<audit directory>/exports`. `glp_export_audit` cannot write outside it |
-| `licence_path` | Local licence JSON, or null. Overridden by `GLP_LICENCE_PATH` |
+| `client_id` | Printable token, or null. Required when a licence is signed. It is part of the licence fingerprint. It is not a machine id |
+| `licence_path` | Local licence file, or null. JSON (Ed25519) or LM1 text (RSA-2048 PSS). Overridden by `GLP_LICENCE_PATH` |
 | `plugins.storage` | Default `jsonl`. A name, or `{"name", "options"}`. `options` is passed to the factory and is not written to the audit log |
 | `plugins.signer` | Default `unsigned`. Same shape as `plugins.storage` |
 | `plugins.reporters` | Default `["json", "text"]`. A non-empty list, or `{"names", "options"}`. `options` maps each reporter name to an object. No duplicates |

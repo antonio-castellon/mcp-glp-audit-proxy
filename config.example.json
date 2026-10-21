@@ -26,6 +26,7 @@
   "approval_ttl_seconds": 3600,
   "require_ntp": false,
   "export_dir": "./data/exports",
+  "client_id": null,
   "licence_path": null,
   "plugins": {
     "storage": "jsonl",

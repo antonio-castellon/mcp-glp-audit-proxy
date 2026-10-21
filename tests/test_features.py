@@ -515,10 +515,8 @@ def test_community_entry_points_only() -> None:
         "mcp_glp_audit_proxy.reporters",
         "mcp_glp_audit_proxy.auth",
         "mcp_glp_audit_proxy.wizard",
-        "mcp_glp_audit_proxy.signatures",
     }
     assert load_group("mcp_glp_audit_proxy.wizard") == {}
-    assert load_group("mcp_glp_audit_proxy.signatures") == {}
     assert storage["jsonl"].licence_feature == "storage.jsonl"
     assert signers["unsigned"].licence_feature == "signer.unsigned"
     assert reporters["json"].licence_feature == "report.json"

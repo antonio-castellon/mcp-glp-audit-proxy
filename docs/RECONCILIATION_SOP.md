@@ -147,8 +147,9 @@ print("reconciliation entry seq", sealed["seq"], "hash", sealed["entry_hash"])
    due). List the entry with `mcp-glp-audit-proxy-verify data/audit.jsonl --method audit/reconciliation`.
 
 The entry is attributable (principal, UTC time, reason, form hash) and tamper-evident. It is not a
-21 CFR Part 11 electronic signature. With a Pro licence, the Part 11 e-signature plugin can sign the
-reconciliation entry instead of the paper or external signature; this is optional.
+21 CFR Part 11 electronic signature. Personal Part 11 e-signatures are out of scope. The proxy writes
+an automatic, non-blocking trace and signs that trace itself. Use your site's own signature process
+for the form.
 
 ## 7. Unblock (admin)
 

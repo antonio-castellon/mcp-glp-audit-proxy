@@ -91,7 +91,7 @@ requirements:
   - id: COV-15
     source: "21 CFR Part 11 11.10(g)"
     scope: community
-    statement: "Allow and deny lists. Denied calls are logged. Part 11 signatures are Pro."
+    statement: "Allow and deny lists. Denied calls are logged. Personal Part 11 e-signatures are out of scope."
     modules: [src/mcp_glp_audit_proxy/policy.py]
     tests: [tests/test_policy.py::test_allowlist_and_denylist, tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded]
   - id: COV-16
@@ -102,26 +102,26 @@ requirements:
     tests: [tests/test_features.py::test_remote_transport_is_tls_1_3]
   - id: COV-17
     source: "21 CFR Part 11 11.50"
-    scope: pro
-    statement: "Part 11 signature manifestation."
+    scope: gap
+    statement: "Personal Part 11 e-signature manifestation is out of scope."
     modules: []
     tests: []
   - id: COV-18
     source: "21 CFR Part 11 11.70"
-    scope: pro
-    statement: "Signature bound to the record."
+    scope: gap
+    statement: "A personal signature bound to the record is out of scope."
     modules: []
     tests: []
   - id: COV-19
     source: "21 CFR Part 11 11.100(a)"
-    scope: pro
-    statement: "Signature identity unique to one person."
+    scope: gap
+    statement: "A signature identity unique to one person is out of scope."
     modules: []
     tests: []
   - id: COV-20
     source: "21 CFR Part 11 11.200(a)(1)"
-    scope: pro
-    statement: "Two-component re-authentication for signatures."
+    scope: gap
+    statement: "Two-component re-authentication for a personal signature is out of scope."
     modules: []
     tests: []
   - id: COV-21
@@ -144,8 +144,8 @@ requirements:
     tests: [tests/test_policy.py::test_qa_and_admin_cannot_call_upstream]
   - id: COV-24
     source: "EU GMP Annex 11 (2011) Sec. 14"
-    scope: pro
-    statement: "Electronic signatures with the same impact as handwritten ones."
+    scope: gap
+    statement: "Personal electronic signatures are out of scope."
     modules: []
     tests: []
   - id: COV-25
@@ -246,8 +246,8 @@ requirements:
     tests: [tests/test_chain.py::test_chain_links_and_matches_schema, tests/test_export.py::test_verify_cli_exports_only_a_valid_chain]
   - id: COV-40
     source: "WHO TRS 1033 Annex 4 11.13"
-    scope: pro
-    statement: "Part 11-style electronic signature."
+    scope: gap
+    statement: "Personal electronic signatures are out of scope."
     modules: []
     tests: []
   - id: COV-41
@@ -448,12 +448,6 @@ requirements:
     statement: "init writes a config the loader accepts and refuses to overwrite without confirmation. config check prints a plain-language error and exits non-zero when the file does not load. A wizard entry point runs only when its licence feature is enabled."
     modules: [src/mcp_glp_audit_proxy/wizard.py, src/mcp_glp_audit_proxy/__main__.py]
     tests: [tests/test_wizard.py::test_init_writes_a_config_the_loader_accepts, tests/test_wizard.py::test_init_refuses_to_overwrite_without_confirmation, tests/test_wizard.py::test_config_check_reports_a_plain_error, tests/test_wizard.py::test_unlicensed_wizard_plugin_is_not_called]
-  - id: COV-74
-    source: "Community signature plugin hook"
-    scope: community
-    statement: "glp_sign delegates to a licensed signature plugin and appends a separate hash-chained entry linked by target_entry_hash. With no licensed plugin the tool is absent. Designed to support 21 CFR Part 11 workflows."
-    modules: [src/mcp_glp_audit_proxy/signatures.py, src/mcp_glp_audit_proxy/proxy.py]
-    tests: [tests/test_signatures.py::test_glp_sign_is_absent_without_a_licensed_plugin, tests/test_signatures.py::test_unlicensed_signature_plugin_is_not_called, tests/test_signatures.py::test_glp_sign_appends_a_linked_entry]
   - id: GLP22-1
     source: "OECD GLP Series No. 22 data integrity, attributable and contemporaneous (see docs/STANDARDS.md)"
     scope: community

@@ -16,7 +16,7 @@ mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
 Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.2.0. Changes since 0.1.0 are in `CHANGELOG.md`.
 
-It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU GMP Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, Part 11 electronic signatures, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository.
+It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU GMP Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository. Personal Part 11 e-signatures are out of scope. The proxy writes an automatic, non-blocking trace and signs that trace itself.
 
 <picture>
   <source srcset="https://raw.githubusercontent.com/antonio-castellon/mcp-glp-audit-proxy/main/docs/images/flow.svg" type="image/svg+xml">
@@ -112,7 +112,7 @@ mcp-glp-audit-proxy is designed to support the audit-trail requirements below. M
 | Framework | What the proxy helps with | Edition |
 |---|---|---|
 | OECD GLP No. 17 (3.4) / Swiss GLPV Annex 2 | Always-on, append-only audit trail; who/what/when/why; admin-only settings; QA read-only role; 10-year Swiss retention profile | Community core; WORM retention and PDF reports in Pro |
-| FDA 21 CFR Part 11 | Computer-generated, time-stamped, hash-chained audit trail (11.10(e)); tamper detection; complete copies; authority checks. Part 11 approval e-signatures (11.50, 11.70, 11.200) are Pro only: the Community `approval` is not an electronic signature | Community core; e-signatures (Pro only), reports, signing, SSO in Pro |
+| FDA 21 CFR Part 11 | Computer-generated, time-stamped, hash-chained audit trail (11.10(e)); tamper detection; complete copies; authority checks. The proxy writes an automatic, non-blocking trace and signs that trace itself. Personal Part 11 e-signatures are out of scope. An approval is not an electronic signature | Community core; reports, checkpoint signing, and SSO in Pro |
 | EU GMP Annex 11 (2011; 2025 draft) | Audit trail of changes with reason; role, time zone; locked audit trail; searchable complete export; access log | Community core; review tooling and inactivity logout in Pro |
 | MHRA / PIC/S PI 041-1 / WHO TRS 1033 | ALCOA+ data integrity, segregation of duties, metadata with each record, true-copy exports | Community core; signed manifests and validation pack in Pro |
 | ISPE GAMP 5 / FDA CSA | Supplier documentation, proposed Cat. 4 configured components, machine-readable test evidence | Pro (validation pack) |
@@ -127,7 +127,7 @@ Default retention is the Swiss GLP profile: 10 years after study completion, wit
 
 This repository is the Community edition. Pro is available as a licensed / paid service - contact [antonio@castellon.ch](mailto:antonio@castellon.ch).
 
-Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamps, Part 11 e-signatures, PDF and CSV auditor reports, an IQ/OQ validation pack, and SSO. It also includes the GLP Lab Data Pack for [mcp-advanced-excel](https://github.com/antonio-castellon/mcp-advanced-excel), unlocked by the same offline licence key. The free mcp-advanced-excel server reads and writes lab spreadsheets. The Data Pack adds what a GLP lab needs on top: provenance hashes that tie every result back to its source file, instrument templates for common lab exports, advanced LOD/LOQ calculations and molar unit conversions, batch processing of many files in one run, and Ed25519 signed output.
+Pro adds SQL and S3 WORM backends, Ed25519 and ECDSA signing, RFC 3161 timestamps, PDF and CSV auditor reports, an IQ/OQ validation pack, and SSO. It also includes the GLP Lab Data Pack for [mcp-advanced-excel](https://github.com/antonio-castellon/mcp-advanced-excel), unlocked by the same offline licence key. The free mcp-advanced-excel server reads and writes lab spreadsheets. The Data Pack adds what a GLP lab needs on top: provenance hashes that tie every result back to its source file, instrument templates for common lab exports, advanced LOD/LOQ calculations and molar unit conversions, batch processing of many files in one run, and Ed25519 signed output.
 
 A mark means that edition includes the capability. Pro includes every Community capability. A note is added only where the mark alone would hide a limit. A Community cell that lacks the capability is a plain `:x:`. Nothing in this table links to a Pro source tree.
 
@@ -146,7 +146,6 @@ A mark means that edition includes the capability. Pro includes every Community 
 | Tool allowlist / denylist | :white_check_mark: | :white_check_mark: |
 | Local roles (operator, approver, qa, admin) | :white_check_mark: | :white_check_mark: |
 | Human approval before writes | :white_check_mark: | :white_check_mark: |
-| Part 11 electronic signatures | :x: | :white_check_mark: |
 | Ed25519 / ECDSA signed checkpoints | :x: | :white_check_mark: |
 | RFC 3161 timestamps | :x: | :white_check_mark: |
 | IQ/OQ validation pack | :x: | :white_check_mark: |
@@ -160,9 +159,8 @@ A mark means that edition includes the capability. Pro includes every Community 
 | TLS 1.3 to remote upstreams, no token passthrough | :white_check_mark: | :white_check_mark: |
 | Offline licence file, no phone-home | :white_check_mark: | :white_check_mark: reads the same file |
 | Config wizard and config check | :white_check_mark: | :white_check_mark: |
-| glp_sign signature plugin hook | :white_check_mark: | :white_check_mark: |
 
-Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader, `init` / `config check`, and the `glp_sign` hook. A signature plugin is not implemented in this tree. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. An Ed25519 JSON licence must also list the feature. An LM1 file grants the features declared by the plugins in the matching fingerprint. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Part 11 signatures, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
+Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader, and `init` / `config check`. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. An Ed25519 JSON licence must also list the feature. An LM1 file grants the features declared by the plugins in the matching fingerprint. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Personal Part 11 e-signatures are out of scope for both editions. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
 
 Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the licence file are described in `docs/PLUGINS.md`.
 
@@ -171,11 +169,6 @@ Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the
 Approved Community items are recorded in this section. There is no separate roadmap file.
 
 - Config wizard and config check. `init` writes the audit log path, allow list, principal, and retention profile with legal hold, and it does not overwrite an existing file unless you confirm. `config check` reports whether the file loads. A licensed plugin may add questions through `mcp_glp_audit_proxy.wizard`. An unlicensed plugin adds nothing. This item is in this edition.
-- `glp_sign` signature plugin hook. The tool appends a separate hash-chained entry linked by `target_entry_hash` and delegates to a licensed plugin in `mcp_glp_audit_proxy.signatures`. With no licensed plugin the tool is absent. It is designed to support 21 CFR Part 11 workflows. This repository does not ship a signature plugin. This item is in this edition.
-
-## Signatures
-
-`glp_sign` appends a separate hash-chained entry linked by `target_entry_hash` (the `entry_hash` of an existing line). It does not rewrite that line. The record is not an approval. It is designed to support 21 CFR Part 11 workflows. The tool is listed for an approver only when a licensed signature plugin is installed. The group is `mcp_glp_audit_proxy.signatures`, discovered the same way as storage. A factory runs only when its declared feature, for example `signature.part11`, is enabled and is outside the Community set. With no licensed plugin, `glp_sign` is absent and a direct call returns `no licensed signature plugin`. This repository does not ship a signature plugin. See `docs/PLUGINS.md`.
 
 ## Local tools
 
@@ -185,7 +178,6 @@ Approved Community items are recorded in this section. There is no separate road
 | `glp_search_audit` | qa, approver, admin | Filter entries. The audit of the search stores the filter and the count, not a second copy of every row. |
 | `glp_export_audit` | qa, approver, admin | JSON electronic export with a hash manifest. A filtered export is marked `complete: false`. A broken chain is not exported. |
 | `glp_approve` | approver | Record meaning `approved`, `reviewed` or `rejected`. |
-| `glp_sign` | approver, and only when a licensed signature plugin is installed | Append a signature entry linked by `target_entry_hash`. Designed to support 21 CFR Part 11 workflows. Absent without a licensed plugin. |
 | `glp_update_policy` | admin | Append a config event. Policy is replayed from the log. |
 
 ## Manuals

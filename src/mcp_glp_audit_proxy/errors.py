@@ -15,6 +15,10 @@ class ConfigurationError(Exception):
     """The local config is missing or refuses a safety rule."""
 
 
+class LicenceError(ValueError):
+    """A licence file is invalid or expired. No features from it are enabled."""
+
+
 class FeatureDisabled(Exception):
     """A feature flag or plugin the caller asked for is not available."""
 

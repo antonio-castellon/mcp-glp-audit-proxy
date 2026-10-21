@@ -10,8 +10,12 @@ from __future__ import annotations
 from typing import Any
 
 
-def unsigned_signer(_settings: Any) -> UnsignedSigner:
-    """Entry point factory. Pro signers use the same (settings,) signature."""
+def unsigned_signer(_settings: Any, options: dict[str, Any] | None = None) -> UnsignedSigner:
+    """Entry point factory. Pro signers use (settings, options=).
+
+    Community ignores ``options``. The mapping is plugins.signer.options.
+    """
+    del options
     return UnsignedSigner()
 
 

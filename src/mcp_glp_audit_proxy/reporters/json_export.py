@@ -8,8 +8,12 @@ from typing import Any
 from ..canonical import CANON, GENESIS, HASH_ALGO, canonicalize
 
 
-def json_reporter(_settings: Any) -> JsonReporter:
-    """Entry point factory. Pro reporters use the same (settings,) signature."""
+def json_reporter(_settings: Any, options: dict[str, Any] | None = None) -> JsonReporter:
+    """Entry point factory. Pro reporters use (settings, options=).
+
+    Community ignores ``options``. The mapping is plugins.reporters.options.json.
+    """
+    del options
     return JsonReporter()
 
 

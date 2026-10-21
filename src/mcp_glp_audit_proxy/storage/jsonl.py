@@ -28,8 +28,12 @@ from ..signers.unsigned import UnsignedSigner
 _LOG = logging.getLogger("mcp_glp_audit_proxy.technical")
 
 
-def jsonl_store(settings: Any, signer: Any) -> JsonlAuditStore:
-    """Entry point factory. Pro stores use the same (settings, signer) signature."""
+def jsonl_store(settings: Any, signer: Any, options: dict[str, Any] | None = None) -> JsonlAuditStore:
+    """Entry point factory. Pro stores use (settings, signer, options=).
+
+    Community ignores ``options``. The mapping is plugins.storage.options.
+    """
+    del options
     return JsonlAuditStore(
         settings.audit_path,
         signer=signer,
@@ -188,9 +192,20 @@ class JsonlAuditStore:
             result={"signature": signature},
             policy_action="allow",
             policy_rule="checkpoint",
-            reason="unsigned checkpoint (Community); signing is a Pro plugin",
+            reason=_checkpoint_reason(self.signer),
             timestamp=stamped,
         )
+
+
+def _checkpoint_reason(signer: Any) -> str:
+    """Name the signer that produced this checkpoint.
+
+    The unsigned sentence is used only for the Community unsigned signer.
+    """
+    name = getattr(signer, "name", None)
+    if not isinstance(name, str) or not name or name == "unsigned":
+        return "unsigned checkpoint (Community); signing is a Pro plugin"
+    return f"checkpoint signed by {name}"
 
 
 def _needs_checkpoint(entries: list[dict[str, Any]], every: int) -> bool:

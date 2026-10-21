@@ -98,7 +98,9 @@ Same Community plugins, stated explicitly, licence file present, reporters limit
 }
 ```
 
-Licence file. `format` must be `mcp-glp-audit-proxy-licence`. `features` is a list of strings. An empty list leaves Community features on. A Pro feature name is enabled only when this list contains it and the entry point is installed. Otherwise it is printed on stderr as unavailable, and selecting it under `plugins` refuses startup.
+Licence file. `format` must be `mcp-glp-audit-proxy-licence`. `features` is a list of strings. An empty list leaves Community features on. A Pro feature name is enabled only when this list contains it and the entry point is installed. Otherwise it is printed on stderr as unavailable, and selecting it under `plugins` refuses startup. `expires`, when set, is an RFC 3339 timestamp with a time zone; a time that is not still in the future is rejected. `signature`, when set, is checked by a licence verifier entry point. This repository does not ship that verifier, so a signature is rejected here. A file with neither field still loads.
+
+A plugin value may be a name, or `{"name": "<plugin>", "options": {}}`. Reporters may be `{"names": ["json", "text"], "options": {}}`. `options` is `plugins.<group>.options` and is passed to that factory. Community factories ignore it. It is not written to the audit log.
 
 ```json licence
 {

@@ -90,6 +90,7 @@ def test_chain_links_and_matches_schema(tmp_path: Path) -> None:
     signature = checkpoints[0]["result"]["signature"]
     assert signature["signed"] is False
     assert signature["algorithm"] is None
+    assert checkpoints[0]["reason"] == "unsigned checkpoint (Community); signing is a Pro plugin"
     jsonschema.validate(checkpoints[0], SCHEMA)
     # Re-sealing the stored body reproduces entry_hash.
     body = dict(second)

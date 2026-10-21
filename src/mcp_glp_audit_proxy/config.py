@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +92,7 @@ class Settings:
     signer: str = "unsigned"
     reporters: tuple[str, ...] = _DEFAULT_REPORTERS
     auth: str = "env"
+    plugin_options: dict[str, Any] = field(default_factory=dict)
 
     def validate(self) -> None:
         if self.principal.role not in ROLES:
@@ -188,7 +189,7 @@ def load_settings(path: str | Path) -> Settings:
         export_dir = (config_path.parent / export_dir).resolve()
 
     upstreams = [_upstream(item) for item in raw.get("upstreams") or []]
-    storage, signer, reporters, auth = _plugins(raw)
+    storage, signer, reporters, auth, plugin_options = _plugins(raw)
     settings = Settings(
         principal=principal,
         retention=retention,
@@ -205,34 +206,94 @@ def load_settings(path: str | Path) -> Settings:
         signer=signer,
         reporters=reporters,
         auth=auth,
+        plugin_options=plugin_options,
     )
     settings.validate()
     return settings
 
 
-def _plugins(raw: dict[str, Any]) -> tuple[str, str, tuple[str, ...], str]:
+def _plugins(
+    raw: dict[str, Any],
+) -> tuple[str, str, tuple[str, ...], str, dict[str, Any]]:
     block = raw.get("plugins", None)
     if block is None:
-        return "jsonl", "unsigned", _DEFAULT_REPORTERS, "env"
+        return "jsonl", "unsigned", _DEFAULT_REPORTERS, "env", {}
     if not isinstance(block, dict):
         raise ConfigurationError("plugins must be an object")
     unknown = set(block) - {"storage", "signer", "reporters", "auth"}
     if unknown:
         raise ConfigurationError(f"unknown plugins fields: {sorted(unknown)}")
-    storage = block.get("storage", "jsonl")
-    signer = block.get("signer", "unsigned")
-    reporters = block.get("reporters", list(_DEFAULT_REPORTERS))
-    auth = block.get("auth", "env")
-    _check_plugin_name(storage, "plugins.storage")
-    _check_plugin_name(signer, "plugins.signer")
-    _check_plugin_name(auth, "plugins.auth")
-    if not isinstance(reporters, list) or not reporters:
+    storage, storage_options = _named_plugin(block.get("storage", "jsonl"), "plugins.storage")
+    signer, signer_options = _named_plugin(block.get("signer", "unsigned"), "plugins.signer")
+    reporters, reporter_options = _reporter_plugins(
+        block.get("reporters", list(_DEFAULT_REPORTERS))
+    )
+    auth, auth_options = _named_plugin(block.get("auth", "env"), "plugins.auth")
+    options = {
+        "storage": storage_options,
+        "signer": signer_options,
+        "reporters": reporter_options,
+        "auth": auth_options,
+    }
+    return storage, signer, reporters, auth, options
+
+
+def _named_plugin(value: object, label: str) -> tuple[str, dict[str, Any]]:
+    """A plugin is a name, or {"name", "options"} (plugins.<group>.options)."""
+    if isinstance(value, str):
+        _check_plugin_name(value, label)
+        return value, {}
+    if isinstance(value, dict):
+        unknown = set(value) - {"name", "options"}
+        if unknown:
+            raise ConfigurationError(f"unknown {label} fields: {sorted(unknown)}")
+        _check_plugin_name(value.get("name"), label)
+        return str(value["name"]), _options_object(value.get("options", {}), f"{label}.options")
+    raise ConfigurationError(f"{label} must be a plugin name or an object with name and options")
+
+
+def _reporter_plugins(value: object) -> tuple[tuple[str, ...], dict[str, Any]]:
+    if isinstance(value, list):
+        names = _reporter_names(value)
+        return names, {}
+    if isinstance(value, dict):
+        unknown = set(value) - {"names", "options"}
+        if unknown:
+            raise ConfigurationError(f"unknown plugins.reporters fields: {sorted(unknown)}")
+        names = _reporter_names(value.get("names"))
+        options = _options_object(value.get("options", {}), "plugins.reporters.options")
+        parsed: dict[str, Any] = {}
+        for key, item in options.items():
+            _check_plugin_name(key, "plugins.reporters.options")
+            if key not in names:
+                raise ConfigurationError(
+                    f"plugins.reporters.options names {key!r} that is not selected"
+                )
+            if not isinstance(item, dict):
+                raise ConfigurationError(
+                    f"plugins.reporters.options[{key!r}] must be an object"
+                )
+            parsed[str(key)] = dict(item)
+        return names, parsed
+    raise ConfigurationError(
+        "plugins.reporters must be a non-empty list or an object with names and options"
+    )
+
+
+def _reporter_names(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list) or not value:
         raise ConfigurationError("plugins.reporters must be a non-empty list of plugin names")
-    for name in reporters:
+    for name in value:
         _check_plugin_name(name, "plugins.reporters")
-    if len(set(reporters)) != len(reporters):
+    if len(set(value)) != len(value):
         raise ConfigurationError("plugins.reporters must not repeat a name")
-    return str(storage), str(signer), tuple(str(name) for name in reporters), str(auth)
+    return tuple(str(name) for name in value)
+
+
+def _options_object(value: object, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ConfigurationError(f"{label} must be an object")
+    return dict(value)
 
 
 def _check_plugin_name(name: object, label: str) -> None:

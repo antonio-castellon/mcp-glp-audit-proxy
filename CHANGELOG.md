@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- A licence file is checked before its features are enabled. `expires`, when set, is compared with the local clock, and an expired file is rejected. `signature` is delegated to the `mcp_glp_audit_proxy.licence` verifier. With no verifier installed, a signed licence is rejected. No licence file still enables only Community features.
+- `plugins.<group>.options` is passed to the plugin factory. Community factories accept the object and ignore it. The options are not written to the audit log.
+- A JSONL checkpoint `reason` names the active signer. The unsigned sentence is used only when the unsigned signer is used.
+
 ## 0.2.0 - 2026-10-21
 
 Community edition. The hash-chain format is unchanged. New records use schema 1.1.0. A line written as schema 1.0.0 still verifies.

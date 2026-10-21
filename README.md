@@ -1,5 +1,17 @@
 mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
+<p>
+  <a href="https://github.com/antonio-castellon/mcp-glp-audit-proxy/releases/latest"><img src="https://img.shields.io/github/v/release/antonio-castellon/mcp-glp-audit-proxy?label=version" alt="latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB" alt="Python 3.11, 3.12, and 3.13">
+  <img src="https://img.shields.io/badge/MCP-proxy-1e4652" alt="MCP proxy">
+</p>
+
+<picture>
+  <source srcset="https://raw.githubusercontent.com/antonio-castellon/mcp-glp-audit-proxy/main/docs/images/banner.svg" type="image/svg+xml">
+  <img src="https://raw.githubusercontent.com/antonio-castellon/mcp-glp-audit-proxy/main/docs/images/banner.png" width="1280" height="320" alt="mcp-glp-audit-proxy. Tamper-evident audit trail for MCP tool calls - Community edition.">
+</picture>
+
 # mcp-glp-audit-proxy
 
 Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.1.0.
@@ -171,3 +183,5 @@ CI runs the same suite on Python 3.11, 3.12 and 3.13 (`.github/workflows/ci.yml`
 ## Licence
 
 MIT. Copyright (c) 2026 Antonio Castellon / Castellon.CH. See `LICENSE`.
+
+How to contribute is in `CONTRIBUTING.md`. The conduct note is `CODE_OF_CONDUCT.md`. Vulnerability reports go through `SECURITY.md`, not an open issue.

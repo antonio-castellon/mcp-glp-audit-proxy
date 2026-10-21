@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img">
+<title>mcp-glp-audit-proxy</title>
+<desc>Tamper-evident audit trail for MCP tool calls - Community edition. Hash chain and shield.</desc>
+<rect width="1280" height="320" fill="#1b3c48"/>
+<rect x="0" y="317" width="1280" height="3" fill="#2d5563"/>
+<text x="64" y="142" fill="#f6f4ef" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="46" font-weight="600">mcp-glp-audit-proxy</text>
+<text x="64" y="188" fill="#d3e0e4" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="20" font-weight="500">Tamper-evident audit trail for MCP tool calls - Community edition</text>
+<path d="M 799.0 208.0 C 774.0 181.0 760.0 162.2 760.0 139.4 L 760.0 118.0 Q 760.0 104.0 772.5 104.0 L 825.5 104.0 Q 838.0 104.0 838.0 118.0 L 838.0 139.4 C 838.0 162.2 824.0 181.0 799.0 208.0 Z" fill="#245566" stroke="#d5e2e6" stroke-width="1.5"/>
+<line x1="783.0" y1="146" x2="815.0" y2="146" stroke="#d5e2e6" stroke-width="1.5"/>
+<circle cx="783.0" cy="146" r="3.2" fill="#f4f2ec"/>
+<circle cx="799.0" cy="146" r="3.2" fill="#f4f2ec"/>
+<circle cx="815.0" cy="146" r="3.2" fill="#f4f2ec"/>
+<clipPath id="card-0"><rect x="862" y="116" width="84" height="80" rx="8"/></clipPath>
+<g clip-path="url(#card-0)">
+<rect x="862" y="116" width="84" height="80" fill="#f4f2ec"/>
+<rect x="862" y="116" width="84" height="7" fill="#1e4652"/>
+</g>
+<rect x="862" y="116" width="84" height="80" rx="8" fill="none" stroke="#d9d3c7"/>
+<text x="904.0" y="148" text-anchor="middle" fill="#4a5963" font-family="'DejaVu Sans Mono', ui-monospace, Consolas, monospace" font-size="12">01</text>
+<text x="904.0" y="174" text-anchor="middle" fill="#1c2830" font-family="'DejaVu Sans Mono', ui-monospace, Consolas, monospace" font-size="13">a3f1c90e</text>
+<line x1="946" y1="156.0" x2="962" y2="156.0" stroke="#d5e2e6" stroke-width="1.5"/>
+<clipPath id="card-1"><rect x="962" y="116" width="84" height="80" rx="8"/></clipPath>
+<g clip-path="url(#card-1)">
+<rect x="962" y="116" width="84" height="80" fill="#f4f2ec"/>
+<rect x="962" y="116" width="84" height="7" fill="#1e4652"/>
+</g>
+<rect x="962" y="116" width="84" height="80" rx="8" fill="none" stroke="#d9d3c7"/>
+<text x="1004.0" y="148" text-anchor="middle" fill="#4a5963" font-family="'DejaVu Sans Mono', ui-monospace, Consolas, monospace" font-size="12">02</text>
+<text x="1004.0" y="174" text-anchor="middle" fill="#1c2830" font-family="'DejaVu Sans Mono', ui-monospace, Consolas, monospace" font-size="13">9c02b71d</text>
+<line x1="1046" y1="156.0" x2="1062" y2="156.0" stroke="#d5e2e6" stroke-width="1.5"/>
+<clipPath id="card-2"><rect x="1062" y="116" width="84" height="80" rx="8"/></clipPath>
+<g clip-path="url(#card-2)">
+<rect x="1062" y="116" width="84" height="80" fill="#f4f2ec"/>
+<rect x="1062" y="116" width="84" height="7" fill="#1e4652"/>
+</g>
+<rect x="1062" y="116" width="84" height="80" rx="8" fill="none" stroke="#d9d3c7"/>
+<text x="1104.0" y="148" text-anchor="middle" fill="#4a5963" font-family="'DejaVu Sans Mono', ui-monospace, Consolas, monospace" font-size="12">03</text>
+<text x="1104.0" y="174" text-anchor="middle" fill="#1c2830" font-family="'DejaVu Sans Mono', ui-monospace, Consolas, monospace" font-size="13">71be44aa</text>
+<line x1="1146" y1="156.0" x2="1162" y2="156.0" stroke="#d5e2e6" stroke-width="1.5"/>
+<clipPath id="card-3"><rect x="1162" y="116" width="84" height="80" rx="8"/></clipPath>
+<g clip-path="url(#card-3)">
+<rect x="1162" y="116" width="84" height="80" fill="#f4f2ec"/>
+<rect x="1162" y="116" width="84" height="7" fill="#1e4652"/>
+</g>
+<rect x="1162" y="116" width="84" height="80" rx="8" fill="none" stroke="#d9d3c7"/>
+<text x="1204.0" y="148" text-anchor="middle" fill="#4a5963" font-family="'DejaVu Sans Mono', ui-monospace, Consolas, monospace" font-size="12">04</text>
+<text x="1204.0" y="174" text-anchor="middle" fill="#1c2830" font-family="'DejaVu Sans Mono', ui-monospace, Consolas, monospace" font-size="13">e4d80c15</text>
+</svg>

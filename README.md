@@ -6,17 +6,10 @@ Local MCP proxy that sits between an MCP host and your MCP servers and writes a 
 
 It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU GMP Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, Part 11 electronic signatures, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository.
 
-```
-host (Claude, Cursor, Grok, self-hosted LLM)
-        |  stdio JSON-RPC
-        v
-mcp-glp-audit-proxy
-  policy (allow / deny, reason, human approval)
-  audit  (append-only JSONL, RFC 8785, SHA-256 chain)
-        |  stdio or HTTPS (TLS 1.3)
-        v
-upstream MCP servers (Excel, ELN, LIMS, databases, instruments)
-```
+<picture>
+  <source srcset="https://raw.githubusercontent.com/antonio-castellon/mcp-glp-audit-proxy/main/docs/images/flow.svg" type="image/svg+xml">
+  <img src="https://raw.githubusercontent.com/antonio-castellon/mcp-glp-audit-proxy/main/docs/images/flow.png" width="1280" height="576" alt="Flow from the client / agent, host (Claude, Cursor, Grok, self-hosted LLM), over stdio JSON-RPC into mcp-glp-audit-proxy. Inside the proxy: policy (allow / deny, reason, human approval), approval, and the audit writer, audit (append-only JSONL, RFC 8785, SHA-256 chain). The proxy then reaches upstream MCP servers (Excel, ELN, LIMS, databases, instruments) over stdio or HTTPS (TLS 1.3). The audit writer records the JSONL log and the .head sidecar. The off-host anchor keeps the external copy (ticket, email, or LIMS record).">
+</picture>
 
 ## Install
 
@@ -144,6 +137,10 @@ Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the
 | `glp_export_audit` | qa, approver, admin | JSON electronic export with a hash manifest. A filtered export is marked `complete: false`. A broken chain is not exported. |
 | `glp_approve` | approver | Record meaning `approved`, `reviewed` or `rejected`. |
 | `glp_update_policy` | admin | Append a config event. Policy is replayed from the log. |
+
+## Manuals
+
+Host setup for Claude Desktop, Claude Code, Cursor, VS Code, Windsurf, Cline, Continue, a generic stdio client, the MCP Python SDK, LangChain, the OpenAI Agents SDK, Docker, a lab PC, a shared workstation, and an offline install is in [`docs/manual-guides/`](docs/manual-guides/README.md). The upstream MCP server must be reachable only through this proxy. The same pages cover anchoring, approval, plugin selection, and the fail-closed latch.
 
 ## Safety
 

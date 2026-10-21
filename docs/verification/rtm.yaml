@@ -87,7 +87,7 @@ requirements:
     scope: community
     statement: "Optional approval before a write, and monotonic sequence numbers."
     modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/approvals.py]
-    tests: [tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts, tests/test_chain.py::test_chain_links_and_matches_schema]
+    tests: [tests/test_approval.py::test_write_is_held_until_a_different_approver_accepts, tests/test_approval.py::test_legacy_reviewed_approval_still_verifies_and_does_not_authorise, tests/test_chain.py::test_chain_links_and_matches_schema]
   - id: COV-15
     source: "21 CFR Part 11 11.10(g)"
     scope: community
@@ -267,7 +267,7 @@ requirements:
     scope: community
     statement: "Published schema, readable verify output, export. WORM storage is Pro."
     modules: [schema/audit-record.schema.json, src/mcp_glp_audit_proxy/cli.py]
-    tests: [tests/test_export.py::test_entries_match_the_published_schema, tests/test_export.py::test_verify_cli_exports_only_a_valid_chain]
+    tests: [tests/test_export.py::test_entries_match_the_published_schema, tests/test_export.py::test_verify_cli_exports_only_a_valid_chain, tests/test_approval.py::test_legacy_reviewed_approval_still_verifies_and_does_not_authorise]
   - id: COV-44
     source: "ALCOA++ traceable"
     scope: community
@@ -411,7 +411,7 @@ requirements:
     scope: community
     statement: "Denials, errors, approvals and config changes are logged."
     modules: [src/mcp_glp_audit_proxy/proxy.py]
-    tests: [tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded, tests/test_approval.py::test_reviewed_and_rejected_do_not_authorise, tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed]
+    tests: [tests/test_fail_closed.py::test_denied_call_is_logged_and_not_forwarded, tests/test_approval.py::test_reviewed_and_rejected_do_not_authorise, tests/test_approval.py::test_legacy_reviewed_approval_still_verifies_and_does_not_authorise, tests/test_policy.py::test_admin_policy_change_is_audited_and_replayed]
   - id: COV-68
     source: "OWASP LLM06 excessive agency"
     scope: community

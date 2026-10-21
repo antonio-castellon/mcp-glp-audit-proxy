@@ -1200,9 +1200,14 @@ class AuditProxy:
                 rule="approval:self",
                 text="the requester cannot approve their own write",
             )
-        status = "approved" if meaning in {"approved", "reviewed"} else "rejected"
-        # 'reviewed' is recorded but does not authorise the write. The gate
-        # accepts only meaning 'approved'.
+        # Only meaning 'approved' authorises the write. 'reviewed' is stored
+        # under its own status so a search for approved does not include it.
+        if meaning == "approved":
+            status = "approved"
+        elif meaning == "reviewed":
+            status = "reviewed"
+        else:
+            status = "rejected"
         approval = {
             "approval_id": approval_id,
             "approver_id": self.settings.principal.id,
@@ -1212,14 +1217,14 @@ class AuditProxy:
             "expires_at": record.expires_at,
             "label": "approval",
             "meaning": meaning,
-            "status": "approved" if meaning != "rejected" else "rejected",
+            "status": status,
             "tool": record.tool,
         }
         self._audit_simple(
             message,
             method="glp_approve",
             record_class="gxp_data",
-            status=status if meaning != "reviewed" else "approved",
+            status=status,
             server="proxy",
             tool="glp_approve",
             arguments={"approval_id": approval_id, "meaning": meaning},
@@ -1675,6 +1680,10 @@ def _approval_problem(record: Any, *, tool: str, digest: str, requester: str, no
         return "consumed"
     if record.status == "rejected":
         return "rejected"
+    # reviewed is recorded and does not authorise, including a 1.0.0 line that
+    # was stored as status approved with meaning reviewed.
+    if record.status == "reviewed" or record.meaning == "reviewed":
+        return "meaning"
     if record.status != "approved":
         return record.status or "pending"
     if record.meaning != "approved":

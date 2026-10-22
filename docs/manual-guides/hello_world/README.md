@@ -1,8 +1,12 @@
 # Hello-world transport guides
 
-Two short walkthroughs. Each one installs the package from PyPI, runs `init`, writes a JSON config, makes one allowed tool call and one blocked tool call, reads the JSONL log, and runs verify.
+Two first-run pages. Each one is numbered. Each step says whether to type it in Terminal (Linux or macOS) or in Command Prompt (Windows), and the page shows the words you should see after the command. You paste a few small programs. You do not need to know Python.
 
-The inventory below is the transports this package actually implements. The matrix uses the smallest set of guides that still covers every one of them.
+Do [stdio-to-proxy-to-stdio.md](stdio-to-proxy-to-stdio.md) first. It installs the package from PyPI, runs `init`, writes a JSON config, makes one allowed tool call and one blocked tool call, reads the JSONL log, and runs verify. Do [stdio-to-proxy-to-https.md](stdio-to-proxy-to-https.md) when the tool server is an `https://` address.
+
+The pictures under [images/](images/) are photographs of a Linux terminal from those runs. On Windows the words are the same. The prompt ends with `>` instead of `$`.
+
+The matrix below is the smallest set of pages that still covers every transport this package implements.
 
 ## What the code accepts
 
@@ -38,4 +42,4 @@ Community keeps the audit trail in one JSONL file in a folder you choose. The co
 - [python-sdk.md](../python-sdk.md) is the official SDK client. These walkthroughs use a short script instead.
 - [anchoring-and-verification.md](../anchoring-and-verification.md) is `--print-head` and the off-host copy.
 - [troubleshooting.md](../troubleshooting.md) is a denied call and fail-closed.
-- [windows-lab-pc.md](../windows-lab-pc.md) is the Windows launcher. These pages use `python3`.
+- [windows-lab-pc.md](../windows-lab-pc.md) is the Windows launcher. These pages use `py -3` in Command Prompt and `python3` in Terminal.

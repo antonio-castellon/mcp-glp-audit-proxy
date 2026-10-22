@@ -1,6 +1,6 @@
 # Manual guides
 
-Usage and configuration for the Community edition of mcp-glp-audit-proxy (v0.3.0). The package is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Your own SOPs, reviews, and the systems around the proxy still decide whether a deployment meets those rules.
+Usage and configuration for the Community edition of mcp-glp-audit-proxy (v0.3.1). The package is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Your own SOPs, reviews, and the systems around the proxy still decide whether a deployment meets those rules.
 
 Every sample below was taken from the command line and the config loader in this repository. The proxy accepts no flags that are not listed here.
 

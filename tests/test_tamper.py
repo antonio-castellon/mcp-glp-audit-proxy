@@ -38,6 +38,14 @@ def test_valid_chain(tmp_path: Path) -> None:
     assert [entry["seq"] for entry in report.entries] == [1, 2, 3]
 
 
+def test_jsonl_file_uses_lf_newlines(tmp_path: Path) -> None:
+    path = tmp_path / "audit.jsonl"
+    _fill(path)
+    raw = path.read_bytes()
+    assert b"\r\n" not in raw
+    assert raw.endswith(b"\n")
+
+
 def test_modified_payload_is_detected(tmp_path: Path) -> None:
     path = tmp_path / "audit.jsonl"
     _fill(path)

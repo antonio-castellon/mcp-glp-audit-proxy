@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import errno
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,7 +26,9 @@ from pathlib import Path
 from .canonical import canonicalize
 from .chain import VerifyReport, verify_file
 from .errors import AuditStoreError
-from .permissions import ensure_private_dir, open_private
+from .permissions import ensure_private_dir, open_flags, open_private, tighten_fd
+
+_LOG = logging.getLogger("mcp_glp_audit_proxy.technical")
 
 
 @dataclass
@@ -71,9 +74,12 @@ def write_head(log: Path, seq: int, entry_hash: str) -> None:
     temporary = target.with_name(target.name + ".tmp")
     payload = canonicalize({"entry_hash": entry_hash, "seq": seq}) + b"\n"
     ensure_private_dir(target.parent)
-    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    fd = os.open(temporary, open_flags(os.O_WRONLY | os.O_CREAT | os.O_TRUNC), 0o600)
     try:
-        os.fchmod(fd, 0o600)
+        if os.name == "nt":
+            tighten_fd(fd, str(temporary), warn=True)
+        else:
+            os.fchmod(fd, 0o600)
         view = payload
         while view:
             written = os.write(fd, view)
@@ -93,9 +99,25 @@ def write_head(log: Path, seq: int, entry_hash: str) -> None:
         raise
     os.close(fd)
     os.replace(temporary, target)
-    directory = os.open(target.parent, os.O_RDONLY)
+    _sync_directory(target.parent)
+
+
+def _sync_directory(path: Path) -> None:
+    """Fsync the directory after the rename. Windows often cannot open it."""
     try:
-        os.fsync(directory)
+        directory = os.open(path, os.O_RDONLY)
+    except OSError as exc:
+        if os.name != "nt":
+            raise
+        _LOG.warning("could not open %s to fsync the audit head: %s", path, exc)
+        return
+    try:
+        try:
+            os.fsync(directory)
+        except OSError as exc:
+            if os.name != "nt":
+                raise
+            _LOG.warning("could not fsync %s: %s", path, exc)
     finally:
         os.close(directory)
 

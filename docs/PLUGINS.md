@@ -90,7 +90,7 @@ No `update` and no `delete`. The store assigns the chain fields. Callers pass th
 - `sign(payload: bytes) -> dict`
 - `verify(payload: bytes, signature: dict, public_key: bytes | None = None) -> bool`
 
-The Community signer returns `{"algorithm": null, "signed": false, "value": null}`. `verify` is true only for that unsigned shape, and it returns false when `public_key` is set. A Pro signer returns a real signature object. Checkpoints store that object under `result.signature`. The checkpoint entry is then hashed into the chain like any other entry. The checkpoint `reason` is `unsigned checkpoint (Community); signing is a Pro plugin` only when the unsigned signer is used. Any other signer name is recorded as `checkpoint signed by <name>`. `verify --pubkey` passes the file bytes as `public_key` and calls only a licensed signer. The unsigned factory is not used for that check.
+The Community signer returns `{"algorithm": null, "signed": false, "value": null}`. `verify` is true only for that unsigned shape, and it returns false when `public_key` is set. A Pro signer returns a real signature object. Checkpoints store that object under `result.signature`. The checkpoint entry is then hashed into the chain like any other entry. The checkpoint `reason` is `unsigned checkpoint (Community); signing is a Pro plugin` only when the unsigned signer is used. Any other signer name is recorded as `checkpoint signed by <name>`. `verify --pubkey` passes the file bytes as `public_key` and calls only a licensed signer. The unsigned factory is not used for that check. `--licence` and `--client-id`, or `GLP_LICENCE_PATH` and `GLP_CLIENT_ID`, load that licence first and only when `--pubkey` is set. With no licence path, no licence file is read.
 
 `Reporter`:
 

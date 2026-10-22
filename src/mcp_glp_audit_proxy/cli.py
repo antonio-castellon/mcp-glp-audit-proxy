@@ -7,12 +7,14 @@ A broken chain is not exported.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
 
 from .anchor import verify_anchored
 from .checkpoints import check_log
+from .features import FeatureSet
 from .records import format_timestamp, utc_now
 from .reporters.json_export import dumps_document, export_document, filter_entries
 from .reporters.text_export import format_entry
@@ -44,6 +46,18 @@ def _expected_head(inline: tuple[int, str] | None, path: Path | None) -> tuple[i
     if inline is not None and from_file is not None and inline != from_file:
         raise ValueError("expected head values do not match")
     return inline if inline is not None else from_file
+
+
+def _features_for_pubkey(licence: Path | None, client_id: str | None) -> FeatureSet | None:
+    """Load a licence only when a path was given. Otherwise the caller passes None."""
+    path = licence
+    if path is None:
+        env_path = os.environ.get("GLP_LICENCE_PATH", "").strip()
+        path = Path(env_path) if env_path else None
+    if path is None:
+        return None
+    chosen = (client_id or "").strip() or os.environ.get("GLP_CLIENT_ID", "").strip() or None
+    return FeatureSet.load(path, client_id=chosen)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -79,6 +93,17 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=None,
         help="Pinned public key file, passed to the licensed signer plugin.",
+    )
+    parser.add_argument(
+        "--licence",
+        type=Path,
+        default=None,
+        help="Licence file. Used only with --pubkey. GLP_LICENCE_PATH is the fallback.",
+    )
+    parser.add_argument(
+        "--client-id",
+        default=None,
+        help="Customer id for the licence fingerprint. GLP_CLIENT_ID is the fallback.",
     )
     args = parser.parse_args(argv)
     try:
@@ -129,7 +154,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if public_key is not None:
-        problems = check_log(report.entries, public_key)
+        try:
+            features = _features_for_pubkey(args.licence, args.client_id)
+        except (OSError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        problems = check_log(report.entries, public_key, features)
         if problems:
             print("checkpoint signature invalid", file=sys.stderr)
             for problem in problems:

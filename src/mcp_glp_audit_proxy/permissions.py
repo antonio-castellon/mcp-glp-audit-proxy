@@ -42,15 +42,21 @@ def tighten_fd(fd: int, label: str, *, warn: bool) -> None:
         _LOG.warning("set %s from mode %03o to 0600", label, current)
 
 
+def open_flags(base: int) -> int:
+    """OR ``O_BINARY`` so Windows does not turn LF into CRLF."""
+    return base | getattr(os, "O_BINARY", 0)
+
+
 def open_private(path: Path, flags: int) -> int:
     """Open ``path`` and set it to 0600. An existing loose mode is warned about."""
+    flags = open_flags(flags)
     existed = path.exists()
     try:
         fd = os.open(path, flags, 0o600)
     except OSError as exc:
         if exc.errno != errno.EACCES or not path.is_file():
             raise
-        read_fd = os.open(path, os.O_RDONLY)
+        read_fd = os.open(path, open_flags(os.O_RDONLY))
         try:
             tighten_fd(read_fd, str(path), warn=True)
         finally:
@@ -58,7 +64,8 @@ def open_private(path: Path, flags: int) -> int:
         fd = os.open(path, flags, 0o600)
         existed = True
     try:
-        if existed:
+        # Windows cannot store 0600. A failed fchmod must not refuse the open.
+        if existed or os.name == "nt":
             tighten_fd(fd, str(path), warn=True)
         else:
             os.fchmod(fd, 0o600)
@@ -73,12 +80,12 @@ def tighten_path(path: Path) -> None:
     if not path.is_file():
         return
     try:
-        fd = os.open(path, os.O_RDWR)
+        fd = os.open(path, open_flags(os.O_RDWR))
     except OSError as exc:
         if exc.errno not in {errno.EACCES, errno.EPERM}:
             return
         try:
-            fd = os.open(path, os.O_RDONLY)
+            fd = os.open(path, open_flags(os.O_RDONLY))
         except OSError:
             return
     try:

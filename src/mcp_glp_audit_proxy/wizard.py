@@ -79,9 +79,14 @@ def config_main(argv: list[str] | None = None) -> int:
 
 def _write_private(path: Path, payload: bytes) -> None:
     """Create ``path`` as mode 0600. The umask cannot leave it group-readable."""
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    from .permissions import open_flags, tighten_fd
+
+    fd = os.open(path, open_flags(os.O_WRONLY | os.O_CREAT | os.O_EXCL), 0o600)
     try:
-        os.fchmod(fd, 0o600)
+        if os.name == "nt":
+            tighten_fd(fd, str(path), warn=True)
+        else:
+            os.fchmod(fd, 0o600)
         view = payload
         while view:
             written = os.write(fd, view)

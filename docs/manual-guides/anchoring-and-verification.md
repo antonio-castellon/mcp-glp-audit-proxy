@@ -19,7 +19,7 @@ python -m pip install mcp-glp-audit-proxy
 mcp-glp-audit-proxy-verify --help
 ```
 
-The verify flags are `--json-export`, `--record-class`, `--tool`, `--status`, `--principal`, `--method`, `--server`, `--since`, `--until`, `--print-head`, `--expect-head`, `--expect-head-file`, and `--pubkey`. There is no `--config` on this command. Without `--pubkey` it does not load plugins. `--pubkey` passes the file bytes to the licensed signer plugin. Unsigned checkpoints do not satisfy that check. The JSON export's signer field stays `unsigned` unless a licensed signer produced the checkpoint.
+The verify flags are `--json-export`, `--record-class`, `--tool`, `--status`, `--principal`, `--method`, `--server`, `--since`, `--until`, `--print-head`, `--expect-head`, `--expect-head-file`, `--pubkey`, `--licence`, and `--client-id`. There is no `--config` on this command. Without `--pubkey` it does not load plugins. `--pubkey` passes the file bytes to the licensed signer plugin. `--licence` and `--client-id` are used only with `--pubkey`. They also fall back to `GLP_LICENCE_PATH` and `GLP_CLIENT_ID`. A missing or invalid licence exits 2. With no licence path, no licence file is read. Unsigned checkpoints do not satisfy that check. The JSON export's signer field stays `unsigned` unless a licensed signer produced the checkpoint.
 
 ## Minimal config
 
@@ -127,7 +127,7 @@ Compare today's stdout line with the line you stored outside the machine, or pas
 ## Pitfalls
 
 - `checkpoint_every` 0 is stored as 100. It does not disable checkpoints.
-- The CLI does not take `--config` or `GLP_AUDIT_PATH`. Pass the log path as the positional argument. `--pubkey` is the only flag that loads a signer plugin.
+- The CLI does not take `--config` or `GLP_AUDIT_PATH`. Pass the log path as the positional argument. `--pubkey` loads the signer plugin. `--licence` and `--client-id` load a licence for that check and are ignored without `--pubkey`.
 - Editing a sealed line, then hoping verify will rewrite it, fails. Verify does not change entry bytes. It does set the log and the head to mode `0600` when it can, and it warns when an existing mode changes.
 - Reconciliation when the upstream applied a write and the append failed is `docs/RECONCILIATION_SOP.md`. The host was shown a JSON-RPC error, code `-32000`, `data.reason` `fail_closed`, and the upstream payload was not returned.
 - QA's empty `upstreams` is correct for a review station. An operator station still names the upstream only in its own proxy config.

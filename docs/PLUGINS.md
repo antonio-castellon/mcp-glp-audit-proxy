@@ -184,7 +184,7 @@ LM2
 <base64 of the Ed25519 signature>
 ```
 
-The signature is Ed25519 over the decoded body bytes. The public key is 32 raw bytes. `LICENCE_LM2_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence` is an empty placeholder and fails closed. Replace it before issuing LM2 licences. The private key is not in this repository.
+The signature is Ed25519 over the decoded body bytes. The public key is 32 raw bytes. `LICENCE_LM2_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence` is the production Ed25519 public key. The private key is not in this repository.
 
 After the signature check, the body bytes must equal `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)` encoded as UTF-8. A body that verifies but is not that encoding is rejected.
 
@@ -219,7 +219,7 @@ JSON, LM1, and LM2 use the same fingerprint. It is the lowercase SHA-256 hex of 
 
 Startup computes that digest from the config and from the entry points installed in this process. The licence `fingerprint` must be equal. A mismatch raises `LicenceError` (`licence fingerprint does not match`) and no feature from that file is enabled. The factory is not called. Adding or removing a licensed plugin changes the digest, so the previous licence is refused and a new one is required. A signed file also requires `client_id`. A file that lists only Community features, and has neither a signature nor a fingerprint, still loads without `client_id`.
 
-`LICENCE_PUBLIC_KEY` and `LICENCE_RSA_PUBLIC_PEM` are test trust anchors. Replace both before issuing customer licences. `LICENCE_LM2_PUBLIC_KEY` is an empty placeholder and fails closed. Replace it before issuing LM2 licences. The private keys are not in this repository.
+`LICENCE_PUBLIC_KEY` and `LICENCE_RSA_PUBLIC_PEM` are test trust anchors. Replace both before issuing customer licences. `LICENCE_LM2_PUBLIC_KEY` is the production LM2 public key. The private keys are not in this repository.
 
 `FeatureSet.load`:
 

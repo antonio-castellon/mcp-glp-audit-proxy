@@ -554,12 +554,20 @@ def _write_lm2(tmp_path: Path, name: str, text: str) -> Path:
     return path
 
 
+def test_lm2_trust_anchor_is_the_production_public_key() -> None:
+    assert LICENCE_LM2_PUBLIC_KEY == bytes.fromhex(
+        "df94b07a4976983cff62239a567ab57f6402e23b0f3c137b947b3105b170a926"
+    )
+    assert len(LICENCE_LM2_PUBLIC_KEY) == 32
+    assert LICENCE_LM2_PUBLIC_KEY != _LM2_TEST_PUBLIC
+    assert LICENCE_LM2_PUBLIC_KEY != LICENCE_PUBLIC_KEY
+
+
 def test_lm2_sample_verifies_only_with_the_test_key(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     needle = _LM2_TEST_PUBLIC.hex()
     body_line = _LM2_SAMPLE.split("\n")[1]
-    assert LICENCE_LM2_PUBLIC_KEY == b""
-    assert _LM2_TEST_PUBLIC != LICENCE_PUBLIC_KEY
+    assert LICENCE_LM2_PUBLIC_KEY != _LM2_TEST_PUBLIC
     assert len(_LM2_TEST_PUBLIC) == 32
     for path in (root / "src").rglob("*"):
         if path.suffix not in {".py", ".md"}:
@@ -590,13 +598,15 @@ def test_lm2_sample_verifies_only_with_the_test_key(tmp_path: Path) -> None:
     ).encode("utf-8")
     assert base64.b64decode(body_line, validate=True) == canonical
 
-    with pytest.raises(LicenceError, match="not an Ed25519 public key"):
+    with pytest.raises(LicenceError, match="invalid"):
         verify_lm2(_LM2_SAMPLE)
+    with pytest.raises(LicenceError, match="not an Ed25519 public key"):
+        verify_lm2(_LM2_SAMPLE, public_key=b"")
     with pytest.raises(LicenceError, match="invalid"):
         verify_lm2(_LM2_SAMPLE, public_key=LICENCE_PUBLIC_KEY)
     sample = _write_lm2(tmp_path, "sample.lm2", _LM2_SAMPLE)
     now = datetime(2026, 10, 22, tzinfo=timezone.utc)
-    with pytest.raises(LicenceError, match="not an Ed25519 public key"):
+    with pytest.raises(LicenceError, match="invalid"):
         FeatureSet.load(sample, client_id=_CLIENT, now=now)
     with pytest.raises(LicenceError, match="does not match"):
         FeatureSet.load(sample, public_key=_LM2_TEST_PUBLIC, client_id=_CLIENT, now=now)

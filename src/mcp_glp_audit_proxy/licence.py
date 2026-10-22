@@ -12,10 +12,9 @@ Three file shapes are accepted.
   ``LICENCE_RSA_PUBLIC_PEM``. The signature is checked against the raw body
   bytes. This module does not re-encode that JSON.
 * LM2 text. Three lines: ``LM2``, base64 of the raw JSON body, and base64 of
-  a 64-byte Ed25519 signature over those body bytes. The public key is 32
-  raw bytes. ``LICENCE_LM2_PUBLIC_KEY`` is an empty placeholder and fails
-  closed until it is replaced. The signature is checked against the decoded
-  body bytes. Those bytes must also equal
+  a 64-byte Ed25519 signature over those body bytes. The trust anchor is the
+  raw 32-byte public key ``LICENCE_LM2_PUBLIC_KEY``. The signature is checked
+  against the decoded body bytes. Those bytes must also equal
   ``json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=False)``
   encoded as UTF-8. Any other text that starts with ``LM`` is rejected.
 
@@ -24,8 +23,8 @@ Each shape carries a fingerprint. It is the lowercase SHA-256 hex of the RFC
 id is ``mcp-glp-audit-proxy``. There is no machine id in that array.
 
 TEST TRUST ANCHORS. Replace ``LICENCE_PUBLIC_KEY`` and ``LICENCE_RSA_PUBLIC_PEM``
-before issuing customer licences. Replace ``LICENCE_LM2_PUBLIC_KEY`` before
-issuing LM2 licences. The private keys are not in this repository.
+before issuing customer licences. ``LICENCE_LM2_PUBLIC_KEY`` is the production
+LM2 public key. The private keys are not in this repository.
 """
 
 from __future__ import annotations
@@ -54,8 +53,10 @@ from .errors import LicenceError
 LICENCE_PUBLIC_KEY = bytes.fromhex(
     "8b81069ec1a5f561e2bd0b335c9b32e202e3b02a7c56a0232859c625051759a6"
 )
-# Empty until the production LM2 public key is installed. Fails closed.
-LICENCE_LM2_PUBLIC_KEY = b""
+# Production LM2 Ed25519 public key. The private key is not in this repository.
+LICENCE_LM2_PUBLIC_KEY = bytes.fromhex(
+    "df94b07a4976983cff62239a567ab57f6402e23b0f3c137b947b3105b170a926"
+)
 LICENCE_KEY_ID = "mcp-glp-audit-proxy-licence"
 LICENCE_APP = "mcp-glp-audit-proxy"
 LICENCE_KINDS = frozenset({"trial", "year", "perpetual"})

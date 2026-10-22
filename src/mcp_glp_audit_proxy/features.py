@@ -21,9 +21,11 @@ from .licence import (
     fingerprint_matches,
     licence_fingerprint,
     lm1_body,
+    lm2_body,
     parse_expiry,
     verify_ed25519_licence,
     verify_lm1,
+    verify_lm2,
 )
 from .plugins import load_group
 
@@ -201,8 +203,13 @@ def _read_licence(
     public_key: bytes | None,
     rsa_public_key: bytes | None,
 ) -> LicenceBody:
-    if text.startswith("LM1"):
+    header = text.split("\n", 1)[0]
+    if header == "LM2":
+        return lm2_body(verify_lm2(text, public_key=public_key))
+    if header == "LM1":
         return lm1_body(verify_lm1(text, public_pem=rsa_public_key))
+    if text.startswith("LM"):
+        raise LicenceError("licence LM format is not LM1 or LM2")
     try:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:

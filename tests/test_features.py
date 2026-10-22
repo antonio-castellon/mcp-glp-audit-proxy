@@ -6,7 +6,8 @@ import base64
 import json
 import socket
 import ssl
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives import hashes
@@ -26,9 +27,12 @@ from mcp_glp_audit_proxy.identity import env_identity
 from mcp_glp_audit_proxy.licence import (
     LICENCE_APP,
     LICENCE_KEY_ID,
+    LICENCE_LM2_PUBLIC_KEY,
     LICENCE_PUBLIC_KEY,
     LICENCE_RSA_PUBLIC_PEM,
     licence_fingerprint,
+    lm2_body,
+    verify_lm2,
 )
 from mcp_glp_audit_proxy.plugins import load_group
 from mcp_glp_audit_proxy.reporters.json_export import json_reporter
@@ -332,6 +336,46 @@ def _rsa_pair() -> tuple[rsa.RSAPrivateKey, bytes]:
     return private, pem
 
 
+# Test-only LM2 vector. It is not a trust anchor and must not appear under src.
+_LM2_TEST_PUBLIC = bytes.fromhex(
+    "a9f9def8fb5c0de7cbb768eb1bcab1fd28ed5fa285f61b2ad8edecd8b2e751f7"
+)
+_LM2_SAMPLE = (
+    "LM2\n"
+    "eyJhbGciOiJlZDI1NTE5IiwiYXBwIjoibWNwLWdscC1hdWRpdC1wcm94eSIsImV4cGlyZXMiOiIyMDI3LTEwLTIy"
+    "IiwiZmVhdHVyZXMiOlsicmVwb3J0LnBkZiIsInNpZ25lci5lZDI1NTE5Iiwic3RvcmFnZS5tc3NxbCIsInN0b3Jh"
+    "Z2Uuc3FsIl0sImZpbmdlcnByaW50IjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5"
+    "YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZiIsImhvbGRlciI6ImFuYUBleGFtcGxlLmNvbSIsImlzc3VlZCI6IjIwMjYt"
+    "MTAtMjIiLCJraW5kIjoieWVhciIsInVwZGF0ZXNfdW50aWwiOiIyMDI3LTEwLTIyIiwidmVyc2lvbiI6IjEuMC4w"
+    "In0=\n"
+    "MKsCjN/8rsHepux1ocl7au+KBoEsgkjcOBN87QiJhvsPG/QLK/jOyciOFEv7U/xgQQRQt/xcEWCQufj0H9TpBA==\n"
+)
+
+
+def _lm2(body: dict, private: Ed25519PrivateKey, *, raw: bytes | None = None) -> str:
+    payload = _lm1_bytes(body) if raw is None else raw
+    signature = private.sign(payload)
+    encoded_body = base64.b64encode(payload).decode("ascii")
+    encoded_sig = base64.b64encode(signature).decode("ascii")
+    return f"LM2\n{encoded_body}\n{encoded_sig}\n"
+
+
+def _issuer_lm2(names: list[str], **overrides: object) -> dict:
+    body: dict[str, object] = {
+        "alg": "ed25519",
+        "app": "mcp-glp-audit-proxy",
+        "expires": "2027-01-01",
+        "fingerprint": licence_fingerprint(_CLIENT, names),
+        "holder": "qa@lab.example",
+        "issued": "2026-01-01",
+        "kind": "year",
+        "updates_until": "2020-01-01",
+        "version": "1.0.0",
+    }
+    body.update(overrides)
+    return body
+
+
 def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
     ed_private = Ed25519PrivateKey.generate()
     ed_public = _public(ed_private)
@@ -501,6 +545,197 @@ def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
     feature_path.write_text(_lm1(with_features, rsa_private), encoding="utf-8")
     with pytest.raises(LicenceError, match="do not match the issuer"):
         FeatureSet.load(feature_path, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
+    assert called == {"sql": False, "pdf": False}
+
+
+def _write_lm2(tmp_path: Path, name: str, text: str) -> Path:
+    path = tmp_path / name
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_lm2_sample_verifies_only_with_the_test_key(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    needle = _LM2_TEST_PUBLIC.hex()
+    body_line = _LM2_SAMPLE.split("\n")[1]
+    assert LICENCE_LM2_PUBLIC_KEY == b""
+    assert _LM2_TEST_PUBLIC != LICENCE_PUBLIC_KEY
+    assert len(_LM2_TEST_PUBLIC) == 32
+    for path in (root / "src").rglob("*"):
+        if path.suffix not in {".py", ".md"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        assert needle not in text
+        assert body_line not in text
+    for path in (root / "docs").rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        assert needle not in text
+        assert body_line not in text
+    for name in ("README.md", "CHANGELOG.md"):
+        text = (root / name).read_text(encoding="utf-8")
+        assert needle not in text
+        assert body_line not in text
+
+    parsed = verify_lm2(_LM2_SAMPLE, public_key=_LM2_TEST_PUBLIC)
+    assert parsed["alg"] == "ed25519"
+    assert parsed["holder"] == "ana@example.com"
+    assert parsed["version"] == "1.0.0"
+    body = lm2_body(parsed)
+    assert body.grant_installed is False
+    assert body.features == ["report.pdf", "signer.ed25519", "storage.mssql", "storage.sql"]
+    assert body.fingerprint == "0123456789abcdef" * 4
+    assert body.expires_at == date(2027, 10, 22)
+    canonical = json.dumps(
+        parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    assert base64.b64decode(body_line, validate=True) == canonical
+
+    with pytest.raises(LicenceError, match="not an Ed25519 public key"):
+        verify_lm2(_LM2_SAMPLE)
+    with pytest.raises(LicenceError, match="invalid"):
+        verify_lm2(_LM2_SAMPLE, public_key=LICENCE_PUBLIC_KEY)
+    sample = _write_lm2(tmp_path, "sample.lm2", _LM2_SAMPLE)
+    now = datetime(2026, 10, 22, tzinfo=timezone.utc)
+    with pytest.raises(LicenceError, match="not an Ed25519 public key"):
+        FeatureSet.load(sample, client_id=_CLIENT, now=now)
+    with pytest.raises(LicenceError, match="does not match"):
+        FeatureSet.load(sample, public_key=_LM2_TEST_PUBLIC, client_id=_CLIENT, now=now)
+    with pytest.raises(LicenceError, match="three lines"):
+        verify_lm2(_LM2_SAMPLE.rstrip("\n"), public_key=_LM2_TEST_PUBLIC)
+
+
+def test_lm2_features_and_canonical_body(tmp_path, monkeypatch) -> None:
+    private = Ed25519PrivateKey.generate()
+    public = _public(private)
+    other = Ed25519PrivateKey.generate()
+    called = {"sql": False, "pdf": False}
+    now = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+    def sql_store(_settings, _signer, options=None):
+        del options
+        called["sql"] = True
+        raise AssertionError("unlicensed or unused factory was called")
+
+    def pdf_report(_settings, options=None):
+        del options
+        called["pdf"] = True
+        raise AssertionError("extra plugin was called")
+
+    sql_store.licence_feature = "storage.sql"
+    pdf_report.licence_feature = "report.pdf"
+    real = load_group
+    installed = {"pdf": False}
+
+    def fake(group: str) -> dict:
+        found = dict(real(group))
+        if group == STORAGE_GROUP:
+            found["sql"] = sql_store
+        if group == "mcp_glp_audit_proxy.reporters" and installed["pdf"]:
+            found["pdf"] = pdf_report
+        return found
+
+    monkeypatch.setattr(features_mod, "load_group", fake)
+
+    def load_text(text: str):
+        return FeatureSet.load(
+            _write_lm2(tmp_path, "bound.lm2", text),
+            public_key=public,
+            client_id=_CLIENT,
+            now=now,
+        )
+
+    granted = load_text(_lm2(_issuer_lm2(["sql"]), private))
+    assert "storage.sql" in granted.enabled
+    assert "report.pdf" not in granted.enabled
+    assert granted.unavailable == []
+
+    listed = _issuer_lm2(
+        ["sql"],
+        features=["storage.sql", "storage.sql", "report.pdf"],
+    )
+    listed_body = lm2_body(verify_lm2(_lm2(listed, private), public_key=public))
+    assert listed_body.grant_installed is False
+    assert listed_body.features == ["report.pdf", "storage.sql"]
+    listed_flags = load_text(_lm2(listed, private))
+    assert "storage.sql" in listed_flags.enabled
+    assert "report.pdf" in listed_flags.unavailable
+
+    installed["pdf"] = True
+    selective = _issuer_lm2(["pdf", "sql"], features=["storage.sql", "storage.jsonl"])
+    selective_flags = load_text(_lm2(selective, private))
+    assert "storage.sql" in selective_flags.enabled
+    assert "report.pdf" not in selective_flags.enabled
+    assert "storage.jsonl" in selective_flags.enabled
+    assert selective_flags.unavailable == []
+    installed["pdf"] = False
+
+    community_only = _issuer_lm2(["sql"], features=["storage.jsonl"])
+    community_flags = load_text(_lm2(community_only, private))
+    assert "storage.sql" not in community_flags.enabled
+    assert community_flags.unavailable == []
+
+    perpetual = _issuer_lm2(["sql"], expires=None, kind="perpetual")
+    assert "storage.sql" in load_text(_lm2(perpetual, private)).enabled
+    many = [f"f{index:02d}" for index in range(64)]
+    accepted = lm2_body(verify_lm2(_lm2(_issuer_lm2(["sql"], features=many), private), public_key=public))
+    assert accepted.features == sorted(many)
+    assert accepted.grant_installed is False
+
+    spaced = json.dumps(_issuer_lm2(["sql"])).encode("utf-8")
+    assert b" " in spaced
+    with pytest.raises(LicenceError, match="not canonical"):
+        load_text(_lm2(_issuer_lm2(["sql"]), private, raw=spaced))
+    unicode_body = {"alg": "ed25519", "holder": "caf\u00e9@lab.example"}
+    escaped = json.dumps(
+        unicode_body, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    raw_utf8 = json.dumps(
+        unicode_body, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    assert escaped != raw_utf8
+    with pytest.raises(LicenceError, match="not canonical"):
+        verify_lm2(_lm2({}, private, raw=escaped), public_key=public)
+    parsed_utf8 = verify_lm2(_lm2({}, private, raw=raw_utf8), public_key=public)
+    with pytest.raises(LicenceError, match="do not match the issuer"):
+        lm2_body(parsed_utf8)
+
+    with pytest.raises(LicenceError, match="non-empty list"):
+        load_text(_lm2(_issuer_lm2(["sql"], features=[]), private))
+    with pytest.raises(LicenceError, match="at most 64"):
+        load_text(_lm2(_issuer_lm2(["sql"], features=[f"f{index:02d}" for index in range(65)]), private))
+    for bad in ("Report.pdf", "9abc", "a" * 49, "a.b/c"):
+        with pytest.raises(LicenceError, match="feature name is invalid"):
+            load_text(_lm2(_issuer_lm2(["sql"], features=[bad]), private))
+    long_ok = "a" * 48
+    long_flags = load_text(_lm2(_issuer_lm2(["sql"], features=[long_ok]), private))
+    assert long_ok in long_flags.unavailable
+    with pytest.raises(LicenceError, match="alg must be ed25519"):
+        load_text(_lm2(_issuer_lm2(["sql"], alg="rsa"), private))
+    with pytest.raises(LicenceError, match="do not match the issuer"):
+        load_text(_lm2(_issuer_lm2(["sql"], note="x"), private))
+    with pytest.raises(LicenceError, match="version is required"):
+        load_text(_lm2(_issuer_lm2(["sql"], version=True), private))
+    with pytest.raises(LicenceError, match="trial, year or perpetual"):
+        load_text(_lm2(_issuer_lm2(["sql"], kind="30d"), private))
+    with pytest.raises(LicenceError, match="expired"):
+        load_text(_lm2(_issuer_lm2(["sql"], expires="2020-01-01"), private))
+    with pytest.raises(LicenceError, match="invalid"):
+        load_text(_lm2(_issuer_lm2(["sql"]), other))
+
+    tampered = _lm2(_issuer_lm2(["sql"]), private)
+    body_b64 = tampered.split("\n")[1]
+    flipped = ("A" if body_b64[0] != "A" else "B") + body_b64[1:]
+    tampered_text = "LM2\n" + flipped + "\n" + tampered.split("\n")[2] + "\n"
+    with pytest.raises(LicenceError, match="invalid"):
+        load_text(tampered_text)
+    short = "LM2\n" + body_b64 + "\n" + base64.b64encode(b"\x00" * 32).decode("ascii") + "\n"
+    with pytest.raises(LicenceError, match="invalid"):
+        verify_lm2(short, public_key=public)
+
+    for foreign in ("LM3\n\n\n", "LM10\n\n\n", "LM\n", "LM1 extra\n"):
+        foreign_path = _write_lm2(tmp_path, "foreign.lm2", foreign)
+        with pytest.raises(LicenceError, match="not LM1 or LM2"):
+            FeatureSet.load(foreign_path, public_key=public, client_id=_CLIENT, now=now)
     assert called == {"sql": False, "pdf": False}
 
 

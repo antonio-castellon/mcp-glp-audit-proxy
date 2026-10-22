@@ -1,6 +1,6 @@
 # Security review
 
-Date: 2026-10-18. This note records the review of Community edition 0.1.0. The package version is now 0.2.0. The findings below still apply. It is evidence that supports a customer's own records. It is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows.
+Date: 2026-10-18. This note records the review of Community edition 0.1.0. The package version is now 0.3.0. The findings below still apply. It is evidence that supports a customer's own records. It is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows.
 
 ## What CI runs
 

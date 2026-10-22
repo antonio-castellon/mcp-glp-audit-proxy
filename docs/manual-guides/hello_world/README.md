@@ -1,6 +1,6 @@
 # Hello-world transport guides
 
-Two first-run pages. Each one is numbered. Each step says whether to type it in Terminal (Linux or macOS) or in Command Prompt (Windows), and the page shows the words you should see after the command. You paste a few small programs. You do not need to know Python.
+Two first-run pages for Community 0.3.2. Each one is numbered. Each step says whether to type it in Terminal (Linux or macOS) or in Command Prompt (Windows), and the page shows the words you should see after the command. You paste a few small programs. You do not need to know Python.
 
 Do [stdio-to-proxy-to-stdio.md](stdio-to-proxy-to-stdio.md) first. It installs the package from PyPI, runs `init`, writes a JSON config, makes one allowed tool call and one blocked tool call, reads the JSONL log, and runs verify. Do [stdio-to-proxy-to-https.md](stdio-to-proxy-to-https.md) when the tool server is an `https://` address.
 

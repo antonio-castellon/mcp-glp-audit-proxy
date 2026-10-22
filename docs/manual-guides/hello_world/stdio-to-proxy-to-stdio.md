@@ -84,7 +84,7 @@ Windows:
 py -3 -m pip install mcp-glp-audit-proxy
 ```
 
-A new install ends with a line that contains `Successfully installed` and `mcp-glp-audit-proxy`. If you already installed it, the line says `Requirement already satisfied`. Either line is fine.
+A new install ends with a line that contains `Successfully installed` and `mcp-glp-audit-proxy-0.3.2`. If you already installed it, the line says `Requirement already satisfied`. Either line is fine.
 
 Then print the installed version.
 
@@ -100,7 +100,7 @@ Windows:
 py -3 -m pip show mcp-glp-audit-proxy
 ```
 
-You should see `Name: mcp-glp-audit-proxy` and a `Version:` line of `0.3.0` or newer. If the version is older than `0.3.0`, run the install command again with `--upgrade` before `mcp-glp-audit-proxy`:
+You should see `Name: mcp-glp-audit-proxy` and a `Version:` line of `0.3.2`. If the version is older than `0.3.2`, run the install command again with `--upgrade` before `mcp-glp-audit-proxy`:
 
 Linux or macOS:
 

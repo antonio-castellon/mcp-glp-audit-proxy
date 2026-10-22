@@ -115,7 +115,7 @@ The Community signer returns `{"algorithm": null, "signed": false, "value": null
 
 Point config `licence_path` or `GLP_LICENCE_PATH` at the file. `client_id` in the same config is the customer id used for the fingerprint below. With no licence file, `FeatureSet.load` enables only Community features and does not check a signature or a fingerprint.
 
-A file is one of two shapes. Both are checked locally. There is no network call and no grace period fetched from a vendor.
+A file is one of three shapes. Each is checked locally. There is no network call and no grace period fetched from a vendor.
 
 ### JSON, Ed25519
 
@@ -174,9 +174,42 @@ That object is the body before base64. The fingerprint above is a placeholder. I
 
 When the fingerprint matches, LM1 enables the `licence_feature` of each installed licensed plugin in that set. It does not read a feature list from the file.
 
+### LM2 text, Ed25519
+
+The file is three lines and it ends with a newline:
+
+```text
+LM2
+<base64 of the JSON body>
+<base64 of the Ed25519 signature>
+```
+
+The signature is Ed25519 over the decoded body bytes. The public key is 32 raw bytes. `LICENCE_LM2_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence` is the production Ed25519 public key. The private key is not in this repository.
+
+After the signature check, the body bytes must equal `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)` encoded as UTF-8. A body that verifies but is not that encoding is rejected.
+
+The object requires these keys. `features` may also be present. No other key is accepted.
+
+| Key | Value |
+|---|---|
+| `alg` | `ed25519` |
+| `app` | Must be `mcp-glp-audit-proxy` |
+| `expires` | ISO date `YYYY-MM-DD`, or null. Null does not expire. A past date is `licence expired` |
+| `fingerprint` | 64 lowercase hex characters. Same digest as the other shapes |
+| `holder` | Email address |
+| `issued` | ISO date `YYYY-MM-DD` |
+| `kind` | `trial`, `year`, or `perpetual`. The clock uses `expires`, not `kind` |
+| `updates_until` | ISO date `YYYY-MM-DD`. Recorded and not checked yet |
+| `version` | JSON number or string. Recorded and not checked yet |
+| `features` | Optional. See below |
+
+When `features` is absent, a matching fingerprint enables the `licence_feature` of each installed licensed plugin, the same as LM1. When `features` is present, it must be a non-empty list of at most 64 names. Each name matches `^[a-z][a-z0-9._-]{0,47}$`. The loader stores the names sorted and unique, and enables only those features. An empty list is rejected. A name that no installed factory declares is recorded on `unavailable`.
+
+Any other file whose text starts with `LM` is rejected.
+
 ### Fingerprint
 
-Both shapes use the same fingerprint. It is the lowercase SHA-256 hex of the RFC 8785 bytes of this JSON array:
+JSON, LM1, and LM2 use the same fingerprint. It is the lowercase SHA-256 hex of the RFC 8785 bytes of this JSON array:
 
 ```json
 ["<client_id>", "mcp-glp-audit-proxy", ["<sorted entry-point names>"]]
@@ -186,14 +219,16 @@ Both shapes use the same fingerprint. It is the lowercase SHA-256 hex of the RFC
 
 Startup computes that digest from the config and from the entry points installed in this process. The licence `fingerprint` must be equal. A mismatch raises `LicenceError` (`licence fingerprint does not match`) and no feature from that file is enabled. The factory is not called. Adding or removing a licensed plugin changes the digest, so the previous licence is refused and a new one is required. A signed file also requires `client_id`. A file that lists only Community features, and has neither a signature nor a fingerprint, still loads without `client_id`.
 
-`LICENCE_PUBLIC_KEY` and `LICENCE_RSA_PUBLIC_PEM` are test trust anchors. Replace both before issuing customer licences. The private keys are not in this repository.
+`LICENCE_PUBLIC_KEY` and `LICENCE_RSA_PUBLIC_PEM` are test trust anchors. Replace both before issuing customer licences. `LICENCE_LM2_PUBLIC_KEY` is the production LM2 public key. The private keys are not in this repository.
 
 `FeatureSet.load`:
 
 - always enables Community features (`storage.jsonl`, `signer.unsigned`, `report.json`, `report.text`, `verify`, `policy.allowlist`, `approval.local`, `rbac.local`, `auth.env`) when the file is accepted
 - for a JSON licence, enables any other listed feature only when the signature verifies, the fingerprint matches, and an installed factory declares that same `licence_feature`
 - for an LM1 file, enables the `licence_feature` of each installed licensed plugin whose names produced the matching fingerprint
-- records a JSON feature that no installed factory declares on `unavailable`, and the server prints that list to stderr
+- for an LM2 file with no `features` key, enables those same installed features
+- for an LM2 file with `features`, enables only the listed names that an installed factory declares
+- records a listed feature that no installed factory declares on `unavailable`, and the server prints that list to stderr
 - refuses to start if config selects a plugin whose declared feature is not enabled; the factory is not called
 
 Selecting a name that is not installed is an error, not a silent skip.

@@ -1,6 +1,6 @@
 """Offline licence checks. Nothing here opens a socket.
 
-Two file shapes are accepted.
+Three file shapes are accepted.
 
 * JSON. An Ed25519 signature over the RFC 8785 bytes of the object with the
   ``signature`` field removed. The trust anchor is ``LICENCE_PUBLIC_KEY``.
@@ -11,13 +11,20 @@ Two file shapes are accepted.
   SHA-256 digest. The trust anchor is the PEM SubjectPublicKeyInfo in
   ``LICENCE_RSA_PUBLIC_PEM``. The signature is checked against the raw body
   bytes. This module does not re-encode that JSON.
+* LM2 text. Three lines: ``LM2``, base64 of the raw JSON body, and base64 of
+  a 64-byte Ed25519 signature over those body bytes. The trust anchor is the
+  raw 32-byte public key ``LICENCE_LM2_PUBLIC_KEY``. The signature is checked
+  against the decoded body bytes. Those bytes must also equal
+  ``json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=False)``
+  encoded as UTF-8. Any other text that starts with ``LM`` is rejected.
 
-Both shapes carry a fingerprint. It is the lowercase SHA-256 hex of the RFC
+Each shape carries a fingerprint. It is the lowercase SHA-256 hex of the RFC
 8785 bytes of ``[client_id, app, sorted licensed entry-point names]``. The app
 id is ``mcp-glp-audit-proxy``. There is no machine id in that array.
 
 TEST TRUST ANCHORS. Replace ``LICENCE_PUBLIC_KEY`` and ``LICENCE_RSA_PUBLIC_PEM``
-before issuing customer licences. The private keys are not in this repository.
+before issuing customer licences. ``LICENCE_LM2_PUBLIC_KEY`` is the production
+LM2 public key. The private keys are not in this repository.
 """
 
 from __future__ import annotations
@@ -46,6 +53,10 @@ from .errors import LicenceError
 LICENCE_PUBLIC_KEY = bytes.fromhex(
     "8b81069ec1a5f561e2bd0b335c9b32e202e3b02a7c56a0232859c625051759a6"
 )
+# Production LM2 Ed25519 public key. The private key is not in this repository.
+LICENCE_LM2_PUBLIC_KEY = bytes.fromhex(
+    "df94b07a4976983cff62239a567ab57f6402e23b0f3c137b947b3105b170a926"
+)
 LICENCE_KEY_ID = "mcp-glp-audit-proxy-licence"
 LICENCE_APP = "mcp-glp-audit-proxy"
 LICENCE_KINDS = frozenset({"trial", "year", "perpetual"})
@@ -64,6 +75,8 @@ _LM1_FIELDS = frozenset(
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _FINGERPRINT = re.compile(r"^[0-9a-f]{64}$")
+_LM2_FIELDS = _LM1_FIELDS | {"alg"}
+_LM2_FEATURE = re.compile(r"^[a-z][a-z0-9._-]{0,47}$")
 LICENCE_RSA_PUBLIC_PEM = """-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmbqqoHuPlSeAy1NoMM+P
 ciKPVTkHY6Sp6IcCsNSWbtU9a497X7j+rfnK3Zvml4xgVPoYiCiveGwu241kPoxg
@@ -80,9 +93,10 @@ HwIDAQAB
 class LicenceBody:
     """A verified licence body. ``fingerprint`` is None when the file is not bound.
 
-    ``grant_installed`` is set for LM1. That file has no feature list. A
-    matching fingerprint enables the ``licence_feature`` of each installed
-    licensed plugin.
+    ``grant_installed`` is set for LM1, and for LM2 when ``features`` is
+    absent. A matching fingerprint then enables the ``licence_feature`` of
+    each installed licensed plugin. LM2 with a ``features`` list enables
+    only that list.
     """
 
     features: list[str]
@@ -258,4 +272,85 @@ def lm1_body(raw: dict[str, Any]) -> LicenceBody:
         fingerprint=fingerprint,
         expires_at=expires_on,
         grant_installed=True,
+    )
+
+
+def verify_lm2(text: str, *, public_key: bytes | None = None) -> dict[str, Any]:
+    """Verify an LM2 file and return its JSON body.
+
+    The signature covers the decoded body bytes. Those bytes must also be
+    the compact sorted JSON encoding of the parsed object.
+    """
+    if not text.endswith("\n"):
+        raise LicenceError("licence LM2 text must be three lines")
+    lines = text.split("\n")
+    if len(lines) != 4 or lines[0] != "LM2" or lines[3] != "":
+        raise LicenceError("licence LM2 text must be three lines")
+    body = _b64_line(lines[1], "licence LM2 body must be base64")
+    signature = _b64_line(lines[2], "licence LM2 signature must be base64")
+    if len(signature) != 64:
+        raise LicenceError("licence signature is invalid")
+    key_bytes = LICENCE_LM2_PUBLIC_KEY if public_key is None else public_key
+    if not isinstance(key_bytes, (bytes, bytearray)) or len(key_bytes) != 32:
+        raise LicenceError("licence trust anchor is not an Ed25519 public key")
+    try:
+        Ed25519PublicKey.from_public_bytes(bytes(key_bytes)).verify(signature, body)
+    except (InvalidSignature, ValueError) as exc:
+        raise LicenceError("licence signature is invalid") from exc
+    try:
+        parsed = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise LicenceError("licence LM2 body must be JSON") from exc
+    if not isinstance(parsed, dict):
+        raise LicenceError("licence LM2 body must be a JSON object")
+    canonical = json.dumps(
+        parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    if body != canonical:
+        raise LicenceError("licence LM2 body is not canonical")
+    return parsed
+
+
+def lm2_body(raw: dict[str, Any]) -> LicenceBody:
+    """Read an LM2 object. ``features``, when present, is the enabled list."""
+    if not _LM2_FIELDS <= set(raw) <= (_LM2_FIELDS | {"features"}):
+        raise LicenceError("licence LM2 fields do not match the issuer")
+    if raw.get("alg") != "ed25519":
+        raise LicenceError("licence alg must be ed25519")
+    if raw.get("app") != LICENCE_APP:
+        raise LicenceError("licence app must be mcp-glp-audit-proxy")
+    fingerprint = raw.get("fingerprint")
+    if not isinstance(fingerprint, str) or not _FINGERPRINT.fullmatch(fingerprint):
+        raise LicenceError("licence fingerprint is invalid")
+    if raw.get("kind") not in LICENCE_KINDS:
+        raise LicenceError("licence kind must be trial, year or perpetual")
+    holder = raw.get("holder")
+    if not isinstance(holder, str) or not _EMAIL.fullmatch(holder):
+        raise LicenceError("licence holder must be an email")
+    parse_iso_date(raw.get("issued"), label="issued")
+    parse_iso_date(raw.get("updates_until"), label="updates_until")
+    version = raw.get("version")
+    if isinstance(version, bool) or not isinstance(version, (int, str)) or version == "":
+        raise LicenceError("licence version is required")
+    expires = raw.get("expires")
+    expires_on = None if expires is None else parse_iso_date(expires, label="expires")
+    if "features" not in raw:
+        return LicenceBody(
+            features=[],
+            fingerprint=fingerprint,
+            expires_at=expires_on,
+            grant_installed=True,
+        )
+    features = raw.get("features")
+    if not isinstance(features, list) or not features:
+        raise LicenceError("licence features must be a non-empty list")
+    if len(features) > 64:
+        raise LicenceError("licence features must be at most 64")
+    if not all(isinstance(item, str) and _LM2_FEATURE.fullmatch(item) for item in features):
+        raise LicenceError("licence feature name is invalid")
+    return LicenceBody(
+        features=sorted(set(features)),
+        fingerprint=fingerprint,
+        expires_at=expires_on,
+        grant_installed=False,
     )

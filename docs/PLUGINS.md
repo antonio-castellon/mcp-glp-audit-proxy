@@ -115,22 +115,9 @@ The Community signer returns `{"algorithm": null, "signed": false, "value": null
 
 Point config `licence_path` or `GLP_LICENCE_PATH` at the file. `client_id` in the same config is the customer id used for the fingerprint below. With no licence file, `FeatureSet.load` enables only Community features and does not check a signature or a fingerprint.
 
-A file is one of three shapes. Each is checked locally. There is no network call and no grace period fetched from a vendor.
+A file is LM1 or LM2 text. Each is checked locally. There is no network call and no grace period fetched from a vendor. Any other text, including the older JSON licence file, is rejected.
 
-### JSON, Ed25519
-
-```json
-{
-  "format": "mcp-glp-audit-proxy-licence",
-  "features": ["storage.jsonl", "report.json"]
-}
-```
-
-`expires` is optional. When present it is an RFC 3339 timestamp with a time zone. `FeatureSet.load` compares it with the local clock and raises `LicenceError` (`licence expired`) when the time is not still in the future. A missing zone or a value that is not a timestamp is rejected. The check runs after the signature and the fingerprint, so `expires` is the signed value. This is not a clock check against a vendor.
-
-Community features do not need a signature. Any other feature in `features`, a `fingerprint`, and any file that carries a `signature`, must verify as Ed25519 before a feature is enabled. A missing signature in that case raises `LicenceError` (`licence signature is required`). A bad signature raises `LicenceError` (`licence signature is invalid`). Features in a rejected file are not enabled.
-
-The signature covers the RFC 8785 bytes of the licence object with the `signature` field removed. `algorithm` must be `ed25519`. `value` is standard base64 of the 64-byte signature. `key_id` sits inside `signature`, so it is not part of the signed bytes and it does not select a key. The trust anchor is the raw 32-byte public key `LICENCE_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence` (`LICENCE_KEY_ID` is `mcp-glp-audit-proxy-licence`).
+The production public keys live in `release_trust.json` inside this package. `trusted_keys()` in `mcp_glp_audit_proxy.trust` loads that file. LM2 uses key id `ed25519-1` (32 raw Ed25519 bytes). LM1 uses key id `lm1-rsa-1` (an RSA-2048 SubjectPublicKeyInfo PEM). Do not keep a second copy of those keys. Pro should import `trusted_keys` from `mcp_glp_audit_proxy.trust` instead of shipping its own file. The private keys are not in this repository. A test passes a key only as an explicit argument, and those keys are not in the package.
 
 ### LM1 text, RSA-2048 PSS
 
@@ -142,7 +129,7 @@ LM1
 <base64 of the RSA-PSS signature>
 ```
 
-The body bytes are UTF-8 from `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. The signature is RSA 2048, PSS, MGF1 with SHA-256, salt length equal to the SHA-256 digest length, hash SHA-256, over those raw bytes. The loader verifies those bytes. It does not re-encode the JSON. The trust anchor is the PEM SubjectPublicKeyInfo `LICENCE_RSA_PUBLIC_PEM` in `mcp_glp_audit_proxy.licence`.
+The body bytes are UTF-8 from `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. The signature is RSA 2048, PSS, MGF1 with SHA-256, salt length equal to the SHA-256 digest length, hash SHA-256, over those raw bytes. The loader verifies those bytes. It does not re-encode the JSON. The trust anchor is key id `lm1-rsa-1` from `trusted_keys()`.
 
 The object has these keys and no others. It has no `features` field.
 
@@ -150,7 +137,7 @@ The object has these keys and no others. It has no `features` field.
 |---|---|
 | `app` | Must be `mcp-glp-audit-proxy` |
 | `expires` | ISO date `YYYY-MM-DD`, or null. Null does not expire. A past date is `licence expired` |
-| `fingerprint` | 64 lowercase hex characters. Same digest as the JSON shape |
+| `fingerprint` | 64 lowercase hex characters. Same digest as LM2 |
 | `holder` | Email address |
 | `issued` | ISO date `YYYY-MM-DD` |
 | `kind` | `trial`, `year`, or `perpetual`. The clock uses `expires`, not `kind` |
@@ -184,7 +171,7 @@ LM2
 <base64 of the Ed25519 signature>
 ```
 
-The signature is Ed25519 over the decoded body bytes. The public key is 32 raw bytes. `LICENCE_LM2_PUBLIC_KEY` in `mcp_glp_audit_proxy.licence` is the production Ed25519 public key. The private key is not in this repository.
+The signature is Ed25519 over the decoded body bytes. The public key is the 32 raw bytes of key id `ed25519-1` from `trusted_keys()`. The private key is not in this repository.
 
 After the signature check, the body bytes must equal `json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)` encoded as UTF-8. A body that verifies but is not that encoding is rejected.
 
@@ -195,7 +182,7 @@ The object requires these keys. `features` may also be present. No other key is 
 | `alg` | `ed25519` |
 | `app` | Must be `mcp-glp-audit-proxy` |
 | `expires` | ISO date `YYYY-MM-DD`, or null. Null does not expire. A past date is `licence expired` |
-| `fingerprint` | 64 lowercase hex characters. Same digest as the other shapes |
+| `fingerprint` | 64 lowercase hex characters. Same digest as LM1 |
 | `holder` | Email address |
 | `issued` | ISO date `YYYY-MM-DD` |
 | `kind` | `trial`, `year`, or `perpetual`. The clock uses `expires`, not `kind` |
@@ -205,11 +192,11 @@ The object requires these keys. `features` may also be present. No other key is 
 
 When `features` is absent, a matching fingerprint enables the `licence_feature` of each installed licensed plugin, the same as LM1. When `features` is present, it must be a non-empty list of at most 64 names. Each name matches `^[a-z][a-z0-9._-]{0,47}$`. The loader stores the names sorted and unique, and enables only those features. An empty list is rejected. A name that no installed factory declares is recorded on `unavailable`.
 
-Any other file whose text starts with `LM` is rejected.
+Any other file is rejected, including text that starts with `LM` but is not `LM1` or `LM2`.
 
 ### Fingerprint
 
-JSON, LM1, and LM2 use the same fingerprint. It is the lowercase SHA-256 hex of the RFC 8785 bytes of this JSON array:
+LM1 and LM2 use the same fingerprint. It is the lowercase SHA-256 hex of the RFC 8785 bytes of this JSON array:
 
 ```json
 ["<client_id>", "mcp-glp-audit-proxy", ["<sorted entry-point names>"]]
@@ -217,14 +204,11 @@ JSON, LM1, and LM2 use the same fingerprint. It is the lowercase SHA-256 hex of 
 
 `client_id` is the config value. The app id is the fixed string `mcp-glp-audit-proxy`. The names are the installed entry-point names whose `licence_feature` is outside the Community set, sorted ascending. Community entry points (`jsonl`, `unsigned`, `json`, `text`, `env`) are not included. There is no machine id, hostname, or MAC address in the array.
 
-Startup computes that digest from the config and from the entry points installed in this process. The licence `fingerprint` must be equal. A mismatch raises `LicenceError` (`licence fingerprint does not match`) and no feature from that file is enabled. The factory is not called. Adding or removing a licensed plugin changes the digest, so the previous licence is refused and a new one is required. A signed file also requires `client_id`. A file that lists only Community features, and has neither a signature nor a fingerprint, still loads without `client_id`.
-
-`LICENCE_PUBLIC_KEY` and `LICENCE_RSA_PUBLIC_PEM` are test trust anchors. Replace both before issuing customer licences. `LICENCE_LM2_PUBLIC_KEY` is the production LM2 public key. The private keys are not in this repository.
+Startup computes that digest from the config and from the entry points installed in this process. The licence `fingerprint` must be equal. A mismatch raises `LicenceError` (`licence fingerprint does not match`) and no feature from that file is enabled. The factory is not called. Adding or removing a licensed plugin changes the digest, so the previous licence is refused and a new one is required. A licence file requires `client_id`.
 
 `FeatureSet.load`:
 
 - always enables Community features (`storage.jsonl`, `signer.unsigned`, `report.json`, `report.text`, `verify`, `policy.allowlist`, `approval.local`, `rbac.local`, `auth.env`) when the file is accepted
-- for a JSON licence, enables any other listed feature only when the signature verifies, the fingerprint matches, and an installed factory declares that same `licence_feature`
 - for an LM1 file, enables the `licence_feature` of each installed licensed plugin whose names produced the matching fingerprint
 - for an LM2 file with no `features` key, enables those same installed features
 - for an LM2 file with `features`, enables only the listed names that an installed factory declares

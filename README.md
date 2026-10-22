@@ -14,7 +14,7 @@ mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
 # mcp-glp-audit-proxy
 
-Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.3.1. Changes since 0.2.0 are in `CHANGELOG.md`.
+Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.3.2. Changes since 0.2.0 are in `CHANGELOG.md`.
 
 It is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository. Personal Part 11 e-signatures are out of scope. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro.
 
@@ -82,7 +82,7 @@ mcp-glp-audit-proxy config check config.json
 
 A licensed plugin can add questions and a validation step through the `mcp_glp_audit_proxy.wizard` entry point. An unlicensed plugin is not called and adds nothing. See `docs/PLUGINS.md`.
 
-A licence file is local. There is no network call. JSON is Ed25519 over RFC 8785. LM1 is three lines: `LM1`, base64 of the body, and base64 of an RSA-2048 PSS signature over those raw bytes. LM2 is three lines: `LM2`, base64 of the body, and base64 of a 64-byte Ed25519 signature over those raw bytes, and the body must be compact sorted JSON. LM1, and LM2 with no `features` list, enable the features declared by the installed licensed plugins. A JSON licence, and an LM2 file that lists `features`, enable only the listed names. The fingerprint is not a machine id. Details are in `docs/PLUGINS.md`.
+A licence file is local. There is no network call. LM1 is three lines: `LM1`, base64 of the body, and base64 of an RSA-2048 PSS signature over those raw bytes. LM2 is three lines: `LM2`, base64 of the body, and base64 of a 64-byte Ed25519 signature over those raw bytes, and the body must be compact sorted JSON. LM1, and LM2 with no `features` list, enable the features declared by the installed licensed plugins. An LM2 file that lists `features` enables only the listed names. Any other file is rejected. The production public keys are in `release_trust.json` and are loaded by `trusted_keys()` in `mcp_glp_audit_proxy.trust`. The fingerprint is not a machine id. Details are in `docs/PLUGINS.md`.
 
 ## What is recorded
 
@@ -162,7 +162,7 @@ A mark means that edition includes the capability. Pro includes every Community 
 | Offline licence file, no phone-home | :white_check_mark: | :white_check_mark: reads the same file |
 | Config wizard and config check | :white_check_mark: | :white_check_mark: |
 
-Checked against this repository on 2026-10-22. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader (JSON, LM1, and LM2), and `init` / `config check`. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. The licence shapes are described under Configure. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Personal Part 11 e-signatures are out of scope for both editions. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
+Checked against this repository on 2026-10-22. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader (LM1 and LM2), and `init` / `config check`. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. The licence shapes are described under Configure. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Personal Part 11 e-signatures are out of scope for both editions. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
 
 Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the licence file are described in `docs/PLUGINS.md`.
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-glp-audit-proxy"
-version = "0.3.1"
+version = "0.3.2"
 description = "Local MCP proxy that writes a tamper-evident audit trail. Designed to support GLP traceability."
 readme = "README.md"
 license = { text = "MIT" }
@@ -76,6 +76,9 @@ env = "mcp_glp_audit_proxy.identity:env_identity"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+mcp_glp_audit_proxy = ["release_trust.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

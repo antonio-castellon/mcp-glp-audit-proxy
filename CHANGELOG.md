@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 - 2026-10-22
+
+- The JSON licence format is removed. LM2 supersedes it. A file that is not LM1 or LM2 text is rejected. With no licence file, Community features stay on.
+- LM1 now verifies with the production RSA-2048 public key. LM2 still verifies with the production Ed25519 public key. Both keys are the only trust anchors in `release_trust.json`. `trusted_keys()` in `mcp_glp_audit_proxy.trust` loads that file. Pro should import `trusted_keys` instead of keeping a second copy. Test keys are not in the package.
+
 ## 0.3.1 - 2026-10-22
 
 - On Windows, JSONL and the head sidecar stay LF. The JSONL lock uses the C runtime byte lock instead of `fcntl`. A timed pipe read uses `PeekNamedPipe` instead of `select`. A mode bit Windows cannot store does not fail the write. `verify --pubkey` takes `--licence` and `--client-id`, and also reads `GLP_LICENCE_PATH` and `GLP_CLIENT_ID`. With no licence path it still loads no licence. A missing or invalid licence exits 2.

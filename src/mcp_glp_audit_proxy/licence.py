@@ -1,30 +1,27 @@
 """Offline licence checks. Nothing here opens a socket.
 
-Three file shapes are accepted.
+Two file shapes are accepted.
 
-* JSON. An Ed25519 signature over the RFC 8785 bytes of the object with the
-  ``signature`` field removed. The trust anchor is ``LICENCE_PUBLIC_KEY``.
 * LM1 text. Three lines: ``LM1``, base64 of the JSON body, and base64 of an
   RSA-2048 PSS signature over those raw body bytes. The body is
   ``json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=False)``
   encoded as UTF-8. PSS uses MGF1 with SHA-256 and a salt length equal to the
-  SHA-256 digest. The trust anchor is the PEM SubjectPublicKeyInfo in
-  ``LICENCE_RSA_PUBLIC_PEM``. The signature is checked against the raw body
-  bytes. This module does not re-encode that JSON.
+  SHA-256 digest. The trust anchor is key id ``lm1-rsa-1`` from
+  ``trusted_keys()``. The signature is checked against the raw body bytes.
+  This module does not re-encode that JSON.
 * LM2 text. Three lines: ``LM2``, base64 of the raw JSON body, and base64 of
-  a 64-byte Ed25519 signature over those body bytes. The trust anchor is the
-  raw 32-byte public key ``LICENCE_LM2_PUBLIC_KEY``. The signature is checked
-  against the decoded body bytes. Those bytes must also equal
+  a 64-byte Ed25519 signature over those body bytes. The trust anchor is key
+  id ``ed25519-1`` from ``trusted_keys()``. The signature is checked against
+  the decoded body bytes. Those bytes must also equal
   ``json.dumps(sort_keys=True, separators=(',', ':'), ensure_ascii=False)``
-  encoded as UTF-8. Any other text that starts with ``LM`` is rejected.
+  encoded as UTF-8. Any other text is rejected.
 
 Each shape carries a fingerprint. It is the lowercase SHA-256 hex of the RFC
 8785 bytes of ``[client_id, app, sorted licensed entry-point names]``. The app
 id is ``mcp-glp-audit-proxy``. There is no machine id in that array.
 
-TEST TRUST ANCHORS. Replace ``LICENCE_PUBLIC_KEY`` and ``LICENCE_RSA_PUBLIC_PEM``
-before issuing customer licences. ``LICENCE_LM2_PUBLIC_KEY`` is the production
-LM2 public key. The private keys are not in this repository.
+The production public keys live only in ``release_trust.json``. The private
+keys are not in this repository.
 """
 
 from __future__ import annotations
@@ -47,17 +44,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from .canonical import canonicalize, sha256_hex
 from .errors import LicenceError
+from .trust import trusted_key
 
-# TEST TRUST ANCHORS. Replace both before issuing customer licences.
-# The private keys are not in this repository.
-LICENCE_PUBLIC_KEY = bytes.fromhex(
-    "8b81069ec1a5f561e2bd0b335c9b32e202e3b02a7c56a0232859c625051759a6"
-)
-# Production LM2 Ed25519 public key. The private key is not in this repository.
-LICENCE_LM2_PUBLIC_KEY = bytes.fromhex(
-    "df94b07a4976983cff62239a567ab57f6402e23b0f3c137b947b3105b170a926"
-)
-LICENCE_KEY_ID = "mcp-glp-audit-proxy-licence"
 LICENCE_APP = "mcp-glp-audit-proxy"
 LICENCE_KINDS = frozenset({"trial", "year", "perpetual"})
 _LM1_FIELDS = frozenset(
@@ -77,16 +65,6 @@ _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _FINGERPRINT = re.compile(r"^[0-9a-f]{64}$")
 _LM2_FIELDS = _LM1_FIELDS | {"alg"}
 _LM2_FEATURE = re.compile(r"^[a-z][a-z0-9._-]{0,47}$")
-LICENCE_RSA_PUBLIC_PEM = """-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmbqqoHuPlSeAy1NoMM+P
-ciKPVTkHY6Sp6IcCsNSWbtU9a497X7j+rfnK3Zvml4xgVPoYiCiveGwu241kPoxg
-iq3/rC/4PgkUIUa5x53pKcaHyF5AyLckyDwlxjyuAJAVu6tqxf1u0VrncWw8IyYV
-6XbgZnvczOk4n1IKZ+X3+cCF34DI0kjfh8G/rQO8jq5GnmtUwnVCMIpK/ohrdhak
-9pNoiHO3Prnlv0a+rTZGt10Z3NF0dbu3ysSnrLSkT8s8e0JpKDMBbB9oJgkxDR/s
-8ARq0DWNaIUllwXlCEu7qxs5WdkvAB2hoxibLO+9CiYMnCKxpzZzC9WR8PU8iUCo
-HwIDAQAB
------END PUBLIC KEY-----
-"""
 
 
 @dataclass(frozen=True)
@@ -121,37 +99,6 @@ def fingerprint_matches(claimed: str, expected: str) -> bool:
     return hmac.compare_digest(claimed, expected)
 
 
-def signed_payload(raw: dict[str, Any]) -> bytes:
-    """Canonical bytes covered by an Ed25519 licence signature."""
-    body = {key: value for key, value in raw.items() if key != "signature"}
-    return canonicalize(body)
-
-
-def verify_ed25519_licence(raw: dict[str, Any], *, public_key: bytes | None = None) -> None:
-    """Raise LicenceError unless ``raw`` carries a valid Ed25519 signature."""
-    signature = raw.get("signature", None)
-    if not isinstance(signature, dict):
-        raise LicenceError("licence signature must be an object")
-    if signature.get("algorithm") != "ed25519":
-        raise LicenceError("licence signature algorithm must be ed25519")
-    value = signature.get("value")
-    if not isinstance(value, str) or not value.strip():
-        raise LicenceError("licence signature value must be base64")
-    try:
-        decoded = base64.b64decode(value, validate=True)
-    except (ValueError, binascii.Error) as exc:
-        raise LicenceError("licence signature value must be base64") from exc
-    if len(decoded) != 64:
-        raise LicenceError("licence signature is invalid")
-    key_bytes = LICENCE_PUBLIC_KEY if public_key is None else public_key
-    if not isinstance(key_bytes, (bytes, bytearray)) or len(key_bytes) != 32:
-        raise LicenceError("licence trust anchor is not an Ed25519 public key")
-    try:
-        Ed25519PublicKey.from_public_bytes(bytes(key_bytes)).verify(decoded, signed_payload(raw))
-    except (InvalidSignature, ValueError) as exc:
-        raise LicenceError("licence signature is invalid") from exc
-
-
 def verify_lm1(text: str, *, public_pem: bytes | None = None) -> dict[str, Any]:
     """Verify an LM1 file and return its JSON body.
 
@@ -166,7 +113,7 @@ def verify_lm1(text: str, *, public_pem: bytes | None = None) -> dict[str, Any]:
     signature = _b64_line(lines[2], "licence LM1 signature must be base64")
     if len(signature) != 256:
         raise LicenceError("licence signature is invalid")
-    pem = LICENCE_RSA_PUBLIC_PEM.encode("ascii") if public_pem is None else public_pem
+    pem = trusted_key("lm1-rsa-1").rsa_pem_bytes() if public_pem is None else public_pem
     _verify_rsa_pss(body, signature, pem)
     try:
         parsed = json.loads(body)
@@ -207,19 +154,6 @@ def _verify_rsa_pss(body: bytes, signature: bytes, pem: bytes) -> None:
         )
     except InvalidSignature as exc:
         raise LicenceError("licence signature is invalid") from exc
-
-
-def parse_expiry(value: Any, *, label: str) -> datetime:
-    """Parse an RFC 3339 timestamp. The clock comparison is done by the caller."""
-    if not isinstance(value, str) or not value.strip():
-        raise LicenceError(f"licence {label} must be an RFC3339 timestamp")
-    try:
-        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise LicenceError(f"licence {label} must be an RFC3339 timestamp") from exc
-    if moment.tzinfo is None:
-        raise LicenceError(f"licence {label} must include a time zone")
-    return moment
 
 
 def assert_not_expired(moment: datetime | date | None, *, now: datetime | None) -> None:
@@ -290,7 +224,7 @@ def verify_lm2(text: str, *, public_key: bytes | None = None) -> dict[str, Any]:
     signature = _b64_line(lines[2], "licence LM2 signature must be base64")
     if len(signature) != 64:
         raise LicenceError("licence signature is invalid")
-    key_bytes = LICENCE_LM2_PUBLIC_KEY if public_key is None else public_key
+    key_bytes = trusted_key("ed25519-1").ed25519_bytes() if public_key is None else public_key
     if not isinstance(key_bytes, (bytes, bytearray)) or len(key_bytes) != 32:
         raise LicenceError("licence trust anchor is not an Ed25519 public key")
     try:

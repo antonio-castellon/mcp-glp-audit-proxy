@@ -16,7 +16,6 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, load_pem_public_key
 
 import mcp_glp_audit_proxy.features as features_mod
-from mcp_glp_audit_proxy.canonical import canonicalize
 from mcp_glp_audit_proxy.errors import ConfigurationError, LicenceError, TlsRequired
 from mcp_glp_audit_proxy.features import (
     COMMUNITY_FEATURES,
@@ -26,14 +25,11 @@ from mcp_glp_audit_proxy.features import (
 from mcp_glp_audit_proxy.identity import env_identity
 from mcp_glp_audit_proxy.licence import (
     LICENCE_APP,
-    LICENCE_KEY_ID,
-    LICENCE_LM2_PUBLIC_KEY,
-    LICENCE_PUBLIC_KEY,
-    LICENCE_RSA_PUBLIC_PEM,
     licence_fingerprint,
     lm2_body,
     verify_lm2,
 )
+from mcp_glp_audit_proxy.trust import trusted_key, trusted_keys
 from mcp_glp_audit_proxy.plugins import load_group
 from mcp_glp_audit_proxy.reporters.json_export import json_reporter
 from mcp_glp_audit_proxy.reporters.text_export import text_reporter
@@ -47,27 +43,8 @@ from mcp_glp_audit_proxy.wiring import STORAGE_GROUP, load_named
 _CLIENT = "lab-1"
 
 
-def _sign(body: dict, private: Ed25519PrivateKey) -> dict:
-    signed = {key: value for key, value in body.items() if key != "signature"}
-    value = base64.b64encode(private.sign(canonicalize(signed))).decode("ascii")
-    signed["signature"] = {"algorithm": "ed25519", "key_id": "test", "value": value}
-    return signed
-
-
-def _bound(body: dict, names: list[str], client_id: str = _CLIENT) -> dict:
-    copied = dict(body)
-    copied["fingerprint"] = licence_fingerprint(client_id, names)
-    return copied
-
-
 def _public(private: Ed25519PrivateKey) -> bytes:
     return private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-
-
-def _licence(tmp_path, body: dict):
-    path = tmp_path / "licence.json"
-    path.write_text(json.dumps(body), encoding="utf-8")
-    return path
 
 
 def test_licence_is_local_and_does_not_phone_home(tmp_path, monkeypatch) -> None:
@@ -77,34 +54,26 @@ def test_licence_is_local_and_does_not_phone_home(tmp_path, monkeypatch) -> None
     monkeypatch.setattr(socket, "socket", boom)
     monkeypatch.setattr(socket, "create_connection", boom)
 
-    def verifier_called(*_args, **_kwargs):
-        raise AssertionError("verifier called with no licence")
-
-    monkeypatch.setattr(features_mod, "verify_ed25519_licence", verifier_called)
     flags = FeatureSet.load(None)
     assert flags.enabled == set(COMMUNITY_FEATURES)
     assert flags.unavailable == []
     assert not hasattr(features_mod, "PRO_FEATURES")
     assert not hasattr(features_mod, "PRO_PLUGINS")
+    assert not hasattr(features_mod, "LICENCE_FORMAT")
+    assert not hasattr(features_mod, "validate_licence")
 
-    unsigned = _licence(
-        tmp_path,
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": ["storage.sql", "report.json"],
-        },
+    retired = tmp_path / "retired.json"
+    retired.write_text(
+        json.dumps(
+            {
+                "format": "mcp-glp-audit-proxy-licence",
+                "features": [],
+            }
+        ),
+        encoding="utf-8",
     )
-    with pytest.raises(LicenceError, match="signature is required"):
-        FeatureSet.load(unsigned)
-
-    empty = _licence(
-        tmp_path,
-        {"format": "mcp-glp-audit-proxy-licence", "features": []},
-    )
-    accepted = FeatureSet.load(empty)
-    assert "storage.jsonl" in accepted.enabled
-    assert "storage.sql" not in accepted.enabled
-    assert accepted.unavailable == []
+    with pytest.raises(LicenceError, match="LM1 or LM2"):
+        FeatureSet.load(retired)
 
 
 def test_signed_licence_enables_only_a_declared_feature(tmp_path, monkeypatch) -> None:
@@ -128,16 +97,11 @@ def test_signed_licence_enables_only_a_declared_feature(tmp_path, monkeypatch) -
 
     monkeypatch.setattr(features_mod, "load_group", fake)
     now = datetime(2026, 6, 1, tzinfo=timezone.utc)
-    body = _bound(
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": ["storage.sql", "not-a-feature"],
-            "expires": "2027-01-01T00:00:00+00:00",
-        },
-        ["sql"],
+    signed = _write_lm2(
+        tmp_path,
+        "signed.lm2",
+        _lm2(_issuer_lm2(["sql"], features=["storage.sql", "not-a-feature"]), private),
     )
-    signed = tmp_path / "signed.json"
-    signed.write_text(json.dumps(_sign(body, private)), encoding="utf-8")
     flags = FeatureSet.load(signed, public_key=public, client_id=_CLIENT, now=now)
     assert "storage.sql" in flags.enabled
     assert "storage.jsonl" in flags.enabled
@@ -146,22 +110,10 @@ def test_signed_licence_enables_only_a_declared_feature(tmp_path, monkeypatch) -
     assert load_named(flags, STORAGE_GROUP, "sql") is sql_store
     assert called["hit"] is False
 
-    omitted = tmp_path / "omitted.json"
-    omitted.write_text(
-        json.dumps(
-            _sign(
-                _bound(
-                    {
-                        "format": "mcp-glp-audit-proxy-licence",
-                        "features": ["report.json"],
-                        "expires": "2027-01-01T00:00:00Z",
-                    },
-                    ["sql"],
-                ),
-                private,
-            )
-        ),
-        encoding="utf-8",
+    omitted = _write_lm2(
+        tmp_path,
+        "omitted.lm2",
+        _lm2(_issuer_lm2(["sql"], features=["report.json"]), private),
     )
     without = FeatureSet.load(omitted, public_key=public, client_id=_CLIENT, now=now)
     assert "storage.sql" not in without.enabled
@@ -169,133 +121,53 @@ def test_signed_licence_enables_only_a_declared_feature(tmp_path, monkeypatch) -
         load_named(without, STORAGE_GROUP, "sql")
     assert called["hit"] is False
 
-    tampered = json.loads(signed.read_text(encoding="utf-8"))
-    tampered["features"] = ["storage.sql", "storage.extra"]
-    bad = tmp_path / "tampered.json"
-    bad.write_text(json.dumps(tampered), encoding="utf-8")
+    tampered = signed.read_text(encoding="utf-8")
+    body_b64 = tampered.split("\n")[1]
+    flipped = ("A" if body_b64[0] != "A" else "B") + body_b64[1:]
+    bad = _write_lm2(tmp_path, "tampered.lm2", "LM2\n" + flipped + "\n" + tampered.split("\n")[2] + "\n")
     with pytest.raises(LicenceError, match="invalid"):
-        FeatureSet.load(bad, public_key=public, now=now)
-
-    moved = json.loads(signed.read_text(encoding="utf-8"))
-    moved["signature"]["key_id"] = "other"
-    kept = tmp_path / "keyid.json"
-    kept.write_text(json.dumps(moved), encoding="utf-8")
-    again = FeatureSet.load(kept, public_key=public, client_id=_CLIENT, now=now)
-    assert "storage.sql" in again.enabled
+        FeatureSet.load(bad, public_key=public, client_id=_CLIENT, now=now)
 
     with pytest.raises(LicenceError, match="invalid"):
-        FeatureSet.load(signed, now=now)
+        FeatureSet.load(signed, client_id=_CLIENT, now=now)
 
 
 def test_expired_or_bad_signature_is_rejected(tmp_path) -> None:
     private = Ed25519PrivateKey.generate()
     public = _public(private)
+    rsa_private, rsa_pem = _rsa_pair()
     now = datetime(2026, 6, 1, tzinfo=timezone.utc)
-    expired = _licence(
+    expired = _write_lm2(
         tmp_path,
-        _sign(
-            _bound(
-                {
-                    "format": "mcp-glp-audit-proxy-licence",
-                    "features": [],
-                    "expires": "2020-01-01T00:00:00+00:00",
-                },
-                [],
-            ),
-            private,
-        ),
+        "expired.lm2",
+        _lm2(_issuer_lm2([], expires="2020-01-01"), private),
     )
     with pytest.raises(LicenceError, match="expired"):
         FeatureSet.load(expired, public_key=public, client_id=_CLIENT, now=now)
 
-    unsigned_expired = _licence(
-        tmp_path,
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": [],
-            "expires": "2020-01-01T00:00:00+00:00",
-        },
-    )
-    with pytest.raises(LicenceError, match="expired"):
-        FeatureSet.load(unsigned_expired, now=now)
+    for text in (
+        json.dumps({"format": "mcp-glp-audit-proxy-licence", "features": []}),
+        "[]",
+        "not a licence\n",
+    ):
+        retired = tmp_path / "retired.txt"
+        retired.write_text(text, encoding="utf-8")
+        with pytest.raises(LicenceError, match="LM1 or LM2"):
+            FeatureSet.load(retired)
 
-    naive = _licence(
-        tmp_path,
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": [],
-            "expires": "2027-01-01T00:00:00",
-        },
-    )
-    with pytest.raises(LicenceError, match="time zone"):
-        FeatureSet.load(naive)
-    broken = _licence(
-        tmp_path,
-        {"format": "mcp-glp-audit-proxy-licence", "features": [], "expires": "tomorrow"},
-    )
-    with pytest.raises(LicenceError, match="RFC3339"):
-        FeatureSet.load(broken)
-    bad_signature = _licence(
-        tmp_path,
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": [],
-            "signature": "nope",
-        },
-    )
-    with pytest.raises(LicenceError, match="must be an object"):
-        FeatureSet.load(bad_signature)
-    wrong_algorithm = _licence(
-        tmp_path,
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": [],
-            "signature": {"algorithm": "rsa", "value": "abc"},
-        },
-    )
-    with pytest.raises(LicenceError, match="must be ed25519"):
-        FeatureSet.load(wrong_algorithm)
-    not_base64 = _licence(
-        tmp_path,
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": [],
-            "signature": {"algorithm": "ed25519", "value": "nope!"},
-        },
-    )
+    not_base64 = "LM2\nnope!\n" + base64.b64encode(b"\x00" * 64).decode("ascii") + "\n"
     with pytest.raises(LicenceError, match="must be base64"):
-        FeatureSet.load(not_base64)
-    short = _licence(
-        tmp_path,
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": [],
-            "signature": {"algorithm": "ed25519", "value": "nope"},
-        },
-    )
+        verify_lm2(not_base64, public_key=public)
+    short = "LM2\n" + base64.b64encode(b"{}").decode("ascii") + "\nnope\n"
     with pytest.raises(LicenceError, match="invalid"):
-        FeatureSet.load(short)
-    zeros = _licence(
-        tmp_path,
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": [],
-            "signature": {
-                "algorithm": "ed25519",
-                "value": base64.b64encode(b"\x00" * 64).decode("ascii"),
-            },
-        },
-    )
-    with pytest.raises(LicenceError, match="invalid"):
-        FeatureSet.load(zeros, public_key=public)
-    not_object = tmp_path / "list.json"
-    not_object.write_text("[]", encoding="utf-8")
-    with pytest.raises(ValueError, match="JSON object"):
-        FeatureSet.load(not_object)
-    assert len(LICENCE_PUBLIC_KEY) == 32
-    assert LICENCE_KEY_ID == "mcp-glp-audit-proxy-licence"
+        verify_lm2(short, public_key=public)
     assert LICENCE_APP == "mcp-glp-audit-proxy"
-    assert load_pem_public_key(LICENCE_RSA_PUBLIC_PEM.encode("ascii")).key_size == 2048
+    assert load_pem_public_key(trusted_key("lm1-rsa-1").rsa_pem_bytes()).key_size == 2048
+
+    ephemeral_lm1 = _write_lm2(tmp_path, "ephemeral.lm1", _lm1(_issuer_lm1([]), rsa_private))
+    with pytest.raises(LicenceError, match="invalid"):
+        FeatureSet.load(ephemeral_lm1, rsa_public_key=None, client_id=_CLIENT, now=now)
+    assert load_pem_public_key(rsa_pem).key_size == 2048
 
 
 def _lm1_bytes(body: dict) -> bytes:
@@ -336,9 +208,12 @@ def _rsa_pair() -> tuple[rsa.RSAPrivateKey, bytes]:
     return private, pem
 
 
-# Test-only LM2 vector. It is not a trust anchor and must not appear under src.
+# Test-only keys. They are not trust anchors and must not appear under src.
 _LM2_TEST_PUBLIC = bytes.fromhex(
     "a9f9def8fb5c0de7cbb768eb1bcab1fd28ed5fa285f61b2ad8edecd8b2e751f7"
+)
+_RETIRED_JSON_PUBLIC = bytes.fromhex(
+    "8b81069ec1a5f561e2bd0b335c9b32e202e3b02a7c56a0232859c625051759a6"
 )
 _LM2_SAMPLE = (
     "LM2\n"
@@ -421,20 +296,9 @@ def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
             now=now,
         )
 
-    json_body = _sign(
-        _bound(
-            {
-                "format": "mcp-glp-audit-proxy-licence",
-                "features": ["storage.sql", "not-a-feature"],
-                "expires": "2027-01-01T00:00:00+00:00",
-            },
-            ["sql"],
-        ),
-        ed_private,
-    )
-    json_flags = load_text(json.dumps(json_body))
-    assert "storage.sql" in json_flags.enabled
-    assert "not-a-feature" in json_flags.unavailable
+    lm2_flags = load_text(_lm2(_issuer_lm2(["sql"], features=["storage.sql", "not-a-feature"]), ed_private))
+    assert "storage.sql" in lm2_flags.enabled
+    assert "not-a-feature" in lm2_flags.unavailable
 
     lm1_payload = _issuer_lm1(["sql"])
     signed_bytes = _lm1_bytes(lm1_payload)
@@ -460,36 +324,25 @@ def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
     trial = _issuer_lm1(["sql"], kind="trial", expires="2026-12-01")
     assert "storage.sql" in load_text(_lm1(trial, rsa_private), rsa_public_key=rsa_pem).enabled
 
-    missing = _sign(
-        {key: value for key, value in json_body.items() if key not in {"signature", "fingerprint"}},
-        ed_private,
-    )
-    bare = tmp_path / "bare.json"
-    bare.write_text(json.dumps(missing), encoding="utf-8")
-    with pytest.raises(LicenceError, match="fingerprint is required"):
-        FeatureSet.load(bare, public_key=ed_public, client_id=_CLIENT, now=now)
-
-    wrong = _sign(
-        {
-            "format": "mcp-glp-audit-proxy-licence",
-            "features": ["storage.sql"],
-            "expires": "2027-01-01T00:00:00+00:00",
-            "fingerprint": licence_fingerprint("other-lab", ["sql"]),
-        },
-        ed_private,
-    )
-    wrong_path = tmp_path / "wrong.json"
-    wrong_path.write_text(json.dumps(wrong), encoding="utf-8")
+    wrong_lm2 = _issuer_lm2(["sql"], fingerprint=licence_fingerprint("other-lab", ["sql"]))
+    wrong_lm2_path = tmp_path / "wrong.lm2"
+    wrong_lm2_path.write_text(_lm2(wrong_lm2, ed_private), encoding="utf-8")
     with pytest.raises(LicenceError, match="does not match"):
-        FeatureSet.load(wrong_path, public_key=ed_public, client_id=_CLIENT, now=now)
+        FeatureSet.load(wrong_lm2_path, public_key=ed_public, client_id=_CLIENT, now=now)
     with pytest.raises(LicenceError, match="client_id is required"):
-        FeatureSet.load(wrong_path, public_key=ed_public, now=now)
+        FeatureSet.load(wrong_lm2_path, public_key=ed_public, now=now)
 
     wrong_lm1 = _issuer_lm1(["sql"], fingerprint=licence_fingerprint("other-lab", ["sql"]))
     lm1_path = tmp_path / "wrong.lm1"
     lm1_path.write_text(_lm1(wrong_lm1, rsa_private), encoding="utf-8")
     with pytest.raises(LicenceError, match="does not match"):
         FeatureSet.load(lm1_path, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
+    with pytest.raises(LicenceError, match="client_id is required"):
+        FeatureSet.load(lm1_path, rsa_public_key=rsa_pem, now=now)
+    production_reject = tmp_path / "production.lm1"
+    production_reject.write_text(_lm1(lm1_payload, rsa_private), encoding="utf-8")
+    with pytest.raises(LicenceError, match="invalid"):
+        FeatureSet.load(production_reject, client_id=_CLIENT, now=now)
 
     tampered = _lm1(lm1_payload, rsa_private)
     body_b64 = tampered.split("\n")[1]
@@ -511,10 +364,10 @@ def test_both_formats_bind_the_fingerprint(tmp_path, monkeypatch) -> None:
     extra.write_text(_lm1(lm1_payload, rsa_private), encoding="utf-8")
     with pytest.raises(LicenceError, match="does not match"):
         FeatureSet.load(extra, rsa_public_key=rsa_pem, client_id=_CLIENT, now=now)
-    extra_json = tmp_path / "extra.json"
-    extra_json.write_text(json.dumps(json_body), encoding="utf-8")
+    extra_lm2 = tmp_path / "extra.lm2"
+    extra_lm2.write_text(_lm2(_issuer_lm2(["sql"]), ed_private), encoding="utf-8")
     with pytest.raises(LicenceError, match="does not match"):
-        FeatureSet.load(extra_json, public_key=ed_public, client_id=_CLIENT, now=now)
+        FeatureSet.load(extra_lm2, public_key=ed_public, client_id=_CLIENT, now=now)
     assert called == {"sql": False, "pdf": False}
 
     both = _issuer_lm1(["pdf", "sql"], kind="year")
@@ -555,22 +408,26 @@ def _write_lm2(tmp_path: Path, name: str, text: str) -> Path:
 
 
 def test_lm2_trust_anchor_is_the_production_public_key() -> None:
-    assert LICENCE_LM2_PUBLIC_KEY == bytes.fromhex(
+    keys = {item.key_id: item for item in trusted_keys()}
+    ed25519 = keys["ed25519-1"].ed25519_bytes()
+    assert ed25519 == bytes.fromhex(
         "df94b07a4976983cff62239a567ab57f6402e23b0f3c137b947b3105b170a926"
     )
-    assert len(LICENCE_LM2_PUBLIC_KEY) == 32
-    assert LICENCE_LM2_PUBLIC_KEY != _LM2_TEST_PUBLIC
-    assert LICENCE_LM2_PUBLIC_KEY != LICENCE_PUBLIC_KEY
+    assert len(ed25519) == 32
+    assert ed25519 != _LM2_TEST_PUBLIC
+    assert ed25519 != _RETIRED_JSON_PUBLIC
+    assert keys["lm1-rsa-1"].public_pem is not None
+    assert "Az5MEqS9WM6YdVUdnEUiB" in keys["lm1-rsa-1"].public_pem
 
 
 def test_lm2_sample_verifies_only_with_the_test_key(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     needle = _LM2_TEST_PUBLIC.hex()
     body_line = _LM2_SAMPLE.split("\n")[1]
-    assert LICENCE_LM2_PUBLIC_KEY != _LM2_TEST_PUBLIC
+    assert trusted_key("ed25519-1").ed25519_bytes() != _LM2_TEST_PUBLIC
     assert len(_LM2_TEST_PUBLIC) == 32
     for path in (root / "src").rglob("*"):
-        if path.suffix not in {".py", ".md"}:
+        if path.suffix not in {".py", ".md", ".json"}:
             continue
         text = path.read_text(encoding="utf-8")
         assert needle not in text
@@ -603,7 +460,7 @@ def test_lm2_sample_verifies_only_with_the_test_key(tmp_path: Path) -> None:
     with pytest.raises(LicenceError, match="not an Ed25519 public key"):
         verify_lm2(_LM2_SAMPLE, public_key=b"")
     with pytest.raises(LicenceError, match="invalid"):
-        verify_lm2(_LM2_SAMPLE, public_key=LICENCE_PUBLIC_KEY)
+        verify_lm2(_LM2_SAMPLE, public_key=_RETIRED_JSON_PUBLIC)
     sample = _write_lm2(tmp_path, "sample.lm2", _LM2_SAMPLE)
     now = datetime(2026, 10, 22, tzinfo=timezone.utc)
     with pytest.raises(LicenceError, match="invalid"):

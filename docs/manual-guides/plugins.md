@@ -101,24 +101,17 @@ Same Community plugins, stated explicitly, licence file present, reporters limit
 }
 ```
 
-Licence file. Three shapes are accepted. JSON uses `format` `mcp-glp-audit-proxy-licence` and an Ed25519 signature over the RFC 8785 bytes with the `signature` field removed. `features` is a list of strings. An empty list leaves Community features on. A feature outside that set is enabled only when the signature verifies, the fingerprint matches, and an installed factory declares the same `licence_feature`. Otherwise the name is not loaded. A verified feature that no factory declares is printed on stderr as unavailable. JSON `expires`, when set, is an RFC 3339 timestamp with a time zone; a time that is not still in the future is rejected after the signature and the fingerprint.
+Licence file. Two shapes are accepted. Any other text, including the older JSON licence file, is rejected.
 
 LM1 is three text lines: `LM1`, base64 of the JSON body, and base64 of an RSA-2048 PSS signature over those raw body bytes (MGF1 with SHA-256, salt length equal to the digest). The body bytes are UTF-8 from `json.dumps` with `sort_keys=True`, `separators=(",", ":")`, and `ensure_ascii=False`. The loader checks that signature and does not re-encode the JSON. The object keys are `app`, `expires`, `fingerprint`, `holder`, `issued`, `kind`, `updates_until`, and `version`. There is no `features` field. `app` must be `mcp-glp-audit-proxy`. `kind` is `trial`, `year`, or `perpetual`. `expires` is an ISO date (`YYYY-MM-DD`) or null. Null does not expire. `updates_until` and `version` are kept and not checked yet. A matching fingerprint enables the `licence_feature` of each installed licensed plugin in that set.
 
 LM2 is three text lines ending with a newline: `LM2`, standard base64 of the raw JSON body, and standard base64 of a 64-byte Ed25519 signature over those body bytes. The public key is 32 raw bytes. The loader checks the signature, then requires the body bytes to equal `json.dumps` with `sort_keys=True`, `separators=(",", ":")`, and `ensure_ascii=False`, encoded as UTF-8. Required keys are `alg` (`ed25519` only), `app`, `expires`, `fingerprint`, `holder`, `issued`, `kind`, `updates_until`, and `version`. `app`, `kind`, and `expires` follow the LM1 rules. `features` is optional. When it is absent, a matching fingerprint enables the installed licensed plugins. When it is present, it must be a non-empty list of at most 64 names, each matching `^[a-z][a-z0-9._-]{0,47}$`. The loader stores that list sorted and unique and enables only those features. An empty list is rejected. Any other text that starts with `LM` is rejected.
 
-The public keys are `LICENCE_PUBLIC_KEY` and `LICENCE_RSA_PUBLIC_PEM` in `mcp_glp_audit_proxy.licence`. Both are test keys. Replace them before issuing customer licences. `LICENCE_LM2_PUBLIC_KEY` is the production LM2 public key. The private keys are not in this repository.
+The production public keys are in `release_trust.json` inside the package. `trusted_keys()` in `mcp_glp_audit_proxy.trust` loads them. LM1 uses key id `lm1-rsa-1`. LM2 uses key id `ed25519-1`. Pro should import `trusted_keys` instead of keeping a second copy. The private keys are not in this repository.
 
-The fingerprint is the lowercase SHA-256 hex of the RFC 8785 array `[client_id, "mcp-glp-audit-proxy", [sorted licensed entry-point names]]`. `client_id` comes from config. The names are installed entry points whose `licence_feature` is outside the Community set. Community names are not included. There is no machine fingerprint. Startup computes the digest and refuses the file when it does not match, so each new licensed plugin needs a new licence. A JSON file that lists only Community features, and has neither a signature nor a fingerprint, still loads.
+The fingerprint is the lowercase SHA-256 hex of the RFC 8785 array `[client_id, "mcp-glp-audit-proxy", [sorted licensed entry-point names]]`. `client_id` comes from config. The names are installed entry points whose `licence_feature` is outside the Community set. Community names are not included. There is no machine fingerprint. Startup computes the digest and refuses the file when it does not match, so each new licensed plugin needs a new licence. A licence file requires `client_id`.
 
 A plugin value may be a name, or `{"name": "<plugin>", "options": {}}`. Reporters may be `{"names": ["json", "text"], "options": {}}`. `options` is `plugins.<group>.options` and is passed to that factory. Community factories ignore it. It is not written to the audit log.
-
-```json licence
-{
-  "format": "mcp-glp-audit-proxy-licence",
-  "features": []
-}
-```
 
 `GLP_LICENCE_PATH` overrides `licence_path` when it is non-empty. The loader does not contact a network to read either path.
 

@@ -12,7 +12,6 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from mcp_glp_audit_proxy.anchor import verify_anchored
-from mcp_glp_audit_proxy.canonical import canonicalize
 from mcp_glp_audit_proxy.config import Settings, UpstreamConfig
 from mcp_glp_audit_proxy.errors import ConfigurationError, LicenceError, TlsRequired, UpstreamError
 from mcp_glp_audit_proxy.features import FeatureSet
@@ -106,27 +105,34 @@ def test_serve_stdio_last_resort_and_unknown_licence(tmp_path: Path, monkeypatch
     assert proxy._dead is True
 
     unsigned = tmp_path / "unsigned.json"
-    unsigned.write_text(
-        json.dumps({"format": "mcp-glp-audit-proxy-licence", "features": ["not-a-feature"]}),
-        encoding="utf-8",
-    )
-    with pytest.raises(LicenceError, match="signature is required"):
+    unsigned.write_text("not a licence\n", encoding="utf-8")
+    with pytest.raises(LicenceError, match="LM1 or LM2"):
         FeatureSet.load(unsigned)
 
     private = Ed25519PrivateKey.generate()
     public = private.public_key().public_bytes_raw()
     body = {
-        "format": "mcp-glp-audit-proxy-licence",
-        "features": ["not-a-feature"],
+        "alg": "ed25519",
+        "app": "mcp-glp-audit-proxy",
+        "expires": None,
         "fingerprint": licence_fingerprint("lab-1", []),
+        "holder": "qa@lab.example",
+        "issued": "2026-01-01",
+        "kind": "year",
+        "updates_until": "2027-01-01",
+        "version": 1,
+        "features": ["not-a-feature"],
     }
-    body["signature"] = {
-        "algorithm": "ed25519",
-        "key_id": "test",
-        "value": base64.b64encode(private.sign(canonicalize(body))).decode("ascii"),
-    }
-    licence = tmp_path / "licence.json"
-    licence.write_text(json.dumps(body), encoding="utf-8")
+    payload = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    licence = tmp_path / "licence.lm2"
+    licence.write_text(
+        "LM2\n"
+        + base64.b64encode(payload).decode("ascii")
+        + "\n"
+        + base64.b64encode(private.sign(payload)).decode("ascii")
+        + "\n",
+        encoding="utf-8",
+    )
     flagged = AuditProxy(
         stack["proxies"]["qa"].settings,
         stack["store"],

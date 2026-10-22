@@ -1,0 +1,14 @@
+{
+  "keys": [
+    {
+      "key_id": "ed25519-1",
+      "algorithm": "ed25519",
+      "public_hex": "df94b07a4976983cff62239a567ab57f6402e23b0f3c137b947b3105b170a926"
+    },
+    {
+      "key_id": "lm1-rsa-1",
+      "algorithm": "rsa-pss-sha256",
+      "public_pem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz5MEqS9WM6YdVUdnEUiB\nScKmrUU4d2tjsUGe4QOdbCZ3if+LDbkLUxlnxrk7C6wocp7vbRXyLBGPCzEbh7ck\nbat3bPN2wVO3/kpM18ylQLyrbe60ionH1pF+2bzx39ojTIJsd8uPoGX9N1lf1COX\nCiYvuXvxohxXNVL5nnn122NjUfqx0DTMhdGivxikeWbnRPJRL68oT80LJSWgn6qp\nWmmLkf2DslBTtTi+5Rq2IIHhuCf6RUc6yejflNMJgpDrG+LXOF54miaunBIbLJTB\nXI2oItUPOZ/oOfuoOtWaU9jk0A0cuDNUhR9fD7BscSEIX/kTJZFu/PBuvhxm818g\nAwIDAQAB\n-----END PUBLIC KEY-----\n"
+    }
+  ]
+}

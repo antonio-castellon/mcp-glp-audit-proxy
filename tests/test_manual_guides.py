@@ -18,6 +18,7 @@ import subprocess
 import sys
 import textwrap
 import threading
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,6 @@ import yaml
 
 from mcp_glp_audit_proxy.cli import main as verify_main
 from mcp_glp_audit_proxy.config import load_settings
-from mcp_glp_audit_proxy.features import FeatureSet, LICENCE_FORMAT
 from mcp_glp_audit_proxy.tlsutil import require_https
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -126,20 +126,13 @@ def test_proxy_configs_load_and_start(tmp_path: Path) -> None:
     assert seen >= 10
 
 
-def test_licence_snippets_load(tmp_path: Path) -> None:
-    seen = 0
+def test_manuals_do_not_ship_the_retired_json_licence() -> None:
     for path in _guides():
-        for info, body in _fences(path):
-            if not info.startswith("json licence"):
-                continue
-            seen += 1
-            raw = json.loads(body)
-            assert raw["format"] == LICENCE_FORMAT
-            target = tmp_path / f"licence-{seen}.json"
-            target.write_text(json.dumps(raw), encoding="utf-8")
-            flags = FeatureSet.load(target)
-            assert "storage.jsonl" in flags.enabled
-    assert seen >= 1
+        text = path.read_text(encoding="utf-8")
+        assert "mcp-glp-audit-proxy-licence" not in text
+        assert "json licence" not in text
+        for info, _body in _fences(path):
+            assert not info.startswith("json licence")
 
 
 def test_client_snippets_use_real_proxy_args() -> None:
@@ -301,7 +294,10 @@ def test_airgap_wheel_builds_without_deps(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr
     wheels = list(tmp_path.glob("mcp_glp_audit_proxy-*.whl"))
     assert len(wheels) == 1
-    assert "0.3.1" in wheels[0].name
+    assert "0.3.2" in wheels[0].name
+    with zipfile.ZipFile(wheels[0]) as archive:
+        names = archive.namelist()
+    assert any(name.endswith("mcp_glp_audit_proxy/release_trust.json") for name in names)
 
 
 def _first_proxy(path: Path) -> dict:
@@ -318,12 +314,7 @@ def _prepare(raw: dict, directory: Path) -> dict:
     audit["path"] = str(directory / "audit.jsonl")
     config["export_dir"] = str(directory / "exports")
     if config.get("licence_path"):
-        licence = directory / "licence.json"
-        licence.write_text(
-            json.dumps({"format": LICENCE_FORMAT, "features": []}),
-            encoding="utf-8",
-        )
-        config["licence_path"] = str(licence)
+        config["licence_path"] = None
     for item in config.get("upstreams") or []:
         if item.get("transport", "stdio") == "https":
             require_https(str(item["url"]))

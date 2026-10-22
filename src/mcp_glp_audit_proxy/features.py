@@ -8,7 +8,6 @@ This module does not open sockets. There is no phone-home.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -22,8 +21,6 @@ from .licence import (
     licence_fingerprint,
     lm1_body,
     lm2_body,
-    parse_expiry,
-    verify_ed25519_licence,
     verify_lm1,
     verify_lm2,
 )
@@ -42,8 +39,6 @@ COMMUNITY_FEATURES = frozenset(
         "auth.env",
     }
 )
-
-LICENCE_FORMAT = "mcp-glp-audit-proxy-licence"
 
 WIZARD_GROUP = "mcp_glp_audit_proxy.wizard"
 
@@ -99,43 +94,6 @@ def licensed_plugin_features(plugins: dict[str, dict[str, Any]]) -> list[str]:
             if feature is not None and feature not in COMMUNITY_FEATURES:
                 found.append(feature)
     return found
-
-
-def _json_needs_signature(raw: dict[str, Any]) -> bool:
-    features = raw.get("features") or []
-    extra = any(
-        isinstance(item, str) and item not in COMMUNITY_FEATURES for item in features
-    )
-    return extra or raw.get("signature", None) is not None or "fingerprint" in raw
-
-
-def validate_licence(
-    raw: dict[str, Any],
-    *,
-    public_key: bytes | None = None,
-) -> LicenceBody:
-    """Verify an Ed25519 JSON licence and return its body.
-
-    Community features do not need a signature. Any other feature, a
-    ``fingerprint``, and any file that carries a signature, is checked with
-    Ed25519 against the trust anchor. The clock comparison is separate so the
-    fingerprint can be checked against the plugins installed in this process.
-    """
-    features = raw.get("features", [])
-    if not isinstance(features, list) or not all(isinstance(item, str) for item in features):
-        raise ValueError("licence features must be a list of strings")
-    expires_at = None
-    if "expires" in raw and raw.get("expires") is not None:
-        expires_at = parse_expiry(raw.get("expires"), label="expires")
-    if not _json_needs_signature(raw):
-        return LicenceBody(features=list(features), fingerprint=None, expires_at=expires_at)
-    if raw.get("signature", None) is None:
-        raise LicenceError("licence signature is required")
-    verify_ed25519_licence(raw, public_key=public_key)
-    fingerprint = raw.get("fingerprint")
-    if not isinstance(fingerprint, str) or not fingerprint:
-        raise LicenceError("licence fingerprint is required")
-    return LicenceBody(features=list(features), fingerprint=fingerprint, expires_at=expires_at)
 
 
 @dataclass
@@ -210,12 +168,4 @@ def _read_licence(
         return lm1_body(verify_lm1(text, public_pem=rsa_public_key))
     if text.startswith("LM"):
         raise LicenceError("licence LM format is not LM1 or LM2")
-    try:
-        raw = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError("licence must be a JSON object") from exc
-    if not isinstance(raw, dict):
-        raise ValueError("licence must be a JSON object")
-    if raw.get("format") != LICENCE_FORMAT:
-        raise ValueError("licence format is not mcp-glp-audit-proxy-licence")
-    return validate_licence(raw, public_key=public_key)
+    raise LicenceError("licence must be LM1 or LM2 text")

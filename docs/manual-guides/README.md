@@ -146,5 +146,8 @@ A message larger than 1048576 bytes (1 MiB) with no newline ends the session. Th
 | [approval-workflow.md](approval-workflow.md) | `glp_approve`, roles, separation of duties |
 | [plugins.md](plugins.md) | Storage, signer, reporter, auth, and the licence file |
 | [troubleshooting.md](troubleshooting.md) | Fail-closed latch, the 1 MiB cap, denied calls |
+| [hello_world/README.md](hello_world/README.md) | Which hello-world page covers each transport |
+| [hello_world/stdio-to-proxy-to-stdio.md](hello_world/stdio-to-proxy-to-stdio.md) | PyPI install, init, one allowed call, one blocked call, a stdio target |
+| [hello_world/stdio-to-proxy-to-https.md](hello_world/stdio-to-proxy-to-https.md) | The same walkthrough with an HTTPS (TLS 1.3) target |
 
-[QUICKSTART.md](QUICKSTART.md) is the terminal audit. Each other guide has prerequisites, install, a minimal config, a hardened config, a verification step, and pitfalls. The host guides also have a hello world that uses `examples/config.json` with the approval gate off.
+[QUICKSTART.md](QUICKSTART.md) is the terminal audit from a checkout. [hello_world/README.md](hello_world/README.md) is the coverage matrix for a PyPI install. Each walkthrough, and each other guide except QUICKSTART.md and that matrix, has prerequisites, install, a minimal config, a hardened config, a verification step, and pitfalls. The host guides also have a hello world that uses `examples/config.json` with the approval gate off.

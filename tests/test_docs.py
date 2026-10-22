@@ -72,12 +72,12 @@ def test_registry_metadata_matches_the_package() -> None:
     server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert server["name"] == "io.github.antonio-castellon/mcp-glp-audit-proxy"
-    assert server["version"] == "0.3.0"
-    assert server["packages"][0]["version"] == "0.3.0"
+    assert server["version"] == "0.3.1"
+    assert server["packages"][0]["version"] == "0.3.1"
     assert len(server["description"]) <= 100
-    assert 'version = "0.3.0"' in pyproject
+    assert 'version = "0.3.1"' in pyproject
     init = (ROOT / "src" / "mcp_glp_audit_proxy" / "__init__.py").read_text(encoding="utf-8")
-    assert '__version__ = "0.3.0"' in init
+    assert '__version__ = "0.3.1"' in init
     assert "mcp>=2.2.0,<3" in pyproject
     assert (ROOT / "docs" / "STANDARDS.md").is_file()
     assert (ROOT / "docs" / "COVERAGE.md").is_file()

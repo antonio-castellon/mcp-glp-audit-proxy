@@ -37,6 +37,16 @@ def test_bounded_reader_times_out() -> None:
         os.close(write_fd)
 
 
+def test_bounded_reader_returns_a_line_before_the_timeout() -> None:
+    read_fd, write_fd = os.pipe()
+    os.write(write_fd, b"hello\n")
+    reader = BoundedLineReader(os.fdopen(read_fd, "rb", buffering=0), 100, timeout=2)
+    try:
+        assert reader.readline() == b"hello\n"
+    finally:
+        os.close(write_fd)
+
+
 def test_host_stream_without_a_newline_ends_the_session(tmp_path: Path) -> None:
     config = tmp_path / "config.json"
     config.write_text(

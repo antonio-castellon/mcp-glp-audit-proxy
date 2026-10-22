@@ -100,7 +100,7 @@ The log file and the sidecar `<log>.head` are set to mode `0600` on open. A chan
 
 ## Verify CLI
 
-`mcp-glp-audit-proxy-verify` and `python -m mcp_glp_audit_proxy verify` call the same checker. Neither name loads `config.json`. Exit 0 means the chain verified. Exit 1 means it did not, and `--json-export` is skipped. Without `--pubkey` the command does not load plugins.
+`mcp-glp-audit-proxy-verify` and `python -m mcp_glp_audit_proxy verify` call the same checker. Neither name loads `config.json`. Exit 0 means the chain verified. Exit 1 means it did not, and `--json-export` is skipped. Without `--pubkey` the command does not load plugins. With `--pubkey`, pass `--licence` and `--client-id`, or set `GLP_LICENCE_PATH` and `GLP_CLIENT_ID`.
 
 ```bash
 mcp-glp-audit-proxy-verify data/audit.jsonl --print-head
@@ -108,7 +108,7 @@ mcp-glp-audit-proxy-verify data/audit.jsonl --json-export data/exports/audit.jso
 mcp-glp-audit-proxy-verify data/audit.jsonl --tool excel__write_cell --status ok
 ```
 
-Flags: `--json-export`, `--record-class`, `--tool`, `--status`, `--principal`, `--method`, `--server`, `--since`, `--until`, `--print-head`, `--expect-head`, `--expect-head-file`, `--pubkey`. Filters change what is printed. They do not change the integrity check. `--print-head` prints `seq=<n> entry_hash=<64 hex>` on stdout. Copy that line off the machine. `--expect-head <seq>:<entry_hash>` and `--expect-head-file` fail when the chain tip differs. `--pubkey` passes the file bytes to the licensed signer plugin. Unsigned checkpoints do not satisfy that check. See [anchoring-and-verification.md](anchoring-and-verification.md).
+Flags: `--json-export`, `--record-class`, `--tool`, `--status`, `--principal`, `--method`, `--server`, `--since`, `--until`, `--print-head`, `--expect-head`, `--expect-head-file`, `--pubkey`, `--licence`, `--client-id`. Filters change what is printed. They do not change the integrity check. `--print-head` prints `seq=<n> entry_hash=<64 hex>` on stdout. Copy that line off the machine. `--expect-head <seq>:<entry_hash>` and `--expect-head-file` fail when the chain tip differs. `--pubkey` passes the file bytes to the licensed signer plugin. Unsigned checkpoints do not satisfy that check. See [anchoring-and-verification.md](anchoring-and-verification.md).
 
 ## Local tools
 

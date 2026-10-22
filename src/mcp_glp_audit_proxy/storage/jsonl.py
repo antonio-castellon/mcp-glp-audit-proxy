@@ -10,7 +10,6 @@ to). Hashes make silent edits detectable.
 from __future__ import annotations
 
 import errno
-import fcntl
 import logging
 import os
 from datetime import datetime
@@ -18,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from ..anchor import assess, read_head, write_head
-from ..permissions import ensure_private_dir, open_private
+from ..permissions import ensure_private_dir, open_flags, open_private
 from ..canonical import GENESIS, canonicalize, seal
 from ..chain import VerifyReport, verify_bytes
 from ..errors import AuditStoreError, ChainIntegrityError
@@ -96,12 +95,13 @@ class JsonlAuditStore:
         if not self.path.exists():
             return _apply_anchor(self.path, VerifyReport(ok=True, head_hash=GENESIS))
         try:
-            fd = os.open(self.path, os.O_RDONLY)
+            flags = os.O_RDWR if os.name == "nt" else os.O_RDONLY
+            fd = os.open(self.path, open_flags(flags))
         except OSError as exc:
             raise _write_failure(exc) from exc
         try:
             try:
-                fcntl.flock(fd, fcntl.LOCK_SH)
+                _lock(fd, exclusive=False)
                 report = verify_bytes(_read_all(fd))
                 if report.ok:
                     report = _apply_anchor(self.path, report)
@@ -121,7 +121,7 @@ class JsonlAuditStore:
         checkpoint: dict[str, Any] | None = None
         try:
             try:
-                fcntl.flock(fd, fcntl.LOCK_EX)
+                _lock(fd, exclusive=True)
                 report = verify_bytes(_read_all(fd))
                 if not report.ok:
                     raise ChainIntegrityError("; ".join(report.errors))
@@ -285,9 +285,30 @@ def _write_failure(exc: OSError) -> AuditStoreError:
     return AuditStoreError(f"audit store write failed: errno={code} {detail}")
 
 
+def _lock(fd: int, *, exclusive: bool) -> None:
+    """Lock the log. Windows has no shared lock, so both modes lock one byte."""
+    if os.name == "nt":
+        import msvcrt
+
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+        return
+    import fcntl
+
+    fcntl.flock(fd, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+
+
 def _quiet_unlock(fd: int) -> None:
     try:
-        fcntl.flock(fd, fcntl.LOCK_UN)
+        if os.name == "nt":
+            import msvcrt
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(fd, fcntl.LOCK_UN)
     except OSError:
         pass
     try:

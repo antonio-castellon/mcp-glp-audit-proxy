@@ -158,6 +158,61 @@ def test_pubkey_requires_one_licensed_signer(tmp_path: Path, capsys, monkeypatch
     assert "empty" in capsys.readouterr().err
 
 
+def test_pubkey_loads_an_explicit_licence(tmp_path: Path, capsys, monkeypatch) -> None:
+    seen: list[tuple[Path, str | None]] = []
+
+    class Local:
+        def sign(self, _payload: bytes) -> dict[str, object]:
+            return {"algorithm": "ed25519", "key_id": "k", "signed": True, "value": "ok"}
+
+        def verify(self, _payload: bytes, _signature: dict[str, object], public_key: bytes | None = None) -> bool:
+            return public_key == b"pin"
+
+    def factory(_settings, options=None):
+        assert options == {}
+        return Local()
+
+    factory.licence_feature = "signer.ed25519"  # type: ignore[attr-defined]
+    flags = FeatureSet(
+        enabled=set(COMMUNITY_FEATURES) | {"signer.ed25519"},
+        plugins={SIGNERS_GROUP: {"ed25519": factory}},
+    )
+
+    def load(got, **kwargs):
+        if not Path(got).is_file():
+            raise FileNotFoundError(got)
+        seen.append((Path(got), kwargs.get("client_id")))
+        return flags
+
+    monkeypatch.setattr("mcp_glp_audit_proxy.cli.FeatureSet.load", load)
+    path = tmp_path / "audit.jsonl"
+    JsonlAuditStore(path, signer=Local(), checkpoint_every=1).append_event(_event(1))
+    key = tmp_path / "key.pub"
+    key.write_bytes(b"pin")
+    licence = tmp_path / "licence.json"
+    licence.write_text("{}", encoding="utf-8")
+    other = tmp_path / "other.json"
+    other.write_text("{}", encoding="utf-8")
+
+    assert verify_main([str(path), "--licence", str(other)]) == 0
+    assert seen == []
+    assert "chain ok" in capsys.readouterr().err
+
+    monkeypatch.setenv("GLP_LICENCE_PATH", str(other))
+    monkeypatch.setenv("GLP_CLIENT_ID", "from-env")
+    assert (
+        verify_main(
+            [str(path), "--pubkey", str(key), "--licence", str(licence), "--client-id", "lab"]
+        )
+        == 0
+    )
+    assert seen == [(licence, "lab")]
+    seen.clear()
+    assert verify_main([str(path), "--pubkey", str(key)]) == 0
+    assert seen == [(other, "from-env")]
+    assert verify_main([str(path), "--pubkey", str(key), "--licence", str(tmp_path / "missing.json")]) == 2
+
+
 def test_pubkey_calls_the_licensed_signer_with_the_pinned_key(tmp_path: Path, capsys, monkeypatch) -> None:
     seen: dict[str, object] = {}
 

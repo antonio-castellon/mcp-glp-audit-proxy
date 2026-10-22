@@ -26,4 +26,4 @@ mcp-glp-audit-proxy oq-report --repo-root . --markdown docs/verification/sample/
 
 or `python -m mcp_glp_audit_proxy.verification`.
 
-The sample committed for 0.2.0 was generated at 2026-10-21T13:52:04+00:00. Package `0.2.0`, 123 passed, 0 failed, line coverage 89.4. It replaces the report recorded at `c1270003beec66c0eafb1c3282df9de42de776fb`. The report records the commit the suite ran against: `f90d8ac52d00ddaddbbeccc9a0afadade3171c08`.
+The sample committed for 0.2.0 was generated at 2026-10-21T13:52:04+00:00. Package `0.2.0`, 123 passed, 0 failed, line coverage 89.4. It replaces the report recorded at `c1270003beec66c0eafb1c3282df9de42de776fb`. The report records the commit the suite ran against: `f90d8ac52d00ddaddbbeccc9a0afadade3171c08`. Release 0.3.0 does not replace that sample. The hash-chain format is unchanged.

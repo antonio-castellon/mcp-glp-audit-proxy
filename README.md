@@ -14,9 +14,9 @@ mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
 # mcp-glp-audit-proxy
 
-Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.2.0. Changes since 0.1.0 are in `CHANGELOG.md`.
+Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.3.0. Changes since 0.2.0 are in `CHANGELOG.md`.
 
-It is designed to support GLP, ALCOA+, 21 CFR Part 11 and EU GMP Annex 11 traceability. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository. Personal Part 11 e-signatures are out of scope. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro.
+It is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository. Personal Part 11 e-signatures are out of scope. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro.
 
 <picture>
   <source srcset="https://raw.githubusercontent.com/antonio-castellon/mcp-glp-audit-proxy/main/docs/images/flow.svg" type="image/svg+xml">
@@ -48,7 +48,7 @@ export GLP_PRINCIPAL_ROLE=operator
 mcp-glp-audit-proxy --config config.json
 ```
 
-Stdio identity comes from the environment. There is no HTTP listener in 0.2.0. A Cursor snippet is in `mcp.json`. A full config is in `config.example.json`.
+Stdio identity comes from the environment. There is no HTTP listener. A Cursor snippet is in `mcp.json`. A full config is in `config.example.json`.
 
 `plugins.storage`, `plugins.signer`, `plugins.reporters` and `plugins.auth` select entry points. The defaults are `jsonl`, `unsigned`, `json` plus `text`, and `env`. `env` returns the principal from `GLP_PRINCIPAL_*` or the config file. It is not an identity provider. An unknown plugin, or a plugin whose declared licence feature is not enabled, refuses to start. The factory is not called. The proxy does not fall back to another backend. See `docs/PLUGINS.md`.
 
@@ -60,7 +60,7 @@ mcp-glp-audit-proxy-verify data/audit.jsonl --tool excel__write_cell --status ok
 mcp-glp-audit-proxy-verify data/audit.jsonl --print-head
 ```
 
-`--print-head` prints `seq=<n> entry_hash=<64 hex>`. Copy that line into a ticket, an email or a LIMS record. Check it later with `--expect-head <seq>:<entry_hash>` or `--expect-head-file` (the file may hold that same line). The command exits 1 when the chain tip differs. The sidecar `data/audit.jsonl.head` makes a cut of whole trailing lines fail verification. Someone who can edit both the log and the sidecar can move them together; the external copy is the control. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro. `--pubkey` passes a pinned public key file to the licensed signer plugin. With no licensed signer the check fails. Unsigned checkpoints stay the default and are not treated as signed.
+`--print-head` prints `seq=<n> entry_hash=<64 hex>`. Copy that line into a ticket, an email or a LIMS record. Check it later with `--expect-head <seq>:<entry_hash>` or `--expect-head-file` (the file may hold that same line). The command exits 1 when the chain tip differs. The sidecar `data/audit.jsonl.head` makes a cut of whole trailing lines fail verification. Someone who can edit both the log and the sidecar can move them together; the external copy is the control. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro. `--pubkey` passes a pinned public key file to the licensed signer plugin. With no licensed signer the check fails. Unsigned checkpoints stay the default and are not treated as signed. The log and the `.head` sidecar are mode 0600 on open. A log directory created by the store is mode 0700.
 
 ## Configure
 
@@ -81,6 +81,8 @@ mcp-glp-audit-proxy config check config.json
 ```
 
 A licensed plugin can add questions and a validation step through the `mcp_glp_audit_proxy.wizard` entry point. An unlicensed plugin is not called and adds nothing. See `docs/PLUGINS.md`.
+
+A licence file is local. There is no network call. JSON is Ed25519 over RFC 8785. LM1 is three lines: `LM1`, base64 of the body, and base64 of an RSA-2048 PSS signature over those raw bytes. LM2 is three lines: `LM2`, base64 of the body, and base64 of a 64-byte Ed25519 signature over those raw bytes, and the body must be compact sorted JSON. LM1, and LM2 with no `features` list, enable the features declared by the installed licensed plugins. A JSON licence, and an LM2 file that lists `features`, enable only the listed names. The fingerprint is not a machine id. Details are in `docs/PLUGINS.md`.
 
 ## What is recorded
 
@@ -160,15 +162,13 @@ A mark means that edition includes the capability. Pro includes every Community 
 | Offline licence file, no phone-home | :white_check_mark: | :white_check_mark: reads the same file |
 | Config wizard and config check | :white_check_mark: | :white_check_mark: |
 
-Checked against this repository on 2026-10-21. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader, and `init` / `config check`. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. An Ed25519 JSON licence must also list the feature. An LM1 file grants the features declared by the plugins in the matching fingerprint. An LM2 file does the same when `features` is absent, and enables only the listed features when `features` is present. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Personal Part 11 e-signatures are out of scope for both editions. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
+Checked against this repository on 2026-10-22. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader (JSON, LM1, and LM2), and `init` / `config check`. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. The licence shapes are described under Configure. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Personal Part 11 e-signatures are out of scope for both editions. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
 
 Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the licence file are described in `docs/PLUGINS.md`.
 
 ## Roadmap
 
-Approved Community items are recorded in this section. There is no separate roadmap file.
-
-- Config wizard and config check. `init` writes the audit log path, allow list, principal, and retention profile with legal hold, and it does not overwrite an existing file unless you confirm. `config check` reports whether the file loads. A licensed plugin may add questions through `mcp_glp_audit_proxy.wizard`. An unlicensed plugin adds nothing. This item is in this edition.
+Shipped Community items are in the sections above and in `CHANGELOG.md`. There is no separate roadmap file.
 
 ## Local tools
 

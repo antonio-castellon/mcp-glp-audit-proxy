@@ -7,7 +7,7 @@ deviation process. Roles below are the proxy roles (`operator`, `approver`, `qa`
 
 ## 1. Detection
 
-What the proxy does in this case (Community 0.2.0):
+What the proxy does in this case (Community 0.3.0):
 
 - The host gets a JSON-RPC error instead of the upstream result:
   code `-32000`, message `audit log unavailable; request was not completed`,

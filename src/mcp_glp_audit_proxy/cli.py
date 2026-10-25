@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from .anchor import verify_anchored
+from .segments import verify_segments
 from .checkpoints import check_log
 from .features import FeatureSet
 from .records import format_timestamp, utc_now
@@ -62,7 +63,26 @@ def _features_for_pubkey(licence: Path | None, client_id: str | None) -> Feature
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mcp-glp-audit-proxy-verify")
-    parser.add_argument("audit_file", type=Path)
+    parser.add_argument("audit_file", nargs="?", type=Path)
+    parser.add_argument(
+        "--segments",
+        nargs="+",
+        type=Path,
+        default=None,
+        help="Check these log files in order, including each audit/segment_start link.",
+    )
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=None,
+        help="Check this archive manifest against the log directory. Read-only.",
+    )
+    parser.add_argument(
+        "--report-out",
+        type=Path,
+        default=None,
+        help="Write the dated manifest check report here. Requires --manifest.",
+    )
     parser.add_argument("--json-export", type=Path, default=None)
     parser.add_argument("--record-class", default=None)
     parser.add_argument("--tool", default=None)
@@ -106,6 +126,29 @@ def main(argv: list[str] | None = None) -> int:
         help="Customer id for the licence fingerprint. GLP_CLIENT_ID is the fallback.",
     )
     args = parser.parse_args(argv)
+    if args.report_out is not None and args.manifest is None:
+        print("--report-out requires --manifest", file=sys.stderr)
+        return 2
+    if args.manifest is not None:
+        if args.audit_file is None:
+            print("an audit file is required with --manifest", file=sys.stderr)
+            return 2
+        from .archive import verify_manifest
+
+        return verify_manifest(
+            args.audit_file,
+            args.manifest,
+            report_out=args.report_out,
+            segments=list(args.segments) if args.segments else None,
+        )
+    if args.segments:
+        ok, notes = verify_segments(list(args.segments))
+        for note in notes:
+            print(note, file=sys.stderr if not ok else sys.stdout)
+        return 0 if ok else 1
+    if args.audit_file is None:
+        print("an audit file or --segments is required", file=sys.stderr)
+        return 2
     try:
         inline = _parse_head(args.expect_head) if args.expect_head is not None else None
         expected = _expected_head(inline, args.expect_head_file)
@@ -169,6 +212,8 @@ def main(argv: list[str] | None = None) -> int:
     selected = filter_entries(report.entries, **filters)
     for entry in selected:
         print(format_entry(entry))
+    for gap in report.gaps:
+        print(gap, file=sys.stderr)
     if report.anchor_lag:
         print(
             "head lags by 1 verified record; startup will advance it",
@@ -188,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
             chain_valid=True,
             filters=filters,
             exported_at=format_timestamp(utc_now()),
+            gaps=list(report.gaps),
         )
         args.json_export.parent.mkdir(parents=True, exist_ok=True)
         args.json_export.write_text(dumps_document(document), encoding="utf-8")

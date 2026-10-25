@@ -502,6 +502,48 @@ requirements:
     statement: "One hash-chained record per MCP or HTTPS call, with route policy, a body hash, and mTLS or bearer identity. On Windows the bearer file ACL allows only the current user, SYSTEM, and Administrators. Plain HTTP is refused."
     modules: [src/mcp_glp_audit_proxy/channels/https_inbound.py, src/mcp_glp_audit_proxy/channels/https_outbound.py, src/mcp_glp_audit_proxy/channels/identity.py, src/mcp_glp_audit_proxy/channels/winacl.py, src/mcp_glp_audit_proxy/policy.py]
     tests: [tests/test_https_gateway.py::test_six_flows_policy_body_and_identity, tests/test_https_gateway.py::test_bearer_and_mtls_modes, tests/test_https_gateway.py::test_tls_verification_cannot_be_disabled, tests/test_https_gateway.py::test_mixed_schema_chain_verifies, tests/test_bearer_acl.py::test_other_principals_are_refused_with_the_icacls_command, tests/test_bearer_acl.py::test_posix_bearer_file_must_be_mode_0600]
+  - id: COV-SHUTDOWN
+    source: "OECD No. 22 6.13; WHO TRS 1033 Annex 4 11.10-11.11"
+    scope: community
+    statement: "Startup and clean-stop records are written. An unclean stop is a gap warning in verify."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/server.py, src/mcp_glp_audit_proxy/chain.py]
+    tests: [tests/test_shutdown_gaps.py::test_gap_warning_between_two_startups, tests/test_stdio_e2e.py::test_allowed_denied_and_verify_cli]
+  - id: COV-MCP-BODY
+    source: "GDPR Art. 5(1)(c) and Art. 25(2)"
+    scope: community
+    statement: "body_mode applies to MCP tool arguments and results. The default is hash_only."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/bodyutil.py]
+    tests: [tests/test_mcp_body_mode.py::test_hash_only_stores_hashes_not_payloads]
+  - id: COV-INTEGRITY
+    source: "OECD No. 22 6.14"
+    scope: community
+    statement: "A missing or edited record refuses startup with exit 3 and writes a critical alert."
+    modules: [src/mcp_glp_audit_proxy/proxy.py, src/mcp_glp_audit_proxy/alerts.py, src/mcp_glp_audit_proxy/server.py]
+    tests: [tests/test_integrity.py::test_deleted_line_refuses_startup_and_writes_alert]
+  - id: COV-SEGMENT
+    source: "GDPR Art. 17 customer procedure"
+    scope: community
+    statement: "segment close records the previous head, or broken, and requires a reason and an approver."
+    modules: [src/mcp_glp_audit_proxy/segments.py, src/mcp_glp_audit_proxy/segments_cli.py]
+    tests: [tests/test_segments.py::test_segment_close_requires_reason_and_approver, tests/test_segments.py::test_intact_segment_links_and_broken_segment_is_recorded]
+  - id: COV-REGULATORY
+    source: "AGIT V4.0 5.3 configuration description"
+    scope: community
+    statement: "regulatory-report reads the configuration only and names each gap."
+    modules: [src/mcp_glp_audit_proxy/regulatory.py]
+    tests: [tests/test_regulatory_report.py::test_report_header_and_statuses]
+  - id: COV-ARCHIVE
+    source: "AGIT Archiving V3.0 6.1 and 7.2"
+    scope: community
+    statement: "archive-manifest indexes the package and verify --manifest rechecks a read-only copy."
+    modules: [src/mcp_glp_audit_proxy/archive.py, src/mcp_glp_audit_proxy/cli.py]
+    tests: [tests/test_archive.py::test_manifest_lists_segments_head_and_hashes, tests/test_archive.py::test_verify_manifest_on_read_only_copy]
+  - id: COV-MIXED-SCHEMA
+    source: "AGIT Archiving V3.0 6.1 legible"
+    scope: community
+    statement: "A chain written before and after schema 1.3.0 still verifies and exports both forms."
+    modules: [src/mcp_glp_audit_proxy/chain.py, src/mcp_glp_audit_proxy/archive.py]
+    tests: [tests/test_archive.py::test_mixed_schema_chain_stays_verifiable]
   - id: CUST-CSV
     source: "docs/COVERAGE.md section 3"
     scope: customer

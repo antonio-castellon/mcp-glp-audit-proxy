@@ -110,7 +110,7 @@ Each upstream object:
 
 One audit record is written per request. Credential headers (names containing `authorization`, `cookie`, `token`, `secret`, `api-key`, `apikey`, `password`, or `passwd`) are dropped. Their names are listed. Their values are not stored. `X-Audit-Reason`, `X-Audit-Approval`, and `X-Audit-End-User` are not copied into the stored header map. The reason is stored in `reason`. HTTPS writes require `X-Audit-Reason` when reasons are on. `POST /_glp/approve` is the local approval route for an `approver` principal and is not subject to `http_allow`.
 
-Streaming is not part of 0.4.0. A missing `Content-Length` is an empty body. The body is not read past `max_body_bytes`.
+Streaming is not part of 0.4.0. GET and HEAD with no `Content-Length` have an empty body. A write without `Content-Length`, or with `Transfer-Encoding`, is refused with 411 and logged. The body is not read past `max_body_bytes`.
 
 `protocol` `auto` tries `server/discover` and falls back to `initialize` at protocol `2025-11-25`. `legacy` skips discovery. `modern` requires discovery.
 
@@ -168,5 +168,7 @@ A message larger than 1048576 bytes (1 MiB) with no newline ends the session. Th
 | [hello_world/stdio-to-proxy-to-stdio.md](hello_world/stdio-to-proxy-to-stdio.md) | Numbered first run: PyPI, init, one allowed call, one blocked call, a stdio target |
 | [hello_world/stdio-to-proxy-to-https.md](hello_world/stdio-to-proxy-to-https.md) | The same first run with an HTTPS (TLS 1.3) target |
 | [hello_world/https-gateway.md](hello_world/https-gateway.md) | HTTPS listener, the six flows, body storage, and mTLS or bearer |
+
+Offline commands, with the service stopped: `regulatory-report` reads the config only, `archive-manifest` writes an index of the log package, and `verify --manifest` checks a later copy. `segment close` needs `--reason`, `--ticket`, and `--approved-by`. See [docs/ARCHIVING.md](../ARCHIVING.md) and the README sections "Validation in a GLP facility" and "System requirements".
 
 [QUICKSTART.md](QUICKSTART.md) is the terminal audit from a checkout. [hello_world/README.md](hello_world/README.md) is the coverage matrix for a PyPI install. Each walkthrough, and each other guide except QUICKSTART.md and that matrix, has prerequisites, install, a minimal config, a hardened config, a verification step, and pitfalls. The host guides also have a hello world that uses `examples/config.json` with the approval gate off.

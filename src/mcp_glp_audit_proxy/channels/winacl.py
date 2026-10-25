@@ -135,6 +135,23 @@ def parse_acl(acl_bytes: bytes) -> list[AclEntry]:
     return entries
 
 
+def protect_owner_file(path: Path) -> None:
+    """Best-effort owner-only DACL. POSIX mode bits are applied by the caller."""
+    import os
+    import subprocess
+
+    if os.name != "nt":
+        return
+
+    user = os.environ.get("USERNAME") or ""
+    grant = f"{user}:R" if user else "%USERNAME%:R"
+    subprocess.run(  # noqa: S603
+        ["icacls", str(path), "/inheritance:r", "/grant:r", grant, "SYSTEM:F", "Administrators:F"],  # noqa: S607
+        shell=False,
+        check=False,
+    )
+
+
 def assert_windows_bearer_acl(path: Path) -> None:
     """Read the live DACL. Used on Windows only."""
     entries = read_windows_dacl(path)

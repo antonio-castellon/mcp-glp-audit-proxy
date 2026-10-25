@@ -43,6 +43,32 @@ def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def prepare_value(
+    value: Any,
+    *,
+    mode: str,
+    redact_paths: list[str] | tuple[str, ...],
+) -> dict[str, Any]:
+    """Hash one JSON value and store it the same way ``prepare_body`` stores a body.
+
+    ``hash_only`` stores no value. ``redacted`` stores a JSON copy. ``full`` stores
+    the value. The SHA-256 is of the RFC 8785 bytes.
+    """
+    from .canonical import canonicalize
+    from .canonical import sha256_hex as canon_hex
+
+    if mode not in BODY_MODES:
+        raise ValueError(f"unknown body_mode {mode!r}")
+    digest = canon_hex(canonicalize(value))
+    if mode == "hash_only" or value is None:
+        stored: Any = None
+    elif mode == "full":
+        stored = value
+    else:
+        stored = redact(value, redact_paths)
+    return {"sha256": digest, "value": stored, "mode": mode}
+
+
 def prepare_body(raw: bytes, *, mode: str, redact_paths: list[str] | tuple[str, ...]) -> dict[str, Any]:
     """Return body_sha256, body, and body_mode for one HTTP body."""
     if mode not in BODY_MODES:

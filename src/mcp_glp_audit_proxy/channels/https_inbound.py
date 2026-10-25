@@ -22,7 +22,8 @@ from ..approvals import load_approvals
 from ..bodyutil import filter_headers, prepare_body
 from ..canonical import args_hash
 from ..config import ListenConfig, RouteConfig, Settings
-from ..errors import AuditStoreError, ConfigurationError, TlsRequired, UpstreamError
+from ..chain import integrity_text
+from ..errors import AuditStoreError, ChainIntegrityError, ConfigurationError, TlsRequired, UpstreamError
 from ..proxy import _approval_problem
 from ..records import build_event, format_timestamp
 from .https_outbound import HttpsApiClient
@@ -62,6 +63,11 @@ class GatewayServer(ThreadingHTTPServer):
         self.bearer_token: str | None = None
         super().__init__((listen.bind, listen.port), _Handler)
 
+    def shutdown(self) -> None:
+        if not self.proxy._integrity_broken:
+            self.proxy.shutdown("server_close")
+        super().shutdown()
+
     def get_request(self) -> tuple[Any, Any]:
         sock, address = super().get_request()
         try:
@@ -83,18 +89,29 @@ def build_server(proxy: Any, settings: Settings) -> GatewayServer:
 
 
 def serve_https(proxy: Any, settings: Settings) -> None:
-    logging.basicConfig(stream=__import__("sys").stderr, level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    import sys
+
+    logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     try:
         proxy.startup()
         server = build_server(proxy, settings)
+    except ChainIntegrityError as exc:
+        report = getattr(exc, "report", None)
+        text = integrity_text(report) if report is not None else str(exc)
+        print(f"mcp-glp-audit-proxy: refusing to start: {text}", file=sys.stderr)
+        raise SystemExit(3) from exc
     except (ConfigurationError, AuditStoreError, OSError, ssl.SSLError) as exc:
-        print(f"mcp-glp-audit-proxy: refusing to start: {exc}", file=__import__("sys").stderr)
+        print(f"mcp-glp-audit-proxy: refusing to start: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
     try:
         server.serve_forever()
     finally:
+        if not proxy._integrity_broken:
+            proxy.shutdown("server_close")
         proxy.close()
         server.server_close()
+    if proxy._integrity_stop:
+        raise SystemExit(3)
 
 
 def server_context(listen: ListenConfig) -> ssl.SSLContext:
@@ -146,7 +163,15 @@ class _Handler(BaseHTTPRequestHandler):
         server: GatewayServer = self.server  # type: ignore[assignment]
         with server.lock:
             try:
+                server.proxy.maybe_check_integrity()
                 status, content_type, body = handle_http(server.proxy, server.settings, self)
+            except ChainIntegrityError as exc:
+                report = getattr(exc, "report", None)
+                server.proxy._break_integrity(report)
+                _LOG.critical("%s", integrity_text(report) if report is not None else exc)
+                status = 503
+                content_type = "application/json"
+                body = _json_bytes({"error": "audit log unavailable; request was not completed"})
             except Exception:
                 _LOG.error("https request failed")
                 server.proxy._dead = True
@@ -160,6 +185,8 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
+        if server.proxy._integrity_stop:
+            server.shutdown()
 
 
 def handle_http(proxy: Any, settings: Settings, handler: BaseHTTPRequestHandler) -> tuple[int, str, bytes]:
@@ -168,6 +195,9 @@ def handle_http(proxy: Any, settings: Settings, handler: BaseHTTPRequestHandler)
         return _unavailable()
     try:
         proxy._refresh()
+    except ChainIntegrityError as exc:
+        proxy._break_integrity(getattr(exc, "report", None))
+        return _unavailable()
     except AuditStoreError:
         proxy._dead = True
         return _unavailable()
@@ -175,10 +205,19 @@ def handle_http(proxy: Any, settings: Settings, handler: BaseHTTPRequestHandler)
     path = parsed.path or "/"
     method = handler.command
     inbound_headers = handler_headers_safe(handler)
-    raw, problem = _read_body(handler, settings.max_body_bytes)
+    raw, problem = _read_body(handler, settings.max_body_bytes, method)
     if problem == "body:size":
         handler.close_connection = True
     if problem:
+        if problem in {"body:chunked", "body:length"} and method in {"POST", "PUT", "PATCH", "DELETE"}:
+            status_code = 411
+            message = "request body requires Content-Length"
+        elif problem == "body:size":
+            status_code = 413
+            message = "request body exceeds size limit"
+        else:
+            status_code = 400
+            message = "request body was not accepted"
         return _deny_http(
             proxy,
             settings,
@@ -187,9 +226,9 @@ def handle_http(proxy: Any, settings: Settings, handler: BaseHTTPRequestHandler)
             route=path,
             flow=None,
             raw=b"",
-            status_code=413 if problem == "body:size" else 400,
+            status_code=status_code,
             rule=problem,
-            message="request body exceeds size limit" if problem == "body:size" else "request body was not accepted",
+            message=message,
             principal=_system_principal(),
             kind=None,
             headers=inbound_headers,
@@ -820,7 +859,7 @@ def _deny_http(
     headers: dict[str, str] | None = None,
 ) -> tuple[int, str, bytes]:
     prepared = prepare_body(raw, mode=settings.body_mode, redact_paths=settings.redact_paths)
-    if rule in {"body:size", "body:short", "body:length"}:
+    if rule in {"body:size", "body:short", "body:length", "body:chunked"}:
         prepared = {"body_sha256": None, "body": None, "body_mode": settings.body_mode}
     try:
         _append(
@@ -961,9 +1000,14 @@ def _peer_der(handler: BaseHTTPRequestHandler) -> bytes | None:
     return der if isinstance(der, bytes) else None
 
 
-def _read_body(handler: BaseHTTPRequestHandler, limit: int) -> tuple[bytes | None, str | None]:
+def _read_body(handler: BaseHTTPRequestHandler, limit: int, method: str = "GET") -> tuple[bytes | None, str | None]:
+    write = method in {"POST", "PUT", "PATCH", "DELETE"}
+    if write and handler.headers.get("Transfer-Encoding"):
+        return None, "body:chunked"
     declared = handler.headers.get("Content-Length")
     if declared is None:
+        if write:
+            return None, "body:length"
         return b"", None
     try:
         length = int(declared)

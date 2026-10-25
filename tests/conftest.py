@@ -95,6 +95,7 @@ def assemble(
             ),
             audit_path=tmp_path / "audit.jsonl",
             fail_closed=True,
+            body_mode="full",
             checkpoint_every=checkpoint_every,
             approval_ttl_seconds=3600,
             export_dir=tmp_path / "exports",

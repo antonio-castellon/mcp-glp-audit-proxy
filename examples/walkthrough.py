@@ -176,7 +176,9 @@ def run() -> dict:
             ok = False
 
         original = audit.read_bytes()
-        tampered = original.replace(b"Hello, Ada.", b"Hello, Ada!", 1)
+        # The default body_mode is hash_only, so the greeting is not in the log.
+        # Editing the stored tool name is enough to show the chain detects a change.
+        tampered = original.replace(b"lab__hello", b"lab__hellO", 1)
         if tampered == original:
             emit("TAMPER_MISS")
             ok = False

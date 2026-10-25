@@ -166,7 +166,7 @@ def test_startup_disagreement_refuses_to_start(tmp_path: Path, build) -> None:
         check=False,
         timeout=20,
     )
-    assert completed.returncode == 1
+    assert completed.returncode == 3
     assert b"refusing to start" in completed.stderr
     assert b"head" in completed.stderr
 

@@ -162,7 +162,19 @@ process for the form.
 4. Tell the operator to resume. Repeat any write that was "not applied" (section 3) normally.
 5. QA closes the deviation with the form, file hashes, and root cause.
 
-## 8. Reconciliation record template
+## 8. Segment close when the chain is broken or data must leave the live file
+
+Stop the proxy. Archive the old log, its head file, and the alert file read-only. Two persons, with QA approval, run:
+
+`mcp-glp-audit-proxy segment close --config config.json --reason "text" --ticket ID --approved-by "name or reference"`
+
+The new file starts with `audit/segment_start`. It records the previous path, the previous sequence, the previous head hash or `broken`, the reason, the ticket, and the approver. Start the proxy on the new file. `verify --segments old.jsonl new.jsonl` checks the link and still reports a broken previous segment.
+
+Erasure of personal data, when the customer decides it is required, is done on the archived copy under that procedure. The gateway never deletes inside a live chain. Closing a segment for erasure or disposal needs test facility management approval, and sponsor approval when it applies.
+
+Back up the log and its head file together. Restoring an older copy makes the head disagree, so the proxy refuses to start until this procedure is run.
+
+## 9. Reconciliation record template
 
 ```
 RECONCILIATION RECORD                              Form ID: REC-____-___

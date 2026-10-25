@@ -53,10 +53,13 @@ def build_event(
     channel: str = "mcp",
     flow: str | None = None,
     http: dict[str, Any] | None = None,
+    arguments_sha256: str | None = None,
+    result_sha256: str | None = None,
 ) -> dict[str, Any]:
     return {
         "approval": approval,
         "arguments": arguments,
+        "arguments_sha256": arguments_sha256,
         "canonicalization": CANON,
         "client": {
             "id": client.get("id") or "unknown",
@@ -81,6 +84,7 @@ def build_event(
         "record_class": record_class,
         "record_id": record_id or str(uuid.uuid4()),
         "result": result,
+        "result_sha256": result_sha256,
         "schema_version": SCHEMA_VERSION,
         "server": server,
         "session_id": session_id,

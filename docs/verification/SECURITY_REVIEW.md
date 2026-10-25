@@ -28,6 +28,6 @@ On Python 3.11, 3.12 and 3.13:
 - JSONL is tamper-evident, not a WORM store. A person who can edit the file and the sidecar can change history if nobody kept a copy of the previous head.
 - If an upstream write is applied and the append then fails, the host does not receive the result, but the upstream action may already have happened. Follow `docs/RECONCILIATION_SOP.md`.
 - Stdio identity is the environment of the host process. The proxy does not run an identity provider.
-- Tool arguments are stored in full. Secrets must not be placed in arguments. `_meta` credential keys are stripped.
+- MCP tool arguments follow `audit.body_mode`. The default stores a SHA-256 and not the payload. Secrets must not be placed in arguments. `_meta` credential keys are stripped.
 - The size limit is 1 MiB per JSON-RPC message, including a stream that never sends a newline. The session ends. The body is not stored.
 - The bearer token file is private. POSIX requires mode 0600. Windows reads the NTFS DACL through the standard-library Win32 calls and refuses to start unless the only principals with access are the current user, SYSTEM, and BUILTIN\Administrators. The error prints the icacls command.

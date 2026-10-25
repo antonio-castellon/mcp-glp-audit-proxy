@@ -24,6 +24,18 @@ def main() -> None:
         from .wizard import config_main
 
         raise SystemExit(config_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "regulatory-report":
+        from .regulatory import main as regulatory_main
+
+        raise SystemExit(regulatory_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "archive-manifest":
+        from .archive import main as archive_main
+
+        raise SystemExit(archive_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "segment":
+        from .segments_cli import main as segment_main
+
+        raise SystemExit(segment_main(sys.argv[2:]))
     from .server import main as run
 
     run()

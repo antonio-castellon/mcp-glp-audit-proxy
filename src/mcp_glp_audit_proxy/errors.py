@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 
 class AuditStoreError(Exception):
     """The audit trail could not be written or read safely."""
@@ -9,6 +11,10 @@ class AuditStoreError(Exception):
 
 class ChainIntegrityError(AuditStoreError):
     """The hash chain is broken. The proxy must not keep serving data calls."""
+
+    def __init__(self, message: str, report: Any | None = None) -> None:
+        super().__init__(message)
+        self.report = report
 
 
 class ConfigurationError(Exception):

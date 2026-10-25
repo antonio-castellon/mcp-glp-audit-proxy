@@ -42,7 +42,7 @@ class Retention:
     def validate(self) -> None:
         if self.min_months < 6:
             raise ConfigurationError(
-                "retention floor is 6 months (EU AI Act Art. 19 and Art. 26(6))"
+                "retention floor is 6 months (default floor; EU AI Act Art. 19 and Art. 26(6) where applicable)"
             )
         if self.profile == "swiss_glp" and self.years_after_study < 10:
             raise ConfigurationError(
@@ -149,6 +149,8 @@ class Settings:
     body_mode: str = "hash_only"
     redact_paths: tuple[str, ...] = ()
     max_body_bytes: int = 1_048_576
+    alert_command: tuple[str, ...] = ()
+    integrity_check_seconds: int = 0
     listen: ListenConfig | None = None
     routes: list[RouteConfig] = field(default_factory=list)
 
@@ -169,6 +171,12 @@ class Settings:
                 raise ConfigurationError(f"redact path must start with $: {path}")
         if not isinstance(self.max_body_bytes, int) or not 1 <= self.max_body_bytes <= 8_388_608:
             raise ConfigurationError("audit.max_body_bytes must be from 1 to 8388608")
+        if isinstance(self.integrity_check_seconds, bool) or not isinstance(self.integrity_check_seconds, int):
+            raise ConfigurationError("audit.integrity_check_seconds must be an integer")
+        if self.integrity_check_seconds < 0:
+            raise ConfigurationError("audit.integrity_check_seconds must be >= 0")
+        if not isinstance(self.alert_command, tuple) or not all(isinstance(part, str) and part for part in self.alert_command):
+            raise ConfigurationError("audit.alert_command must be a list of strings")
         names = set()
         for upstream in self.upstreams or []:
             if not _NAME.match(upstream.name) or "__" in upstream.name:
@@ -311,6 +319,10 @@ def load_settings(path: str | Path) -> Settings:
     max_body = audit_raw.get("max_body_bytes", 1_048_576)
     if isinstance(max_body, bool) or not isinstance(max_body, int):
         raise ConfigurationError("audit.max_body_bytes must be an integer")
+    alert_command = _alert_command(audit_raw.get("alert_command"))
+    integrity_every = audit_raw.get("integrity_check_seconds", 0)
+    if isinstance(integrity_every, bool) or not isinstance(integrity_every, int):
+        raise ConfigurationError("audit.integrity_check_seconds must be an integer")
     settings = Settings(
         principal=principal,
         retention=retention,
@@ -332,6 +344,8 @@ def load_settings(path: str | Path) -> Settings:
         body_mode=body_mode,
         redact_paths=tuple(redact_raw),
         max_body_bytes=max_body,
+        alert_command=alert_command,
+        integrity_check_seconds=integrity_every,
         listen=_listen(raw.get("listen"), base) if raw.get("listen") is not None else None,
         routes=_routes(raw.get("routes") or []),
     )
@@ -637,6 +651,14 @@ def _validate_listen(listen: ListenConfig | None) -> None:
 def _check_route_path(path: str, label: str) -> None:
     if not path.startswith("/") or path.startswith("//") or " " in path or ".." in path:
         raise ConfigurationError(f"{label} must be a single absolute path")
+
+
+def _alert_command(raw: Any) -> tuple[str, ...]:
+    if raw in (None, []):
+        return ()
+    if not isinstance(raw, list) or not all(isinstance(item, str) and item for item in raw):
+        raise ConfigurationError("audit.alert_command must be a list of strings")
+    return tuple(raw)
 
 
 def _parse_bool(value: str, label: str) -> bool:

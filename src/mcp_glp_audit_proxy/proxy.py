@@ -16,8 +16,11 @@ from typing import Any
 
 from . import __version__
 from .approvals import load_approvals, parse_timestamp
-from .canonical import args_hash
+from .alerts import write_critical_alert
 from .anchor import verify_anchored
+from .bodyutil import prepare_value
+from .canonical import args_hash
+from .chain import VerifyReport, integrity_text
 from .config import Settings
 from .errors import AuditStoreError, ChainIntegrityError, ConfigurationError
 from .features import FeatureSet, declared_feature
@@ -158,8 +161,17 @@ class AuditProxy:
         # Set by the HTTPS adapter when it already applied the HTTP approval gate.
         self._http_preauthorized = False
         self._inbound_approval: dict[str, Any] | None = None
+        self._shutdown_written = False
+        self._integrity_broken = False
+        self._integrity_stop = False
+        self._alert_written = False
+        self._integrity_checked_at = 0.0
 
     def startup(self) -> dict[str, Any]:
+        report = verify_anchored(self.settings.audit_path)
+        if self.settings.audit_path.exists() and not report.ok:
+            self._break_integrity(report)
+            raise ChainIntegrityError(integrity_text(report), report)
         from .clockutil import probe_clock
 
         probe = self._clock_probe or probe_clock
@@ -198,6 +210,62 @@ class AuditProxy:
             session_id=None,
             message=None,
         )
+
+    def shutdown(self, reason: str) -> dict[str, Any] | None:
+        """Write one audit/shutdown record. A broken chain or a second call does nothing."""
+        if self._shutdown_written or self._integrity_broken:
+            return None
+        self._shutdown_written = True
+        try:
+            return self._audit(
+                method="audit/shutdown",
+                record_class="config",
+                status="ok",
+                server="proxy",
+                tool=None,
+                arguments={"audit_enabled": False, "cause": reason},
+                result={"auditing": "stopped", "version": __version__},
+                error=None,
+                policy_action="allow",
+                policy_rule="shutdown",
+                reason=f"audit trail stopped ({reason})",
+                approval=None,
+                protocol_version=None,
+                session_id=None,
+                message=None,
+            )
+        except AuditStoreError:
+            return None
+
+    def _break_integrity(self, report: VerifyReport | None) -> None:
+        self._dead = True
+        self._integrity_broken = True
+        self._integrity_stop = True
+        if self._alert_written or report is None:
+            return
+        self._alert_written = True
+        try:
+            write_critical_alert(
+                self.settings.audit_path,
+                report,
+                command=tuple(getattr(self.settings, "alert_command", ()) or ()),
+            )
+        except OSError:
+            return
+
+    def maybe_check_integrity(self) -> None:
+        """Optional idle check. ``integrity_check_seconds`` 0 leaves this off."""
+        seconds = int(getattr(self.settings, "integrity_check_seconds", 0) or 0)
+        if seconds <= 0 or self._integrity_broken:
+            return
+        now = time.monotonic()
+        if self._integrity_checked_at and now - self._integrity_checked_at < seconds:
+            return
+        self._integrity_checked_at = now
+        report = verify_anchored(self.settings.audit_path)
+        if not report.ok:
+            self._break_integrity(report)
+            raise ChainIntegrityError(integrity_text(report), report)
 
     def handle(
         self,
@@ -255,7 +323,7 @@ class AuditProxy:
         except ChainIntegrityError as exc:
             if _is_verify_call(message):
                 return self._verify_tool(message)
-            self._dead = True
+            self._break_integrity(getattr(exc, "report", None) or _report_now(self))
             if _is_notification(message):
                 return None
             return _fail_closed(message, str(exc))
@@ -308,6 +376,9 @@ class AuditProxy:
                 policy_rule="message:size",
                 reason=None,
             )
+        except ChainIntegrityError as exc:
+            self._break_integrity(getattr(exc, "report", None) or _report_now(self))
+            return _fail_closed(message, str(exc))
         except AuditStoreError as exc:
             self._dead = True
             return _fail_closed(message, str(exc))
@@ -1098,6 +1169,7 @@ class AuditProxy:
             "structuredContent": {
                 "ok": report.ok,
                 "errors": report.errors,
+                "gaps": list(report.gaps),
                 "anchor_lag": report.anchor_lag,
                 "head_hash": report.head_hash,
                 "entries": report.count,
@@ -1555,6 +1627,9 @@ class AuditProxy:
     ) -> dict[str, Any]:
         meta = _meta(message) if message else {}
         _cleaned, stripped = split_meta(meta)
+        arguments, result, arguments_sha256, result_sha256 = self._stored_payload(
+            method, tool, arguments, result
+        )
         record_method = method
         if (
             method == "tools/call"
@@ -1589,6 +1664,8 @@ class AuditProxy:
             channel=self._record_channel,
             flow=self._record_flow,
             http=_http_for_record(self._record_http),
+            arguments_sha256=arguments_sha256,
+            result_sha256=result_sha256,
         )
         # Technical logs stay on stderr via the logging module. The GxP record
         # is only the store append below.
@@ -1601,6 +1678,25 @@ class AuditProxy:
             record_class,
         )
         return self.store.append_event(event)
+
+    def _stored_payload(
+        self,
+        method: str,
+        tool: str | None,
+        arguments: dict[str, Any] | None,
+        result: Any,
+    ) -> tuple[dict[str, Any] | None, Any, str | None, str | None]:
+        """Apply body_mode to upstream tool-call payloads. Local records stay as written."""
+        if method != "tools/call" or tool in LOCAL_TOOLS:
+            return arguments, result, None, None
+        mode = self.settings.body_mode
+        paths = self.settings.redact_paths
+        prepared_arguments = prepare_value(arguments if arguments is not None else {}, mode=mode, redact_paths=paths)
+        prepared_result = prepare_value(result, mode=mode, redact_paths=paths)
+        stored_arguments = prepared_arguments["value"]
+        if stored_arguments is not None and not isinstance(stored_arguments, dict):
+            stored_arguments = {"value": stored_arguments}
+        return stored_arguments, prepared_result["value"], prepared_arguments["sha256"], prepared_result["sha256"]
 
     def _refresh(self) -> list[dict[str, Any]]:
         if not self.store.health():
@@ -1811,11 +1907,26 @@ def _approval_problem(record: Any, *, tool: str, digest: str, requester: str, no
     return None
 
 
+def _report_now(proxy: AuditProxy) -> VerifyReport | None:
+    try:
+        report = verify_anchored(proxy.settings.audit_path)
+    except Exception:
+        return None
+    if report.ok:
+        return None
+    return report
+
+
 def _verify_text(report: Any) -> str:
     if report.ok:
         lag = f" anchor_lag={report.anchor_lag}" if report.anchor_lag else ""
-        return f"chain ok entries={report.count} head={report.head_hash}{lag}"
-    return "chain invalid: " + "; ".join(report.errors)
+        text = f"chain ok entries={report.count} head={report.head_hash}{lag}"
+    else:
+        text = "chain invalid: " + "; ".join(report.errors)
+    gaps = list(getattr(report, "gaps", []) or [])
+    if gaps:
+        text = text + "\n" + "\n".join(gaps)
+    return text
 
 
 def _result(message: dict[str, Any], payload: Any) -> dict[str, Any]:

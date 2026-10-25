@@ -4,7 +4,16 @@
 
 The commercial name is GxP Gateway Audit. The package name, the command names, the entry-point groups, and the MCP Registry id stay `mcp-glp-audit-proxy`.
 
-- New records use schema 1.2.0. Each line adds `transport`, `channel`, `flow`, and `http`. A 1.0.0 or 1.1.0 line in the same file still verifies. The verifier accepts all three.
+### Behaviour change
+
+- `audit.body_mode` now also applies to MCP tool-call arguments and results. With the default `hash_only` these are no longer stored in plaintext, only their SHA-256. Set `audit.body_mode` to `full` (or `redacted` with `redact_paths`) to keep storing them. Re-run the OQ after upgrading.
+- A POST, PUT, PATCH, or DELETE without `Content-Length`, or with `Transfer-Encoding`, is refused with 411 and logged. It is not forwarded. Re-run the OQ after upgrading.
+- The process writes one `audit/shutdown` record on stdin EOF, on SIGTERM or SIGINT, and when the HTTPS server stops. `verify` reports a gap warning when a startup has no later shutdown. Old logs that have no shutdown records report the same warning. The hash chain still exits 0. Re-run the OQ after upgrading.
+- A broken hash chain or head sidecar refuses startup and, at runtime, stops the process with exit code 3. A critical alert is written beside the log. This does not depend on `fail_closed`. Disk and permission errors keep the previous fail-closed latch. Re-run the OQ after upgrading.
+- `regulatory-report` reads the config only and prints a configuration report. It does not start the service. Re-run the OQ after upgrading.
+- `archive-manifest` and `verify --manifest` index and re-check a copied package. `segment close` requires a reason, a ticket, and `--approved-by`. Re-run the OQ after upgrading.
+
+- New records use schema 1.3.0. Each line adds `arguments_sha256` and `result_sha256`. Schema 1.2.0 added `transport`, `channel`, `flow`, and `http`. A 1.0.0, 1.1.0, or 1.2.0 line in the same file still verifies. The verifier accepts all four.
 - The process audits MCP and HTTPS calls. With no `listen` object it stays a stdio MCP proxy. With `listen` it serves HTTPS, TLS 1.3 only, and does not open a plaintext port. The client keeps its request and changes the base URL.
 - Six flows: `mcp2mcp`, `mcp2api`, `api2mcp`, `api2api`, `mcp2llm`, `api2llm`. An LLM upstream is an HTTPS API whose records use kind `llm`.
 - `audit.body_mode` is `hash_only` (the default), `redacted`, or `full`. Which value to use is the customer's and QA's decision. The SHA-256 of the raw body is always stored. `full` stores the request body and the response text inside the hash-chained record. The log file stays mode 0600. A body over the limit is not forwarded and the hash is null.

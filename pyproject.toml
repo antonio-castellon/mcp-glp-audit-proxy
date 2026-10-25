@@ -78,7 +78,7 @@ env = "mcp_glp_audit_proxy.identity:env_identity"
 where = ["src"]
 
 [tool.setuptools.package-data]
-mcp_glp_audit_proxy = ["release_trust.json"]
+mcp_glp_audit_proxy = ["release_trust.json", "data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -515,7 +515,7 @@ A `GET /v1/studies/hidden` row has `"status":"denied"` and a policy rule that st
 - A fingerprint that does not match the client certificate returns 401. The row principal id is `unauthenticated` and the role is `system`. A failed TLS handshake is not a row, because there was no HTTP request.
 - `POST` without `X-Audit-Reason` returns 403 and is not forwarded. The row rule is `write:reason-missing`.
 - A body larger than `max_body_bytes` returns 413. `http.body_sha256` is null. The upstream is not called.
-- Streaming is not in this version. If the client omits `Content-Length`, the proxy treats the body as empty.
+- Streaming is not in this version. A write without `Content-Length`, or with `Transfer-Encoding`, is refused with 411 and logged. GET and HEAD with no body are unchanged.
 - If the log cannot be written, the proxy returns 503 and does not return the upstream body. Later calls stay blocked until you restart the process. Follow the reconciliation note in the repository if the upstream may already have applied the write.
 - `http_allow` empty denies every HTTPS route. It does not block stdio MCP tools. Add a route glob before you expect a call to pass.
 - Plain HTTP to the listener does not return an HTTP status line. The socket speaks TLS 1.3 only.

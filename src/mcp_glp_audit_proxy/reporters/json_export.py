@@ -72,6 +72,7 @@ def export_document(
     filters: dict[str, Any],
     exported_at: str,
     signer: str = "unsigned",
+    gaps: list[str] | None = None,
 ) -> dict[str, Any]:
     filtered = any(value not in (None, "", [], {}) for value in filters.values())
     head = full_chain[-1]["entry_hash"] if full_chain else GENESIS
@@ -82,6 +83,7 @@ def export_document(
         "exported_at": exported_at,
         "export_type": "electronic",
         "filters": filters,
+        "gaps": list(gaps or []),
         "manifest": {
             "canonicalization": CANON,
             "chain_valid": chain_valid,

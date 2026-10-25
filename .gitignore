@@ -15,6 +15,6 @@ coverage.json
 junit.xml
 htmlcov/
 .DS_Store
-data/
+/data/
 exports/
 *.jsonl

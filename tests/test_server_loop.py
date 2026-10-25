@@ -87,7 +87,7 @@ def test_serve_stdio_refuses_a_disagreeing_head(tmp_path: Path, monkeypatch, cap
     _bind_stdio(monkeypatch, b"")
     with pytest.raises(SystemExit) as caught:
         serve_stdio(proxy)
-    assert caught.value.code == 1
+    assert caught.value.code == 3
     assert "refusing to start" in capsys.readouterr().err
 
 

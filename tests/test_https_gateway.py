@@ -57,7 +57,7 @@ def test_core_reexports_the_historical_schema_version() -> None:
     from mcp_glp_audit_proxy.canonical import SCHEMA_VERSION as historical
 
     assert SCHEMA_VERSION is historical
-    assert SCHEMA_VERSION == "1.2.0"
+    assert SCHEMA_VERSION == "1.3.0"
 
 
 def test_body_modes_always_keep_the_raw_hash() -> None:
@@ -176,7 +176,7 @@ def test_mixed_schema_chain_verifies(tmp_path: Path) -> None:
     store.append_event(current)
     report = verify_file(tmp_path / "audit.jsonl")
     assert report.ok, report.errors
-    assert [item["schema_version"] for item in report.entries] == ["1.1.0", "1.2.0"]
+    assert [item["schema_version"] for item in report.entries] == ["1.1.0", "1.3.0"]
     for entry in report.entries:
         VALIDATOR.validate(entry)
 
@@ -196,6 +196,9 @@ def test_six_flows_policy_body_and_identity(tmp_path: Path) -> None:
         finally:
             gateway.server.shutdown()
             gateway.server.server_close()
+        stopped = _rows(gateway.log)[-1]
+        assert stopped["method"] == "audit/shutdown"
+        assert stopped["arguments"]["cause"] == "server_close"
     finally:
         lab.shutdown()
         lab.server_close()
@@ -384,9 +387,16 @@ def _exercise_https_flows(gateway: SimpleNamespace, material: SimpleNamespace, l
     assert limited["policy_decision"]["rule"] == "body:size"
     proxy.settings.max_body_bytes = 1_048_576
 
+    hits = len(lab.hits)
+    _request_chunked(gateway, material)
+    assert len(lab.hits) == hits
+    chunked = _latest(gateway.log, status="denied")
+    assert chunked["policy_decision"]["rule"] == "body:chunked"
+    assert verify_file(gateway.log).ok
+
     _request_without_length(gateway, material)
-    empty = _latest(gateway.log, flow="api2api", method="POST")
-    assert empty["http"]["body_sha256"] == EMPTY_HASH
+    missing = _latest(gateway.log, status="denied")
+    assert missing["policy_decision"]["rule"] == "body:length"
 
     proxy.settings.policy.require_approval_for_writes = True
     proxy.settings.body_mode = "hash_only"
@@ -447,17 +457,19 @@ def _exercise_https_flows(gateway: SimpleNamespace, material: SimpleNamespace, l
     proxy.store.append_event = original  # type: ignore[method-assign]
     proxy._dead = False
 
+    healthy = proxy.store.health
     proxy.store.health = lambda: False  # type: ignore[method-assign]
     hits = len(lab.hits)
     status, body, _headers = _request(gateway, "GET", "/v1/studies/S1", material=material)
     assert status == 503
     assert len(lab.hits) == hits
+    proxy.store.health = healthy  # type: ignore[method-assign]
     proxy._dead = False
 
     report = verify_file(gateway.log)
     assert report.ok, report.errors
     for entry in report.entries:
-        if entry.get("schema_version") == "1.2.0":
+        if entry.get("schema_version") in {"1.2.0", "1.3.0"}:
             VALIDATOR.validate(entry)
 
 
@@ -905,7 +917,38 @@ def _request_without_length(gateway: SimpleNamespace, material: SimpleNamespace)
     finally:
         tls.close()
     raw = b"".join(chunks)
-    assert raw.startswith(b"HTTP/1.1 200"), raw
+    assert raw.startswith(b"HTTP/1.1 411"), raw
+
+
+def _request_chunked(gateway: SimpleNamespace, material: SimpleNamespace) -> None:
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.minimum_version = ssl.TLSVersion.TLSv1_3
+    context.maximum_version = ssl.TLSVersion.TLSv1_3
+    context.load_verify_locations(cafile=str(material.ca_cert))
+    context.check_hostname = True
+    context.load_cert_chain(str(material.operator_cert), str(material.operator_key))
+    sock = socket.create_connection(("127.0.0.1", gateway.port), timeout=5)
+    tls = context.wrap_socket(sock, server_hostname="127.0.0.1")
+    try:
+        tls.sendall(
+            b"POST /v1/studies/S1 HTTP/1.1\r\n"
+            b"Host: 127.0.0.1\r\n"
+            b"Transfer-Encoding: chunked\r\n"
+            b"X-Audit-Reason: chunked\r\n"
+            b"Connection: close\r\n"
+            b"\r\n"
+            b"5\r\nhello\r\n0\r\n\r\n"
+        )
+        chunks = []
+        while True:
+            piece = tls.recv(4096)
+            if not piece:
+                break
+            chunks.append(piece)
+    finally:
+        tls.close()
+    raw = b"".join(chunks)
+    assert raw.startswith(b"HTTP/1.1 411"), raw
 
 
 def _rows(path: Path) -> list[dict[str, Any]]:

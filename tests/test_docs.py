@@ -58,6 +58,40 @@ def test_readme_is_ascii_and_states_the_boundary() -> None:
     plugins.encode("ascii")
 
 
+def test_regulatory_wording_and_archiving_page() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    coverage = (ROOT / "docs" / "COVERAGE.md").read_text(encoding="utf-8")
+    standards = (ROOT / "docs" / "STANDARDS.md").read_text(encoding="utf-8")
+    archiving = (ROOT / "docs" / "ARCHIVING.md").read_text(encoding="utf-8")
+    safety = (ROOT / "SAFETY.md").read_text(encoding="utf-8")
+    manual = (ROOT / "docs" / "manual-guides" / "README.md").read_text(encoding="utf-8")
+    for text in (readme, coverage, standards, archiving, safety, manual):
+        text.encode("ascii")
+    assert "11.10(d)" in readme and "12.4" in readme
+    assert "To be verified" not in readme
+    assert "sections 12 and 14" not in readme
+    assert "No 2022 reissue" not in standards
+    assert "reissued in 2022" in standards
+    assert "read-before-write hook" not in coverage
+    assert "locked audit trail" not in readme and "locked audit trail" not in coverage
+    assert "| Verified |" not in coverage
+    assert "Personal data in audit records" in safety
+    assert "anonymous" not in readme.lower()
+    assert "anonymous" not in safety.lower()
+    assert "anonymous" not in coverage.lower()
+    assert "Validation in a GLP facility" in readme
+    assert "System requirements" in readme
+    assert "high-risk" in readme and "high-risk" in coverage
+    assert "minimum 6-month retention" not in readme
+    assert "docs/ARCHIVING.md" in readme
+    assert "tamper-evident" in archiving
+    assert archiving.count("tamper-proof") == 1
+    assert "not tamper-proof" in archiving
+    for banned in ("immutable", "compliant", "certified"):
+        assert banned not in archiving.lower()
+    assert "not implemented in Community" in standards
+
+
 def test_source_has_no_pro_implementations() -> None:
     src = ROOT / "src"
     for path in src.rglob("*.py"):

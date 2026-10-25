@@ -8,11 +8,11 @@ This proxy is a control point in front of real systems. Treat a misconfiguration
 
 There is a residual case you must design for: the upstream server may already have applied a write before the append fails. The host is told the request was not completed. Reconcile that call from the upstream system's own records. Do not retry blindly. Follow `docs/RECONCILIATION_SOP.md`: detection, immediate actions, the attributed reconciliation entry, chain verification and restart.
 
-Any failure to open, write or fsync the audit file, and any chain that no longer verifies, raises `AuditStoreError`. The process then latches into a blocked state: later calls are not forwarded until the process is restarted. A raw OS error does not skip that latch.
+Any failure to open, write or fsync the audit file raises `AuditStoreError`. The process then latches into a blocked state: later calls are not forwarded until the process is restarted. A raw OS error does not skip that latch. A chain that no longer verifies is not that case: the process writes `<log>.alert.json`, refuses the call, and the server exits 3. It does not append `audit/shutdown` onto a broken chain.
 
 Plugin names in the config are entry points (`plugins.storage`, `plugins.signer`, `plugins.reporters`). Each factory declares `licence_feature`. Startup refuses an unknown name and a name whose feature is not enabled, and it does not call that factory. It does not silently keep the JSONL store or the unsigned signer when the config asked for something else. A signed licence is also bound to `client_id` and the installed licensed plugin names. A different set of plugins, or a different `client_id`, refuses the file. The binding is not a machine fingerprint.
 
-Each fsynced line is followed by a sidecar file, `<audit-path>.head`. It stores the latest `seq` and `entry_hash` (temp file, fsync, atomic rename). The verify command fails when the log is shorter than that head or the hash does not match. A crash in the gap after the log fsync and before the head rename may leave the head one record behind. That one record must itself verify. Startup then advances the head. It is not treated as a broken trail. Any other disagreement refuses startup (`refusing to start`) and does not forward. A disagreement found on a later append latches the blocked state.
+Each fsynced line is followed by a sidecar file, `<audit-path>.head`. It stores the latest `seq` and `entry_hash` (temp file, fsync, atomic rename). The verify command fails when the log is shorter than that head or the hash does not match. A crash in the gap after the log fsync and before the head rename may leave the head one record behind. That one record must itself verify. Startup then advances the head. It is not treated as a broken trail. Any other disagreement refuses startup (`refusing to start`) and does not forward. A disagreement found on a later append writes the critical alert and the server exits 3.
 
 A person who can edit both the log and the sidecar can move them together. `mcp-glp-audit-proxy-verify --print-head` prints `seq` and `entry_hash` so an operator can copy that line into a ticket, an email or a LIMS record. That external copy is the control. Signed checkpoints and WORM storage are Pro.
 
@@ -36,9 +36,9 @@ Roles are split on purpose. An operator cannot verify, search, export, approve o
 
 `_meta` keys that look like credentials (`authorization`, `token`, `access_token`, `api_key`, `api-key`, `password`, `secret`, `cookie`) are removed before storage and before the upstream call. The field names are stored in `stripped_credential_fields`. The values are not.
 
-Tool arguments are stored in full. That is the original record. Do not put passwords or tokens in tool arguments.
+MCP tool arguments and results follow `audit.body_mode`. The default `hash_only` stores their SHA-256 and not the payload. `full` stores them. Do not put passwords or tokens in tool arguments.
 
-`audit.body_mode` chooses what is stored next to the body SHA-256. Which value to use is the customer's and QA's decision. The default is `hash_only`, which stores the hash and no body bytes. `redacted` stores a JSON copy with the configured paths replaced by `***`. `full` stores the request plaintext inside the hash-chained record and also stores the response text. The log file is mode 0600. Credential header values are not stored in any mode. Streaming is not part of 0.4.0. A request with no `Content-Length` is an empty body. A body over `max_body_bytes` (default 1 MiB, config ceiling 8 MiB) is not forwarded.
+`audit.body_mode` chooses what is stored next to the body SHA-256. Which value to use is the customer's and QA's decision. The default is `hash_only`, which stores the hash and no body bytes. `redacted` stores a JSON copy with the configured paths replaced by `***`. `full` stores the request plaintext inside the hash-chained record and also stores the response text. The same choice applies to MCP tool-call arguments and results. The log file is mode 0600. Credential header values are not stored in any mode. Streaming is not part of 0.4.0. GET and HEAD with no `Content-Length` have an empty body. A write without `Content-Length`, or with `Transfer-Encoding`, is refused with 411 and logged. A body over `max_body_bytes` (default 1 MiB, config ceiling 8 MiB) is not forwarded.
 
 Upstream stdio processes receive the MCP SDK environment allow-list (`HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER` on POSIX) plus the `env` object in that upstream's config. They do not inherit `GLP_*` or other parent secrets.
 
@@ -61,3 +61,24 @@ The default profile is Swiss GLP: 10 years after study completion, and never und
 ## Audit cannot be disabled
 
 `glp_update_policy` rejects `audit_enabled: false` and logs the attempt. Policy changes themselves are config-class entries and are replayed when the process handles the next call.
+
+## Personal data in audit records
+
+Every audit record holds personal data in every body_mode: principal id and name, role, client certificate fingerprint, end-user id when end_user_header is used, the request path (it can contain ids), the kept request headers (for example user-agent), and timestamps. hash_only is not anonymisation: an unsalted SHA-256 of a short or guessable body can be matched by guessing. The customer is the controller and decides the lawful basis, the body_mode, the redact_paths and the retention.
+
+Copy this table into the customer's record of processing. Retention is the profile minimum, and longer while legal hold is on. The proxy does not delete records.
+
+| field | content | hash_only | redacted | full | retention |
+| --- | --- | --- | --- | --- | --- |
+| request body | HTTP body bytes | SHA-256 only | redacted JSON or no plaintext | stored text | profile minimum, legal hold |
+| response body | upstream response text | SHA-256 only | redacted JSON or no plaintext | stored text | profile minimum, legal hold |
+| MCP arguments | tool-call arguments | SHA-256 only | redacted JSON | stored object | profile minimum, legal hold |
+| MCP result | tool-call result | SHA-256 only | redacted JSON | stored value | profile minimum, legal hold |
+| identity | principal id, name, role, certificate fingerprint, end-user id | stored | stored | stored | profile minimum, legal hold |
+| headers | kept request headers, such as user-agent | stored | stored | stored | profile minimum, legal hold |
+| path | request path without the query string | stored | stored | stored | profile minimum, legal hold |
+| timestamps | UTC time of the record | stored | stored | stored | profile minimum, legal hold |
+| reason | write reason | stored | stored | stored | profile minimum, legal hold |
+| approvals | approval id, meaning, args hash | stored | stored | stored | profile minimum, legal hold |
+
+Closing a segment for erasure or disposal needs test facility management approval, and sponsor approval when it applies. The gateway does not delete inside a live chain. See `docs/ARCHIVING.md` and `docs/RECONCILIATION_SOP.md`.

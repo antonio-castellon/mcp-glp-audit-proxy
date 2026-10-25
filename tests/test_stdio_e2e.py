@@ -82,6 +82,10 @@ def test_allowed_denied_and_verify_cli(tmp_path: Path) -> None:
         env=_env(),
         check=False,
     )
+    rows = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines() if line]
+    assert rows[-1]["method"] == "audit/shutdown"
+    assert rows[-1]["arguments"]["cause"] == "eof"
+    assert rows[-1]["reason"] == "audit trail stopped (eof)"
     assert verified.returncode == 0, verified.stderr
     assert verified.stdout.startswith("seq=")
     assert "entry_hash=" in verified.stdout

@@ -1,6 +1,6 @@
 # Windows lab PC
 
-Community 0.3.2 reads stdin and writes stdout. It does not open a socket. A Windows service is the wrong process model: a service has no MCP client attached to its stdin, so the process exits at end of file, and there is no port for the host to connect to. Do not register one with `sc.exe` or a third-party service wrapper.
+Community 0.4.0 reads stdin and writes stdout when the config has no listen object. That config does not open a socket. An HTTPS listener is a different config, and it is still not a Windows service: a service has no MCP client attached to its stdin. Do not register one with `sc.exe` or a third-party service wrapper.
 
 The lab PC should install Python and the package for the person who sits at the machine. The MCP host (Claude Desktop, Cursor, VS Code) starts the proxy when a session needs it. That is the supported shape.
 

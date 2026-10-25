@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.4.0 - 2026-10-25
+
+The commercial name is GxP Gateway Audit. The package name, the command names, the entry-point groups, and the MCP Registry id stay `mcp-glp-audit-proxy`.
+
+Requirements affected: COV-SHUTDOWN, COV-MCP-BODY, COV-INTEGRITY, COV-SEGMENT, COV-REGULATORY, COV-ARCHIVE, COV-MIXED-SCHEMA, COV-STARTUP, COV-REVIEW, COV-RUNLOG, COV-AUTH-LIMIT, COV-TRANSFER, COV-CHANGE.
+Effect on existing records: records already in a log are not rewritten and still verify. New records stay on schema 1.3.0. Offline verify, export, archive-manifest, regulatory-report, and review do not append to the live log.
+
+### Behaviour change
+
+- `audit.body_mode` now also applies to MCP tool-call arguments and results. With the default `hash_only` these are no longer stored in plaintext, only their SHA-256. Set `audit.body_mode` to `full` (or `redacted` with `redact_paths`) to keep storing them. Re-run the OQ after upgrading.
+- `audit/startup` now records body_mode, listen, identities, the principal, and a SHA-256 of the effective configuration with secret values replaced. `config_changed` lists what differs from the previous startup. Pass `--change-reason` or `GLP_CHANGE_REASON` when a reason is required. A missing reason does not refuse startup. Re-run the OQ after upgrading.
+- `review` writes a review-by-exception report and a CSV copy of the selected records. It does not copy bodies. Re-run the OQ after upgrading.
+- Offline verify, JSON export, archive-manifest, regulatory-report, and review write a `run` block on their output and, with `--run-log`, a separate hash-chained run log. They do not append to the live audit log. Check the run log with `verify-run-log`. Re-run the OQ after upgrading.
+- `listen.auth_failure_limit` can block an HTTPS client after repeated failed authentication. It is off unless configured. regulatory-report shows it as not configured. Re-run the OQ after upgrading.
+- `archive-transfer` records custody of a manifest. `verify --manifest --received-by` adds a receipt only when the package matches. Re-run the OQ after upgrading.
+- `mcp-glp-audit-proxy-oq --requirement` runs the tests mapped to the named RTM ids plus the chain smoke test. Re-run the OQ after upgrading.
+- A POST, PUT, PATCH, or DELETE without `Content-Length`, or with `Transfer-Encoding`, is refused with 411 and logged. It is not forwarded. Re-run the OQ after upgrading.
+- The process writes one `audit/shutdown` record on stdin EOF, on SIGTERM or SIGINT, and when the HTTPS server stops. `verify` reports a gap warning when a startup has no later shutdown. Old logs that have no shutdown records report the same warning. The hash chain still exits 0. Re-run the OQ after upgrading.
+- A broken hash chain or head sidecar refuses startup and, at runtime, stops the process with exit code 3. A critical alert is written beside the log. This does not depend on `fail_closed`. Disk and permission errors keep the previous fail-closed latch. Re-run the OQ after upgrading.
+- `regulatory-report` reads the config only and prints a configuration report. It does not start the service. Re-run the OQ after upgrading.
+- `archive-manifest` and `verify --manifest` index and re-check a copied package. `segment close` requires a reason, a ticket, and `--approved-by`. Re-run the OQ after upgrading.
+
+- New records use schema 1.3.0. Each line adds `arguments_sha256` and `result_sha256`. Schema 1.2.0 added `transport`, `channel`, `flow`, and `http`. A 1.0.0, 1.1.0, or 1.2.0 line in the same file still verifies. The verifier accepts all four.
+- The process audits MCP and HTTPS calls. With no `listen` object it stays a stdio MCP proxy. With `listen` it serves HTTPS, TLS 1.3 only, and does not open a plaintext port. The client keeps its request and changes the base URL.
+- Six flows: `mcp2mcp`, `mcp2api`, `api2mcp`, `api2api`, `mcp2llm`, `api2llm`. An LLM upstream is an HTTPS API whose records use kind `llm`.
+- `audit.body_mode` is `hash_only` (the default), `redacted`, or `full`. Which value to use is the customer's and QA's decision. The SHA-256 of the raw body is always stored. `full` stores the request body and the response text inside the hash-chained record. The log file stays mode 0600. A body over the limit is not forwarded and the hash is null.
+- HTTPS identity is `mtls`, `bearer`, or `mtls_and_bearer`. The bearer is one line in a private file and is compared without being logged. POSIX requires mode 0600. Windows requires an NTFS ACL limited to the current user, SYSTEM, and BUILTIN\Administrators, and prints `icacls <file> /inheritance:r /grant:r "%USERNAME%:R" SYSTEM:F Administrators:F` when another principal has access. There is no unauthenticated mode. OIDC and SSO stay a Pro plugin point.
+- `policy.http_allow` and `policy.http_deny` match `METHOD /path`. Deny wins. An empty HTTP allow list denies every HTTPS route and does not change the MCP tool lists. `POST`, `PUT`, `PATCH`, and `DELETE` require `X-Audit-Reason` when reasons are required. An approval is bound to the method, the route template, the body hash, and the path.
+- If the audit record cannot be written, the upstream body is not returned.
+
 ## 0.3.2 - 2026-10-22
 
 - The JSON licence format is removed. LM2 supersedes it. A file that is not LM1 or LM2 text is rejected. With no licence file, Community features stay on.

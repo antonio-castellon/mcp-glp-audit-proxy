@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/antonio-castellon/mcp-glp-audit-proxy/blob/main/schema/audit-record.schema.json",
   "title": "GLP audit record",
-  "description": "One append-only entry in the mcp-glp-audit-proxy hash chain. The record is designed to support GLP, 21 CFR Part 11 and EU GMP Annex 11 traceability. Canonicalize with RFC 8785 before SHA-256. entry_hash is excluded from the hashed bytes.",
+  "description": "One append-only entry in the mcp-glp-audit-proxy hash chain. The record is designed to support GLP, 21 CFR Part 11 and EU GMP Annex 11 traceability. Canonicalize with RFC 8785 before SHA-256. entry_hash is excluded from the hashed bytes. Schema 1.2.0 adds transport, channel, flow, and http. Schema 1.3.0 adds arguments_sha256 and result_sha256. Older lines omit the keys they predate and stay valid in the same chain.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -37,8 +37,8 @@
   ],
   "properties": {
     "schema_version": {
-      "description": "1.0.0 is the original record. 1.1.0 adds status reviewed on the record and on approval.status. A 1.0.0 line may store meaning reviewed with status approved. Both versions remain valid hash-chain records.",
-      "enum": ["1.0.0", "1.1.0"]
+      "description": "1.0.0 is the original record. 1.1.0 adds status reviewed on the record and on approval.status. A 1.0.0 line may store meaning reviewed with status approved. 1.2.0 adds transport, channel, flow, and http. 1.3.0 adds arguments_sha256 and result_sha256. Older lines remain valid hash-chain records.",
+      "enum": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"]
     },
     "record_id": {"type": "string", "minLength": 1},
     "seq": {"type": "integer", "minimum": 1},
@@ -76,7 +76,21 @@
     "method": {"type": "string"},
     "tool": {"type": ["string", "null"]},
     "arguments": {"type": ["object", "null"]},
+    "arguments_sha256": {
+      "description": "SHA-256 of the RFC 8785 bytes of the original MCP tool arguments. Null when the record is not an upstream tool call.",
+      "anyOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        {"type": "null"}
+      ]
+    },
     "result": {},
+    "result_sha256": {
+      "description": "SHA-256 of the RFC 8785 bytes of the original MCP tool result. Null when the record is not an upstream tool call.",
+      "anyOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        {"type": "null"}
+      ]
+    },
     "status": {
       "description": "reviewed is a glp_approve decision that does not authorise a write. Schema 1.0.0 stored that decision as approved.",
       "enum": ["ok", "denied", "failed", "pending_approval", "approved", "rejected", "reviewed"]
@@ -127,6 +141,92 @@
     "prev_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "entry_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "hash_algo": {"const": "sha-256"},
-    "canonicalization": {"const": "rfc8785"}
-  }
+    "canonicalization": {"const": "rfc8785"},
+    "transport": {
+      "description": "Inbound transport. Required on schema 1.2.0.",
+      "enum": ["stdio", "https"]
+    },
+    "channel": {
+      "description": "Inbound channel adapter. Required on schema 1.2.0.",
+      "enum": ["mcp", "https"]
+    },
+    "flow": {
+      "description": "Gateway flow for a forwarded request. Null on local and startup records.",
+      "enum": ["mcp2mcp", "mcp2api", "api2mcp", "api2api", "mcp2llm", "api2llm", null]
+    },
+    "http": {
+      "description": "Inbound or mapped HTTP exchange. Null when the record is not an HTTP exchange.",
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "body",
+        "body_mode",
+        "body_sha256",
+        "headers",
+        "kind",
+        "latency_ms",
+        "method",
+        "path",
+        "route",
+        "status",
+        "stripped_credential_headers"
+      ],
+      "properties": {
+        "method": {"type": "string"},
+        "route": {
+          "description": "Route template, for example /v1/studies/{study}.",
+          "type": "string"
+        },
+        "path": {
+          "description": "Request path with the query string removed. The query string is not stored.",
+          "type": "string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "stripped_credential_headers": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "body_sha256": {
+          "description": "SHA-256 of the raw body. Null when the body was not fully read, for example because it exceeded the size limit.",
+          "anyOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            {"type": "null"}
+          ]
+        },
+        "body_mode": {"enum": ["hash_only", "redacted", "full"]},
+        "body": {},
+        "status": {"type": ["integer", "null"]},
+        "latency_ms": {"type": ["integer", "null"]},
+        "kind": {"enum": ["api", "llm", "mcp", null]}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"schema_version": {"const": "1.2.0"}},
+        "required": ["schema_version"]
+      },
+      "then": {"required": ["channel", "flow", "http", "transport"]}
+    },
+    {
+      "if": {
+        "properties": {"schema_version": {"const": "1.3.0"}},
+        "required": ["schema_version"]
+      },
+      "then": {
+        "required": [
+          "arguments_sha256",
+          "channel",
+          "flow",
+          "http",
+          "result_sha256",
+          "transport"
+        ]
+      }
+    }
+  ]
 }

@@ -84,7 +84,7 @@ Windows:
 py -3 -m pip install mcp-glp-audit-proxy
 ```
 
-A new install ends with a line that contains `Successfully installed` and `mcp-glp-audit-proxy-0.3.2`. If you already installed it, the line says `Requirement already satisfied`. Either line is fine.
+A new install ends with a line that contains `Successfully installed` and `mcp-glp-audit-proxy-0.4.0`. If you already installed it, the line says `Requirement already satisfied`. Either line is fine.
 
 Then print the installed version.
 
@@ -100,7 +100,7 @@ Windows:
 py -3 -m pip show mcp-glp-audit-proxy
 ```
 
-You should see `Name: mcp-glp-audit-proxy` and a `Version:` line of `0.3.2`. If the version is older than `0.3.2`, run the install command again with `--upgrade` before `mcp-glp-audit-proxy`:
+You should see `Name: mcp-glp-audit-proxy` and a `Version:` line of `0.4.0`. If the version is older than `0.4.0`, run the install command again with `--upgrade` before `mcp-glp-audit-proxy`:
 
 Linux or macOS:
 
@@ -138,7 +138,7 @@ options:
   --config CONFIG  Path to the JSON config file
 ```
 
-There is no listen address and no port. The proxy does not open a socket. Your client starts it, and the client talks to it on standard input.
+This page's config has no listen object, so the proxy does not open a socket. Your client starts it, and the client talks to it on standard input. An HTTPS listener is a different config, on the gateway page.
 
 ![Terminal showing Python 3.12.3 and help that lists only --config](images/stdio-help.png)
 

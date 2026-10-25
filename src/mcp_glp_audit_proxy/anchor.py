@@ -155,10 +155,11 @@ def verify_anchored(path: Path) -> VerifyReport:
     try:
         head = read_head(path)
     except AuditStoreError as exc:
-        return _failed(report, [str(exc)])
+        return _failed(report, [str(exc)], "head_mismatch")
     status = assess(report, head)
     if not status.ok:
-        return _failed(report, status.errors)
+        kind = "head_missing" if any("missing" in error for error in status.errors) else "head_mismatch"
+        return _failed(report, status.errors, kind)
     report.anchor_lag = status.lag
     return report
 
@@ -177,11 +178,28 @@ def _read_private(path: Path) -> str:
     return b"".join(chunks).decode("utf-8")
 
 
-def _failed(report: VerifyReport, errors: list[str]) -> VerifyReport:
-    return VerifyReport(
+def _failed(report: VerifyReport, errors: list[str], kind: str) -> VerifyReport:
+    failed = VerifyReport(
         ok=False,
         entries=report.entries,
         errors=errors,
         head_hash=report.head_hash,
         anchor_lag=0,
+        first_bad_line=report.first_bad_line if report.first_bad_line is not None else len(report.entries) or None,
+        first_bad_seq=report.first_bad_seq if report.first_bad_seq is not None else (
+            report.entries[-1].get("seq") if report.entries else None
+        ),
+        last_good_seq=report.last_good_seq if report.last_good_seq is not None else (
+            report.entries[-1].get("seq") if report.ok and report.entries else report.last_good_seq
+        ),
+        last_good_timestamp=report.last_good_timestamp if report.last_good_timestamp is not None else (
+            report.entries[-1].get("timestamp") if report.ok and report.entries else report.last_good_timestamp
+        ),
+        first_bad_timestamp=report.first_bad_timestamp,
+        kind=report.kind or kind,
+        gaps=list(report.gaps),
     )
+    if report.ok and failed.last_good_seq is None and report.entries:
+        failed.last_good_seq = report.entries[-1].get("seq")
+        failed.last_good_timestamp = report.entries[-1].get("timestamp")
+    return failed

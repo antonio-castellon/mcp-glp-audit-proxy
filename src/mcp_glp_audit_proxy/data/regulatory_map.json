@@ -1,0 +1,1111 @@
+{
+  "entries": [
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "hash_only supports data minimisation (GDPR Art. 5(1)(c) and Art. 25(2)). full or redacted supports content capture (OECD No. 17 para. 80). Neither value is the only answer. Re-run the OQ after changing it.",
+          "expect": {
+            "tradeoff": true
+          },
+          "param": "audit.body_mode"
+        }
+      ],
+      "clause": "3.4 para. 80",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 1,
+      "instrument": "OECD GLP No. 17",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "3.4 para. 81",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 2,
+      "instrument": "OECD GLP No. 17",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "3.4 para. 82",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 3,
+      "instrument": "OECD GLP No. 17",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "3.4 para. 83",
+      "edition": "Out of scope (customer system)",
+      "group": "OECD",
+      "id": 4,
+      "instrument": "OECD GLP No. 17",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "Writes would no longer record a reason (OECD No. 1 8.3.5, Annex 11 sec. 9, 21 CFR 58.130(e)). The change is itself logged. Re-run the OQ after changing it.",
+          "expect": {
+            "equals": true
+          },
+          "param": "policy.require_reason_for_writes"
+        }
+      ],
+      "clause": "Annex 2 sec. 8.3 para. 5",
+      "edition": "Community",
+      "group": "CH",
+      "id": 5,
+      "instrument": "Swiss GLPV (SR 813.112.1)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "not met: a retention below 10 years (120 months) does not meet the Swiss GLP Ordinance archive period. Re-run the OQ after changing it.",
+          "expect": {
+            "min": 120
+          },
+          "param": "retention.min_months"
+        },
+        {
+          "consequence_if_changed": "Legal hold would no longer be available in the retention settings. Re-run the OQ after changing it.",
+          "expect": {
+            "available": true
+          },
+          "param": "retention.legal_hold"
+        }
+      ],
+      "clause": "Annex 2 sec. 10 para. 1",
+      "edition": "Community (config) / Pro (WORM enforcement)",
+      "group": "CH",
+      "id": 6,
+      "instrument": "Swiss GLPV (SR 813.112.1)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "Annex 2 sec. 10 para. 4",
+      "edition": "Community",
+      "group": "CH",
+      "id": 7,
+      "instrument": "Swiss GLPV (SR 813.112.1)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Q9",
+      "edition": "Community",
+      "group": "CH",
+      "id": 8,
+      "instrument": "SPAQA GLP Roundtable 2017",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.10(a)",
+      "edition": "Community",
+      "group": "US FDA",
+      "id": 9,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.10(b)",
+      "edition": "Community (electronic) / Pro (PDF/CSV)",
+      "group": "US FDA",
+      "id": 10,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.10(c)",
+      "edition": "Pro",
+      "group": "US FDA",
+      "id": 11,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [
+        {
+          "consequence_if_changed": "A shared bearer does not identify one person. Use mTLS or an end-user header. Re-run the OQ after changing it.",
+          "expect": {
+            "in": [
+              "per-person",
+              "stdio-principal"
+            ]
+          },
+          "param": "identity.attribution"
+        }
+      ],
+      "clause": "11.10(d)",
+      "edition": "Community (local RBAC, stdio identity); SSO/OAuth in Pro",
+      "group": "US FDA",
+      "id": 12,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [
+        {
+          "consequence_if_changed": "Writes would no longer record a reason (OECD No. 1 8.3.5, Annex 11 sec. 9, 21 CFR 58.130(e)). The change is itself logged. Re-run the OQ after changing it.",
+          "expect": {
+            "equals": true
+          },
+          "param": "policy.require_reason_for_writes"
+        }
+      ],
+      "clause": "11.10(e)",
+      "edition": "Community",
+      "group": "US FDA",
+      "id": 13,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [
+        {
+          "consequence_if_changed": "Not required by any cited clause. Re-run the OQ after changing it.",
+          "expect": {
+            "optional": true
+          },
+          "param": "policy.require_approval_for_writes"
+        }
+      ],
+      "clause": "11.10(f)",
+      "edition": "Community",
+      "group": "US FDA",
+      "id": 14,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.10(g)",
+      "edition": "Community",
+      "group": "US FDA",
+      "id": 15,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.30",
+      "edition": "Community (TLS) / Pro (signing)",
+      "group": "US FDA",
+      "id": 16,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.50",
+      "edition": "Out of scope",
+      "group": "US FDA",
+      "id": 17,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.70",
+      "edition": "Out of scope",
+      "group": "US FDA",
+      "id": 18,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.100(a)",
+      "edition": "Out of scope",
+      "group": "US FDA",
+      "id": 19,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "part11",
+      "checks": [],
+      "clause": "11.200(a)(1)",
+      "edition": "Out of scope",
+      "group": "US FDA",
+      "id": 20,
+      "instrument": "FDA 21 CFR Part 11",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [
+        {
+          "consequence_if_changed": "Writes would no longer record a reason (OECD No. 1 8.3.5, Annex 11 sec. 9, 21 CFR 58.130(e)). The change is itself logged. Re-run the OQ after changing it.",
+          "expect": {
+            "equals": true
+          },
+          "param": "policy.require_reason_for_writes"
+        }
+      ],
+      "clause": "Sec. 9",
+      "edition": "Community",
+      "group": "EU",
+      "id": 21,
+      "instrument": "EU GMP Annex 11 (2011, in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Sec. 7 / Sec. 17",
+      "edition": "Pro",
+      "group": "EU",
+      "id": 22,
+      "instrument": "EU GMP Annex 11 (2011, in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Sec. 12",
+      "edition": "Community",
+      "group": "EU",
+      "id": 23,
+      "instrument": "EU GMP Annex 11 (2011, in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Sec. 14",
+      "edition": "Out of scope",
+      "group": "EU",
+      "id": 24,
+      "instrument": "EU GMP Annex 11 (2011, in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "12.1",
+      "edition": "Community",
+      "group": "EU",
+      "id": 25,
+      "instrument": "EU GMP Annex 11 (2025 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "12.2",
+      "edition": "Community; old/new value in Pro",
+      "group": "EU",
+      "id": 26,
+      "instrument": "EU GMP Annex 11 (2025 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "12.3",
+      "edition": "Community",
+      "group": "EU",
+      "id": 27,
+      "instrument": "EU GMP Annex 11 (2025 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "12.4 / 12.9",
+      "edition": "Community",
+      "group": "EU",
+      "id": 28,
+      "instrument": "EU GMP Annex 11 (2025 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "12.5-12.8",
+      "edition": "Pro",
+      "group": "EU",
+      "id": 29,
+      "instrument": "EU GMP Annex 11 (2025 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "11.8",
+      "edition": "Pro",
+      "group": "EU",
+      "id": 30,
+      "instrument": "EU GMP Annex 11 (2025 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "11.9",
+      "edition": "Community",
+      "group": "EU",
+      "id": 31,
+      "instrument": "EU GMP Annex 11 (2025 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "on 12.1-12.2",
+      "edition": "Community",
+      "group": "EU",
+      "id": 32,
+      "instrument": "ISPE comments on Annex 11 draft",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Sec. 1 Scope",
+      "edition": "Community (positioning only)",
+      "group": "EU",
+      "id": 33,
+      "instrument": "EU GMP Annex 22 (2025 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "6.3 / 6.11.2",
+      "edition": "Community (export) / Pro (signed manifest)",
+      "group": "Other",
+      "id": 34,
+      "instrument": "MHRA GXP Data Integrity Rev.1",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "6.13",
+      "edition": "Community",
+      "group": "Other",
+      "id": 35,
+      "instrument": "MHRA GXP Data Integrity Rev.1",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "6.16",
+      "edition": "Community",
+      "group": "Other",
+      "id": 36,
+      "instrument": "MHRA GXP Data Integrity Rev.1",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "9.5",
+      "edition": "Community",
+      "group": "PIC/S",
+      "id": 37,
+      "instrument": "PIC/S PI 041-1",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "9.2-9.3",
+      "edition": "Pro",
+      "group": "PIC/S",
+      "id": 38,
+      "instrument": "PIC/S PI 041-1",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "The proxy would keep serving after the audit store fails. Re-run the OQ after changing it.",
+          "expect": {
+            "equals": true
+          },
+          "param": "audit.fail_closed"
+        }
+      ],
+      "clause": "11.10-11.11",
+      "edition": "Community",
+      "group": "WHO",
+      "id": 39,
+      "instrument": "WHO TRS 1033 Annex 4",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "11.13",
+      "edition": "Out of scope",
+      "group": "WHO",
+      "id": 40,
+      "instrument": "WHO TRS 1033 Annex 4",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "Attributable / Contemporaneous",
+      "edition": "Community",
+      "group": "WHO",
+      "id": 41,
+      "instrument": "ALCOA+ (MHRA 3.10, PIC/S 7.5, WHO)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "Original / Accurate / Complete / Consistent",
+      "edition": "Community",
+      "group": "WHO",
+      "id": 42,
+      "instrument": "ALCOA+ (MHRA 3.10, PIC/S 7.5, WHO)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "Legible / Enduring / Available",
+      "edition": "Community (schema/export) / Pro (WORM)",
+      "group": "WHO",
+      "id": 43,
+      "instrument": "ALCOA+ (MHRA 3.10, PIC/S 7.5, WHO)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "4.63 Traceable",
+      "edition": "Community",
+      "group": "WHO",
+      "id": 44,
+      "instrument": "ALCOA++ (EU Chapter 4 draft, not in force)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Appendix M4 Cat. 4",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 45,
+      "instrument": "ISPE GAMP 5 2nd ed.",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "10.5 / 19.11 (headings)",
+      "edition": "Community",
+      "group": "Other",
+      "id": 46,
+      "instrument": "ISPE GAMP AI Guide (2025)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Digital records",
+      "edition": "Pro",
+      "group": "US FDA",
+      "id": 47,
+      "instrument": "FDA CSA (Feb 2026, device QMS; supporting practice)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "ai_high_risk",
+      "checks": [],
+      "clause": "Art. 12",
+      "edition": "Community",
+      "group": "EU",
+      "id": 48,
+      "instrument": "EU AI Act (Reg. 2024/1689)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "ai_high_risk",
+      "checks": [
+        {
+          "consequence_if_changed": "The 6-month default floor would be removed. Re-run the OQ after changing it.",
+          "expect": {
+            "min": 6
+          },
+          "param": "retention.min_months"
+        }
+      ],
+      "clause": "Art. 19 / Art. 26(6)",
+      "edition": "Community",
+      "group": "EU",
+      "id": 49,
+      "instrument": "EU AI Act (Reg. 2024/1689)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "RFC 8785",
+      "edition": "Community",
+      "group": "Other",
+      "id": 50,
+      "instrument": "Hash chain + RFC 8785 + FIPS 180-4",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "RFC 8032",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 51,
+      "instrument": "Signed checkpoints (FIPS 186-5, RFC 8032)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "RFC 3161",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 52,
+      "instrument": "RFC 3161 / RFC 5816",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Art. 41(2), 42; ZertES Art. 2 j, 13",
+      "edition": "Pro",
+      "group": "EU",
+      "id": 53,
+      "instrument": "eIDAS 910/2014 + Impl. Reg. 2025/1929; ZertES",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "4.10-4.12",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 54,
+      "instrument": "RFC 9162 (Experimental)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [
+        {
+          "consequence_if_changed": "An HTTPS listener without TLS 1.3 would leave the channel unprotected. Re-run the OQ after changing it.",
+          "expect": {
+            "in": [
+              "tls1.3",
+              "tls1.3-when-listen-is-set"
+            ]
+          },
+          "param": "listen.tls"
+        }
+      ],
+      "clause": "RFC 9846",
+      "edition": "Community",
+      "group": "Other",
+      "id": 55,
+      "instrument": "TLS 1.3 (RFC 9846)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Key management",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 56,
+      "instrument": "NIST SP 800-57 Pt 1 Rev 5 / SP 800-38D",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Validated modules",
+      "edition": "Pro (on customer request)",
+      "group": "Other",
+      "id": 57,
+      "instrument": "FIPS 140-3",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Spans/attributes",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 58,
+      "instrument": "OpenTelemetry GenAI MCP semconv (Development)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "RFC 5424",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 59,
+      "instrument": "RFC 5424 syslog",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "PROV-O",
+      "edition": "Backlog",
+      "group": "Other",
+      "id": 60,
+      "instrument": "W3C PROV-O",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [
+        {
+          "consequence_if_changed": "A synchronised host clock is recommended for GxP use. Re-run the OQ after changing it.",
+          "expect": {
+            "recommended": true
+          },
+          "param": "require_ntp"
+        }
+      ],
+      "clause": "Time",
+      "edition": "Community",
+      "group": "Other",
+      "id": 61,
+      "instrument": "RFC 5905 (NTP) / RFC 3339",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "WORM mode",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 62,
+      "instrument": "S3 Object Lock (Cohasset 2019, financial rules)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Backend design",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 63,
+      "instrument": "PostgreSQL / MSSQL append-only",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Authorization",
+      "edition": "Pro (OAuth/SSO) / Community (no passthrough)",
+      "group": "Other",
+      "id": 64,
+      "instrument": "MCP Authorization (2026-07-28)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Sessions/initialize removed",
+      "edition": "Community",
+      "group": "Other",
+      "id": 65,
+      "instrument": "MCP protocol (2026-07-28 changelog)",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Annex A A.6.2.8 (secondary sources)",
+      "edition": "Community",
+      "group": "Other",
+      "id": 66,
+      "instrument": "ISO/IEC 42001:2023",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "MEASURE 2.4 / MANAGE 4.1, 4.3",
+      "edition": "Community",
+      "group": "Other",
+      "id": 67,
+      "instrument": "NIST AI RMF 1.0",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "Mitigations 1, 4, 6, 7",
+      "edition": "Community",
+      "group": "Other",
+      "id": 68,
+      "instrument": "OWASP LLM06:2025 Excessive Agency",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "ASI02 / ASI03",
+      "edition": "Community",
+      "group": "Other",
+      "id": 69,
+      "instrument": "OWASP Top 10 Agentic Apps 2026",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "always",
+      "checks": [],
+      "clause": "GLPV context",
+      "edition": "Pro",
+      "group": "Other",
+      "id": 70,
+      "instrument": "Reporting / multilingual",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "Writes would no longer record a reason (OECD No. 1 8.3.5, Annex 11 sec. 9, 21 CFR 58.130(e)). The change is itself logged. Re-run the OQ after changing it.",
+          "expect": {
+            "equals": true
+          },
+          "param": "policy.require_reason_for_writes"
+        }
+      ],
+      "clause": "8.3.5",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 71,
+      "instrument": "OECD Principles No. 1",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "Writes would no longer record a reason (OECD No. 1 8.3.5, Annex 11 sec. 9, 21 CFR 58.130(e)). The change is itself logged. Re-run the OQ after changing it.",
+          "expect": {
+            "equals": true
+          },
+          "param": "policy.require_reason_for_writes"
+        }
+      ],
+      "clause": "58.130(e)",
+      "edition": "Community",
+      "group": "US FDA",
+      "id": 72,
+      "instrument": "FDA 21 CFR 58",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "The proxy would keep serving after the audit store fails. Re-run the OQ after changing it.",
+          "expect": {
+            "equals": true
+          },
+          "param": "audit.fail_closed"
+        }
+      ],
+      "clause": "6.14",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 73,
+      "instrument": "OECD No. 22",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "gdpr_bodies",
+      "checks": [
+        {
+          "consequence_if_changed": "hash_only supports data minimisation (GDPR Art. 5(1)(c) and Art. 25(2)). full or redacted supports content capture (OECD No. 17 para. 80). Neither value is the only answer. Re-run the OQ after changing it.",
+          "expect": {
+            "tradeoff": true
+          },
+          "param": "audit.body_mode"
+        }
+      ],
+      "clause": "Art. 5(1)(c) / Art. 25(2)",
+      "edition": "Community",
+      "group": "EU",
+      "id": 74,
+      "instrument": "GDPR",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "not met: a retention below 10 years (120 months) does not meet the Swiss GLP Ordinance archive period. Re-run the OQ after changing it.",
+          "expect": {
+            "min": 120
+          },
+          "param": "retention.min_months"
+        }
+      ],
+      "clause": "6.1 retention",
+      "edition": "Community",
+      "group": "Switzerland / AGIT Archiving V3.0",
+      "id": 75,
+      "instrument": "Switzerland / AGIT Archiving V3.0",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "6.1 / 6.3 index",
+      "edition": "Community",
+      "group": "Switzerland / AGIT Archiving V3.0",
+      "id": 76,
+      "instrument": "Switzerland / AGIT Archiving V3.0",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [
+        {
+          "consequence_if_changed": "The proxy would keep serving after the audit store fails. Re-run the OQ after changing it.",
+          "expect": {
+            "equals": true
+          },
+          "param": "audit.fail_closed"
+        }
+      ],
+      "clause": "7.1 audit on",
+      "edition": "Community",
+      "group": "Switzerland / AGIT Acquisition V3.0",
+      "id": 77,
+      "instrument": "Switzerland / AGIT Acquisition V3.0",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "checks": [],
+      "clause": "7.1 clock",
+      "edition": "Community",
+      "group": "Switzerland / AGIT Acquisition V3.0",
+      "id": 78,
+      "instrument": "Switzerland / AGIT Acquisition V3.0",
+      "procedural": "customer procedure, see ARCHIVING.md",
+      "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "7.5 / 7.7",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 79,
+      "instrument": "OECD No. 15",
+      "procedural": "customer procedure: archive-transfer and verify --manifest --received-by, see ARCHIVING.md",
+      "requirement": "",
+      "source_id": "OECD-15-7.5/7.7"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [
+        {
+          "consequence_if_changed": "not configured: the failed-authentication limit is optional and off by default. OECD No. 25 para 14 is guidance. Annex 11 draft 2025 11.7 is not in force. The customer's QA decides whether to enable it.",
+          "expect": {
+            "not_configured_is_finding": true
+          },
+          "param": "listen.auth_failure_limit"
+        }
+      ],
+      "clause": "14",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 80,
+      "instrument": "OECD No. 25",
+      "procedural": "customer procedure, see OPERATIONS.md",
+      "requirement": "",
+      "source_id": "OECD-25-14"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "11.b",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 81,
+      "instrument": "OECD No. 17 Suppl. 1",
+      "procedural": "customer procedure: keep the head pin off the gateway host and run verify --expect-head-file, see OPERATIONS.md",
+      "requirement": "",
+      "source_id": "OECD-17S1-11b"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "5.4",
+      "edition": "Community",
+      "group": "EMA",
+      "id": 82,
+      "instrument": "EMA GCP 2023",
+      "procedural": "customer procedure: audit/startup records identities, roles, and config_changed. A change is visible at the next start.",
+      "requirement": "",
+      "source_id": "EMA-GCP-5.4"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "6.2.1",
+      "edition": "Community",
+      "group": "EMA",
+      "id": 83,
+      "instrument": "EMA GCP 2023",
+      "procedural": "customer procedure: gateway exports are in the live trail; offline runs are in the run log, see OPERATIONS.md",
+      "requirement": "",
+      "source_id": "EMA-GCP-6.2.1-export"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "6.13",
+      "edition": "Community",
+      "group": "MHRA",
+      "id": 84,
+      "instrument": "MHRA GxP DI 2018",
+      "procedural": "customer procedure: review lists exceptions and writes a CSV copy, see OPERATIONS.md",
+      "requirement": "",
+      "source_id": "MHRA-6.13-exception"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "5.3",
+      "edition": "Community",
+      "group": "AGIT",
+      "id": 85,
+      "instrument": "AGIT Change Management V2.0",
+      "procedural": "customer procedure: CHANGELOG names the RTM ids and oq --requirement runs that subset",
+      "requirement": "",
+      "source_id": "AGIT-CHG-5.3"
+    }
+  ],
+  "mapping_version": "1.4.0"
+}

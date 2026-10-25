@@ -148,12 +148,19 @@ class StdioTransport:
 class HttpsTransport:
     """JSON-RPC POST to an https upstream. TLS 1.3 only. No client-token passthrough."""
 
-    def __init__(self, url: str, headers: dict[str, str] | None = None, timeout: float = 30) -> None:
+    def __init__(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+        timeout: float = 30,
+        ca_file: str | None = None,
+    ) -> None:
         self.url = require_https(url)
         # Headers come from this backend's config only. Callers must not pass
         # the MCP client's Authorization value in here.
         self.headers = {str(key): str(value) for key, value in (headers or {}).items()}
         self.timeout = timeout
+        self.ca_file = ca_file
         self.response_session_id: str | None = None
         self._buffered: dict[str, Any] | None = None
 
@@ -170,7 +177,7 @@ class HttpsTransport:
             raise TlsRequired(f"remote transports require TLS 1.3 (https); refused {self.url!r}")
         request = Request(self.url, data=payload, headers=headers, method="POST")  # noqa: S310  # nosec B310
         try:
-            with urlopen(request, context=tls13_context(), timeout=self.timeout) as response:  # noqa: S310  # nosec B310
+            with urlopen(request, context=tls13_context(self.ca_file), timeout=self.timeout) as response:  # noqa: S310  # nosec B310
                 self.response_session_id = response.headers.get("Mcp-Session-Id")
                 raw = response.read()
         except Exception as exc:  # urllib.error.URLError and friends
@@ -202,6 +209,7 @@ class JsonRpcUpstream:
         self.name = name
         self.transport = transport
         self.prefer = protocol
+        self.kind = "mcp"
         self.protocol_version: str | None = None
         self.session_id: str | None = None
         self._ready = False

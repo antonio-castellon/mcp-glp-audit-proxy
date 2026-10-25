@@ -8,6 +8,8 @@ result. If the audit store cannot be written, the result is not returned.
 from __future__ import annotations
 
 import json
+import sys
+import time
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -15,13 +17,17 @@ from typing import Any
 
 from . import __version__
 from .approvals import load_approvals, parse_timestamp
-from .canonical import args_hash
+from .alerts import write_critical_alert
 from .anchor import verify_anchored
+from .bodyutil import prepare_value
+from .canonical import args_hash
+from .chain import VerifyReport, integrity_text
 from .config import Settings
 from .errors import AuditStoreError, ChainIntegrityError, ConfigurationError
 from .features import FeatureSet, declared_feature
 from .framing import MAX_MESSAGE_BYTES
 from .records import build_event, format_timestamp
+from .startuprec import last_startup_arguments, startup_arguments
 from .reporters.json_export import JsonReporter, dumps_document, export_document, filter_entries
 from .reporters.text_export import TextReporter, format_entry
 from .upstream import MODERN_VERSION, SECRET_META, split_meta
@@ -105,6 +111,8 @@ LOCAL_TOOLS: dict[str, dict[str, Any]] = {
                 "write_tools": {"type": "array", "items": {"type": "string"}},
                 "require_approval_for_writes": {"type": "boolean"},
                 "require_reason_for_writes": {"type": "boolean"},
+                "http_allow": {"type": "array", "items": {"type": "string"}},
+                "http_deny": {"type": "array", "items": {"type": "string"}},
                 "reason": {"type": "string"},
                 "audit_enabled": {"type": "boolean"},
             },
@@ -148,8 +156,25 @@ class AuditProxy:
         self._clock_probe = clock_probe
         self._dead = False
         self._transport_session_id: str | None = None
+        self._record_transport = "stdio"
+        self._record_channel = "mcp"
+        self._record_flow: str | None = None
+        self._record_http: dict[str, Any] | None = None
+        # Set by the HTTPS adapter when it already applied the HTTP approval gate.
+        self._http_preauthorized = False
+        self._inbound_approval: dict[str, Any] | None = None
+        self._shutdown_written = False
+        self._integrity_broken = False
+        self._integrity_stop = False
+        self._alert_written = False
+        self._integrity_checked_at = 0.0
+        self.change_reason: str | None = None
 
     def startup(self) -> dict[str, Any]:
+        report = verify_anchored(self.settings.audit_path)
+        if self.settings.audit_path.exists() and not report.ok:
+            self._break_integrity(report)
+            raise ChainIntegrityError(integrity_text(report), report)
         from .clockutil import probe_clock
 
         probe = self._clock_probe or probe_clock
@@ -159,25 +184,29 @@ class AuditProxy:
                 "require_ntp is set and the clock is not reported synchronized (RFC 5905)"
             )
         self._refresh()
+        plugins = {
+            "auth": self.settings.auth,
+            "reporters": list(self.reporters),
+            "signer": getattr(getattr(self.store, "signer", None), "name", self.settings.signer),
+            "storage": self.settings.storage,
+        }
+        previous = last_startup_arguments(report.entries) if report.ok else None
+        arguments, warning = startup_arguments(
+            self.settings,
+            clock=status,
+            plugins=plugins,
+            previous=previous,
+            change_reason=self.change_reason,
+        )
+        if warning:
+            print(warning, file=sys.stderr)
         return self._audit(
             method="audit/startup",
             record_class="config",
             status="ok",
             server="proxy",
             tool=None,
-            arguments={
-                "audit_enabled": True,
-                "clock": status,
-                "fail_closed": self.settings.fail_closed,
-                "plugins": {
-                    "auth": self.settings.auth,
-                    "reporters": list(self.reporters),
-                    "signer": getattr(getattr(self.store, "signer", None), "name", self.settings.signer),
-                    "storage": self.settings.storage,
-                },
-                "policy": self.settings.policy.as_dict(),
-                "retention": self.settings.retention.as_dict(),
-            },
+            arguments=arguments,
             result={"auditing": "enabled", "version": __version__},
             error=None,
             policy_action="allow",
@@ -188,6 +217,62 @@ class AuditProxy:
             session_id=None,
             message=None,
         )
+
+    def shutdown(self, reason: str) -> dict[str, Any] | None:
+        """Write one audit/shutdown record. A broken chain or a second call does nothing."""
+        if self._shutdown_written or self._integrity_broken:
+            return None
+        self._shutdown_written = True
+        try:
+            return self._audit(
+                method="audit/shutdown",
+                record_class="config",
+                status="ok",
+                server="proxy",
+                tool=None,
+                arguments={"audit_enabled": False, "cause": reason},
+                result={"auditing": "stopped", "version": __version__},
+                error=None,
+                policy_action="allow",
+                policy_rule="shutdown",
+                reason=f"audit trail stopped ({reason})",
+                approval=None,
+                protocol_version=None,
+                session_id=None,
+                message=None,
+            )
+        except AuditStoreError:
+            return None
+
+    def _break_integrity(self, report: VerifyReport | None) -> None:
+        self._dead = True
+        self._integrity_broken = True
+        self._integrity_stop = True
+        if self._alert_written or report is None:
+            return
+        self._alert_written = True
+        try:
+            write_critical_alert(
+                self.settings.audit_path,
+                report,
+                command=tuple(getattr(self.settings, "alert_command", ()) or ()),
+            )
+        except OSError:
+            return
+
+    def maybe_check_integrity(self) -> None:
+        """Optional idle check. ``integrity_check_seconds`` 0 leaves this off."""
+        seconds = int(getattr(self.settings, "integrity_check_seconds", 0) or 0)
+        if seconds <= 0 or self._integrity_broken:
+            return
+        now = time.monotonic()
+        if self._integrity_checked_at and now - self._integrity_checked_at < seconds:
+            return
+        self._integrity_checked_at = now
+        report = verify_anchored(self.settings.audit_path)
+        if not report.ok:
+            self._break_integrity(report)
+            raise ChainIntegrityError(integrity_text(report), report)
 
     def handle(
         self,
@@ -245,7 +330,7 @@ class AuditProxy:
         except ChainIntegrityError as exc:
             if _is_verify_call(message):
                 return self._verify_tool(message)
-            self._dead = True
+            self._break_integrity(getattr(exc, "report", None) or _report_now(self))
             if _is_notification(message):
                 return None
             return _fail_closed(message, str(exc))
@@ -298,6 +383,9 @@ class AuditProxy:
                 policy_rule="message:size",
                 reason=None,
             )
+        except ChainIntegrityError as exc:
+            self._break_integrity(getattr(exc, "report", None) or _report_now(self))
+            return _fail_closed(message, str(exc))
         except AuditStoreError as exc:
             self._dead = True
             return _fail_closed(message, str(exc))
@@ -751,6 +839,45 @@ class AuditProxy:
     ) -> dict[str, Any]:
         server_name, tool_name = _split_tool(name)
         reason = _reason(message)
+        upstream = self.upstreams.get(server_name)
+        kind = getattr(upstream, "kind", "mcp")
+        previous_flow = self._record_flow
+        previous_http = self._record_http
+        if self._record_flow is None:
+            self._record_flow = {"api": "mcp2api", "llm": "mcp2llm"}.get(kind, "mcp2mcp")
+        endpoint = None
+        if kind in {"api", "llm"} and upstream is not None:
+            endpoint = getattr(upstream, "endpoints", {}).get(tool_name)
+        try:
+            return self._upstream_call_locked(
+                message,
+                name,
+                arguments,
+                server_name,
+                tool_name,
+                reason,
+                upstream,
+                kind,
+                endpoint,
+                previous_http,
+            )
+        finally:
+            self._record_flow = previous_flow
+            self._record_http = previous_http
+
+    def _upstream_call_locked(
+        self,
+        message: dict[str, Any],
+        name: str,
+        arguments: dict[str, Any],
+        server_name: str,
+        tool_name: str,
+        reason: str | None,
+        upstream: Any,
+        kind: str,
+        endpoint: Any,
+        previous_http: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         decision = self.settings.policy.decide(name, self.settings.principal.role)
         if decision.action == "deny":
             return self._deny(
@@ -764,7 +891,9 @@ class AuditProxy:
                 text=f"denied by policy ({decision.rule})",
                 reason=reason,
             )
-        is_write = self.settings.policy.is_write(name)
+        is_write = self.settings.policy.is_write(name) or (
+            endpoint is not None and self.settings.policy.is_http_write(endpoint.method)
+        )
         if is_write and self.settings.policy.require_reason_for_writes and not reason:
             return self._deny(
                 message,
@@ -777,7 +906,11 @@ class AuditProxy:
                 text="a reason is required for write tools",
                 reason=None,
             )
-        if is_write and self.settings.policy.require_approval_for_writes:
+        if (
+            is_write
+            and self.settings.policy.require_approval_for_writes
+            and not self._http_preauthorized
+        ):
             gate = self._approval_gate(message, name, arguments, reason)
             if gate is not None:
                 return gate
@@ -797,7 +930,11 @@ class AuditProxy:
         try:
             upstream.ensure()
             response = upstream.call_tool(tool_name, arguments, _meta(message))
+            if kind in {"api", "llm"} and previous_http is None:
+                self._record_http = getattr(upstream, "last_http", None)
         except Exception as exc:  # upstream transport or negotiation
+            if kind in {"api", "llm"} and previous_http is None:
+                self._record_http = getattr(upstream, "last_http", None)
             self._audit_simple(
                 message,
                 method="tools/call",
@@ -924,6 +1061,15 @@ class AuditProxy:
         )
         return _result(message, client_result)
 
+    def _call_is_write(self, name: str) -> bool:
+        if self.settings.policy.is_write(name):
+            return True
+        server_name, tool_name = _split_tool(name)
+        upstream = self.upstreams.get(server_name)
+        endpoints = getattr(upstream, "endpoints", None)
+        endpoint = endpoints.get(tool_name) if isinstance(endpoints, dict) else None
+        return endpoint is not None and self.settings.policy.is_http_write(endpoint.method)
+
     def _consumed_approval(
         self,
         message: dict[str, Any],
@@ -931,7 +1077,7 @@ class AuditProxy:
         arguments: dict[str, Any],
     ) -> dict[str, Any] | None:
         approval_id = _meta(message).get("io.github.antonio-castellon/approvalId")
-        if not approval_id or not self.settings.policy.is_write(name):
+        if not approval_id or not self._call_is_write(name):
             return None
         # Single-use does not depend on require_approval_for_writes. Turning
         # the gate off must not leave a presented, still-valid approval reusable.
@@ -1030,6 +1176,7 @@ class AuditProxy:
             "structuredContent": {
                 "ok": report.ok,
                 "errors": report.errors,
+                "gaps": list(report.gaps),
                 "anchor_lag": report.anchor_lag,
                 "head_hash": report.head_hash,
                 "entries": report.count,
@@ -1296,6 +1443,8 @@ class AuditProxy:
                 "write_tools",
                 "require_approval_for_writes",
                 "require_reason_for_writes",
+                "http_allow",
+                "http_deny",
             )
             if key in arguments
         }
@@ -1383,7 +1532,10 @@ class AuditProxy:
                 "error": error,
             }
         payload = response.get("result")
+        stored = response.get("_audit_result", payload) if isinstance(response, dict) else payload
         status = "failed" if isinstance(payload, dict) and payload.get("isError") else "ok"
+        if status == "ok" and approval is None:
+            approval = self._inbound_approval
         if status != "ok":
             approval = None
         self._audit_simple(
@@ -1393,9 +1545,9 @@ class AuditProxy:
             status=status,
             server=server,
             tool=tool,
-            arguments=arguments,
-            result=payload,
-            error={"message": "tool error"} if status == "failed" else None,
+                arguments=arguments,
+                result=stored,
+                error={"message": "tool error"} if status == "failed" else None,
             policy_action="allow",
             policy_rule=policy_rule,
             reason=reason,
@@ -1482,8 +1634,19 @@ class AuditProxy:
     ) -> dict[str, Any]:
         meta = _meta(message) if message else {}
         _cleaned, stripped = split_meta(meta)
+        arguments, result, arguments_sha256, result_sha256 = self._stored_payload(
+            method, tool, arguments, result
+        )
+        record_method = method
+        if (
+            method == "tools/call"
+            and self._record_transport == "https"
+            and isinstance(self._record_http, dict)
+            and isinstance(self._record_http.get("method"), str)
+        ):
+            record_method = self._record_http["method"]
         event = build_event(
-            method=method,
+            method=record_method,
             record_class=record_class,
             status=status,
             server=server,
@@ -1504,6 +1667,12 @@ class AuditProxy:
             stripped_credential_fields=stripped,
             traceparent=meta.get("traceparent") if isinstance(meta.get("traceparent"), str) else None,
             timestamp=format_timestamp(self._now()),
+            transport=self._record_transport,
+            channel=self._record_channel,
+            flow=self._record_flow,
+            http=_http_for_record(self._record_http),
+            arguments_sha256=arguments_sha256,
+            result_sha256=result_sha256,
         )
         # Technical logs stay on stderr via the logging module. The GxP record
         # is only the store append below.
@@ -1516,6 +1685,25 @@ class AuditProxy:
             record_class,
         )
         return self.store.append_event(event)
+
+    def _stored_payload(
+        self,
+        method: str,
+        tool: str | None,
+        arguments: dict[str, Any] | None,
+        result: Any,
+    ) -> tuple[dict[str, Any] | None, Any, str | None, str | None]:
+        """Apply body_mode to upstream tool-call payloads. Local records stay as written."""
+        if method != "tools/call" or tool in LOCAL_TOOLS:
+            return arguments, result, None, None
+        mode = self.settings.body_mode
+        paths = self.settings.redact_paths
+        prepared_arguments = prepare_value(arguments if arguments is not None else {}, mode=mode, redact_paths=paths)
+        prepared_result = prepare_value(result, mode=mode, redact_paths=paths)
+        stored_arguments = prepared_arguments["value"]
+        if stored_arguments is not None and not isinstance(stored_arguments, dict):
+            stored_arguments = {"value": stored_arguments}
+        return stored_arguments, prepared_result["value"], prepared_arguments["sha256"], prepared_result["sha256"]
 
     def _refresh(self) -> list[dict[str, Any]]:
         if not self.store.health():
@@ -1607,6 +1795,15 @@ class AuditProxy:
         if path != root and root not in path.parents:
             raise AuditStoreError("export path escapes the export directory")
         return path
+
+
+def _http_for_record(http: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(http, dict) or "_started" not in http:
+        return http
+    view = dict(http)
+    started = view.pop("_started")
+    view["latency_ms"] = max(0, int((time.perf_counter() - float(started)) * 1000))
+    return view
 
 
 def _default_now() -> Any:
@@ -1717,11 +1914,26 @@ def _approval_problem(record: Any, *, tool: str, digest: str, requester: str, no
     return None
 
 
+def _report_now(proxy: AuditProxy) -> VerifyReport | None:
+    try:
+        report = verify_anchored(proxy.settings.audit_path)
+    except Exception:
+        return None
+    if report.ok:
+        return None
+    return report
+
+
 def _verify_text(report: Any) -> str:
     if report.ok:
         lag = f" anchor_lag={report.anchor_lag}" if report.anchor_lag else ""
-        return f"chain ok entries={report.count} head={report.head_hash}{lag}"
-    return "chain invalid: " + "; ".join(report.errors)
+        text = f"chain ok entries={report.count} head={report.head_hash}{lag}"
+    else:
+        text = "chain invalid: " + "; ".join(report.errors)
+    gaps = list(getattr(report, "gaps", []) or [])
+    if gaps:
+        text = text + "\n" + "\n".join(gaps)
+    return text
 
 
 def _result(message: dict[str, Any], payload: Any) -> dict[str, Any]:

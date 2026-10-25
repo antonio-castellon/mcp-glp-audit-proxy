@@ -1,8 +1,8 @@
 # Hello-world transport guides
 
-Two first-run pages for Community 0.3.2. Each one is numbered. Each step says whether to type it in Terminal (Linux or macOS) or in Command Prompt (Windows), and the page shows the words you should see after the command. You paste a few small programs. You do not need to know Python.
+Three first-run pages for Community 0.4.0. Each one is numbered. Each step says whether to type it in Terminal (Linux or macOS) or in Command Prompt (Windows), and the page shows the words you should see after the command. You paste a few small programs. You do not need to know Python.
 
-Do [stdio-to-proxy-to-stdio.md](stdio-to-proxy-to-stdio.md) first. It installs the package from PyPI, runs `init`, writes a JSON config, makes one allowed tool call and one blocked tool call, reads the JSONL log, and runs verify. Do [stdio-to-proxy-to-https.md](stdio-to-proxy-to-https.md) when the tool server is an `https://` address.
+Do [stdio-to-proxy-to-stdio.md](stdio-to-proxy-to-stdio.md) first. It installs the package from PyPI, runs `init`, writes a JSON config, makes one allowed tool call and one blocked tool call, reads the JSONL log, and runs verify. Do [stdio-to-proxy-to-https.md](stdio-to-proxy-to-https.md) when the tool server is an `https://` address. Do [https-gateway.md](https-gateway.md) when the client calls an HTTPS base URL and the proxy should audit that call.
 
 The pictures under [images/](images/) are photographs of a Linux terminal from those runs. On Windows the words are the same. The prompt ends with `>` instead of `$`.
 
@@ -10,7 +10,7 @@ The matrix below is the smallest set of pages that still covers every transport 
 
 ## What the code accepts
 
-The client side is stdio only. `mcp-glp-audit-proxy` reads newline-delimited JSON-RPC on stdin and writes it on stdout. `--help` lists `--config` and no listen address. There is no HTTP listener, no SSE listener, and no streamable-HTTP listener. See [the manual introduction](../README.md).
+The client on the first two pages is stdio. `mcp-glp-audit-proxy --help` lists `--config` and nothing else. A socket is opened only when the config contains a listen object. Those two pages do not set one. [https-gateway.md](https-gateway.md) does. There is no plaintext listener, no SSE listener, and no streamable-HTTP listener. See [the manual introduction](../README.md).
 
 The target side (the MCP server the proxy calls) is one of two `upstreams[].transport` values:
 
@@ -26,12 +26,13 @@ Host products (Claude Desktop, Cursor, VS Code, and the Python agents) are all t
 
 ## Coverage matrix
 
-| Guide | Client: stdio | Target: stdio | Target: https |
-|---|---|---|---|
-| [stdio-to-proxy-to-stdio.md](stdio-to-proxy-to-stdio.md) | covered | covered | |
-| [stdio-to-proxy-to-https.md](stdio-to-proxy-to-https.md) | covered | | covered |
+| Guide | Client: stdio | Client: HTTPS | Target: stdio | Target: https |
+|---|---|---|---|---|
+| [stdio-to-proxy-to-stdio.md](stdio-to-proxy-to-stdio.md) | covered | | covered | |
+| [stdio-to-proxy-to-https.md](stdio-to-proxy-to-https.md) | covered | | | covered |
+| [https-gateway.md](https-gateway.md) | covered | covered | | covered |
 
-Client HTTP, client SSE, and a parsed SSE target are not in the matrix. This edition does not implement them.
+Client SSE and a parsed SSE target are not in the matrix. This edition does not implement them. The HTTPS client is TLS 1.3 only.
 
 Community keeps the audit trail in one JSONL file in a folder you choose. The config is a JSON file. Verify also writes a one-line `.head` sidecar next to the log. There is no database in these guides. SQL storage is available in Pro.
 

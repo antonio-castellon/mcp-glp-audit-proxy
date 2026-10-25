@@ -58,6 +58,49 @@ def test_readme_is_ascii_and_states_the_boundary() -> None:
     plugins.encode("ascii")
 
 
+def test_regulatory_wording_and_archiving_page() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    coverage = (ROOT / "docs" / "COVERAGE.md").read_text(encoding="utf-8")
+    standards = (ROOT / "docs" / "STANDARDS.md").read_text(encoding="utf-8")
+    archiving = (ROOT / "docs" / "ARCHIVING.md").read_text(encoding="utf-8")
+    safety = (ROOT / "SAFETY.md").read_text(encoding="utf-8")
+    manual = (ROOT / "docs" / "manual-guides" / "README.md").read_text(encoding="utf-8")
+    for text in (readme, coverage, standards, archiving, safety, manual):
+        text.encode("ascii")
+    assert "11.10(d)" in readme and "12.4" in readme
+    assert "To be verified" not in readme
+    assert "sections 12 and 14" not in readme
+    assert "No 2022 reissue" not in standards
+    assert "reissued in 2022" in standards
+    assert "read-before-write hook" not in coverage
+    assert "locked audit trail" not in readme and "locked audit trail" not in coverage
+    assert "| Verified |" not in coverage
+    assert "Personal data in audit records" in safety
+    assert "anonymous" not in readme.lower()
+    assert "anonymous" not in safety.lower()
+    assert "anonymous" not in coverage.lower()
+    assert "Validation in a GLP facility" in readme
+    assert "System requirements" in readme
+    assert "high-risk" in readme and "high-risk" in coverage
+    assert "minimum 6-month retention" not in readme
+    assert "docs/ARCHIVING.md" in readme
+    assert "docs/OPERATIONS.md" in readme
+    operations = (ROOT / "docs" / "OPERATIONS.md").read_text(encoding="utf-8")
+    operations.encode("ascii")
+    assert "OPERATIONS.md" in archiving
+    assert "no lockout by default" in operations.lower() or "No lockout by default" in operations
+    assert "visible only at restart" in operations.lower() or "visible only at restart" in readme.lower()
+    assert "not a distributed or independent ledger" in operations
+    for banned in ("immutable", "compliant", "certified", "compliance", "anonymous"):
+        assert banned not in operations.lower()
+    assert "tamper-evident" in archiving
+    assert archiving.count("tamper-proof") == 1
+    assert "not tamper-proof" in archiving
+    for banned in ("immutable", "compliant", "certified"):
+        assert banned not in archiving.lower()
+    assert "not implemented in Community" in standards
+
+
 def test_source_has_no_pro_implementations() -> None:
     src = ROOT / "src"
     for path in src.rglob("*.py"):
@@ -72,12 +115,12 @@ def test_registry_metadata_matches_the_package() -> None:
     server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert server["name"] == "io.github.antonio-castellon/mcp-glp-audit-proxy"
-    assert server["version"] == "0.3.2"
-    assert server["packages"][0]["version"] == "0.3.2"
+    assert server["version"] == "0.4.0"
+    assert server["packages"][0]["version"] == "0.4.0"
     assert len(server["description"]) <= 100
-    assert 'version = "0.3.2"' in pyproject
+    assert 'version = "0.4.0"' in pyproject
     init = (ROOT / "src" / "mcp_glp_audit_proxy" / "__init__.py").read_text(encoding="utf-8")
-    assert '__version__ = "0.3.2"' in init
+    assert '__version__ = "0.4.0"' in init
     assert "mcp>=2.2.0,<3" in pyproject
     assert (ROOT / "docs" / "STANDARDS.md").is_file()
     assert (ROOT / "docs" / "COVERAGE.md").is_file()

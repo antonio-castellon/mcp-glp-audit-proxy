@@ -75,7 +75,7 @@ class JsonlAuditStore:
     def read_entries(self) -> list[dict[str, Any]]:
         report = self._locked_report()
         if not report.ok:
-            raise ChainIntegrityError("; ".join(report.errors))
+            raise ChainIntegrityError("; ".join(report.errors), report)
         return report.entries
 
     def append_event(self, event: dict[str, Any]) -> dict[str, Any]:
@@ -124,7 +124,7 @@ class JsonlAuditStore:
                 _lock(fd, exclusive=True)
                 report = verify_bytes(_read_all(fd))
                 if not report.ok:
-                    raise ChainIntegrityError("; ".join(report.errors))
+                    raise ChainIntegrityError("; ".join(report.errors), report)
                 self._require_anchor(report)
                 sealed = _seal_next(event, report.entries)
                 os.lseek(fd, 0, os.SEEK_END)
@@ -152,9 +152,13 @@ class JsonlAuditStore:
             _quiet_unlock(fd)
 
     def _require_anchor(self, report: VerifyReport) -> None:
+        from ..anchor import _failed
+
         status = assess(report, read_head(self.path))
         if not status.ok:
-            raise AuditStoreError(status.errors[0])
+            kind = "head_missing" if any("missing" in error for error in status.errors) else "head_mismatch"
+            failed = _failed(report, status.errors, kind)
+            raise ChainIntegrityError(status.errors[0], failed)
         if status.lag != 1:
             return
         last = report.entries[-1]
@@ -258,23 +262,16 @@ def _write_all(fd: int, data: bytes) -> None:
 
 
 def _apply_anchor(path: Path, report: VerifyReport) -> VerifyReport:
+    from ..anchor import _failed
+
     try:
         head = read_head(path)
     except AuditStoreError as exc:
-        return VerifyReport(
-            ok=False,
-            entries=report.entries,
-            errors=[str(exc)],
-            head_hash=report.head_hash,
-        )
+        return _failed(report, [str(exc)], "head_mismatch")
     status = assess(report, head)
     if not status.ok:
-        return VerifyReport(
-            ok=False,
-            entries=report.entries,
-            errors=status.errors,
-            head_hash=report.head_hash,
-        )
+        kind = "head_missing" if any("missing" in error for error in status.errors) else "head_mismatch"
+        return _failed(report, status.errors, kind)
     report.anchor_lag = status.lag
     return report
 

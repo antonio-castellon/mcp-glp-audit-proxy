@@ -8,6 +8,7 @@ result. If the audit store cannot be written, the result is not returned.
 from __future__ import annotations
 
 import json
+import sys
 import time
 import uuid
 from datetime import timedelta
@@ -26,6 +27,7 @@ from .errors import AuditStoreError, ChainIntegrityError, ConfigurationError
 from .features import FeatureSet, declared_feature
 from .framing import MAX_MESSAGE_BYTES
 from .records import build_event, format_timestamp
+from .startuprec import last_startup_arguments, startup_arguments
 from .reporters.json_export import JsonReporter, dumps_document, export_document, filter_entries
 from .reporters.text_export import TextReporter, format_entry
 from .upstream import MODERN_VERSION, SECRET_META, split_meta
@@ -166,6 +168,7 @@ class AuditProxy:
         self._integrity_stop = False
         self._alert_written = False
         self._integrity_checked_at = 0.0
+        self.change_reason: str | None = None
 
     def startup(self) -> dict[str, Any]:
         report = verify_anchored(self.settings.audit_path)
@@ -181,25 +184,29 @@ class AuditProxy:
                 "require_ntp is set and the clock is not reported synchronized (RFC 5905)"
             )
         self._refresh()
+        plugins = {
+            "auth": self.settings.auth,
+            "reporters": list(self.reporters),
+            "signer": getattr(getattr(self.store, "signer", None), "name", self.settings.signer),
+            "storage": self.settings.storage,
+        }
+        previous = last_startup_arguments(report.entries) if report.ok else None
+        arguments, warning = startup_arguments(
+            self.settings,
+            clock=status,
+            plugins=plugins,
+            previous=previous,
+            change_reason=self.change_reason,
+        )
+        if warning:
+            print(warning, file=sys.stderr)
         return self._audit(
             method="audit/startup",
             record_class="config",
             status="ok",
             server="proxy",
             tool=None,
-            arguments={
-                "audit_enabled": True,
-                "clock": status,
-                "fail_closed": self.settings.fail_closed,
-                "plugins": {
-                    "auth": self.settings.auth,
-                    "reporters": list(self.reporters),
-                    "signer": getattr(getattr(self.store, "signer", None), "name", self.settings.signer),
-                    "storage": self.settings.storage,
-                },
-                "policy": self.settings.policy.as_dict(),
-                "retention": self.settings.retention.as_dict(),
-            },
+            arguments=arguments,
             result={"auditing": "enabled", "version": __version__},
             error=None,
             policy_action="allow",

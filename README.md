@@ -158,6 +158,10 @@ Retention profiles set minimums; the proxy never deletes records. Disposal after
 
 A fail-closed stop interrupts the AI tool traffic. Include it in your contingency plan.
 
+Failed-authentication lockout is off unless listen.auth_failure_limit is set. regulatory-report shows that line as not configured and names OECD No. 25 para 14 and Annex 11 draft 2025 11.7 (draft, not in force), so QA can decide whether to enable it. There is no lockout by default.
+
+Configuration changes, including identities and roles, are recorded on the next audit/startup (config_changed). They are visible only at restart. Give --change-reason or GLP_CHANGE_REASON when require_reason_for_writes is on; if it is missing the process still starts and the record stores a null reason.
+
 Every audit record holds personal data in every body_mode: principal id and name, role, client certificate fingerprint, end-user id when end_user_header is used, the request path (it can contain ids), the kept request headers (for example user-agent), and timestamps. hash_only is not anonymisation: an unsalted SHA-256 of a short or guessable body can be matched by guessing. The customer is the controller and decides the lawful basis, the body_mode, the redact_paths and the retention. See [Personal data in audit records](SAFETY.md#personal-data-in-audit-records).
 
 ## Validation in a GLP facility
@@ -176,7 +180,11 @@ Disk: a hash_only record is on the order of 1 KB. redacted and full grow with th
 
 `mcp-glp-audit-proxy regulatory-report --config config.json` reads the configuration only and prints, by group, whether that configuration supports each mapped clause. It does not start the service, open the log, or use the network. `--format md` or `json`, `--out FILE`, `--profile swiss_glp`, and `--applies glp,part11,ai_high_risk,gdpr_bodies`. `--fail-on-gap` exits 1 when a checked row is not supported. The customer's QA makes the final assessment. The map is `src/mcp_glp_audit_proxy/data/regulatory_map.json`, which is also checked against `docs/COVERAGE.md`.
 
-`archive-manifest` writes an index of the log, the head sidecar, segment files, and an alert file when one exists. `verify --manifest` checks a later copy. See [docs/ARCHIVING.md](docs/ARCHIVING.md).
+`archive-manifest` writes an index of the log, the head sidecar, segment files, and an alert file when one exists. `verify --manifest` checks a later copy. `archive-transfer` and `verify --manifest --received-by` record custody of that package. See [docs/ARCHIVING.md](docs/ARCHIVING.md). Day-to-day operation, backups, and the independent head check are in [docs/OPERATIONS.md](docs/OPERATIONS.md).
+
+`review <audit_file> --out FILE` writes a review-by-exception report (`--format json`, `md`, or `csv`). The CSV is one row per record in the period. The report does not copy bodies.
+
+Offline `verify`, `verify --json-export`, `archive-manifest`, `regulatory-report`, and `review` never append to the live audit log. Each output carries a `run` block. `--run-log FILE` appends the same block to a separate hash-chained log. Check that log with `verify-run-log`. An export made through the running gateway (`glp_export_audit`) is still a record in the live trail.
 
 
 ## Community and Pro

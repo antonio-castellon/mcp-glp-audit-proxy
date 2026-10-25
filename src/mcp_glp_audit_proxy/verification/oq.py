@@ -23,6 +23,8 @@ from typing import Any
 from .. import __version__
 from .rtm import CheckoutError, checkout_root, community_gaps, junit_results, load_rtm
 
+CHAIN_SMOKE = "tests/test_chain.py::test_chain_links_and_matches_schema"
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
@@ -47,6 +49,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", type=Path, dest="json_path", default=Path("oq-report.json"))
     parser.add_argument("--coverage-json", type=Path, default=Path("coverage.json"))
     parser.add_argument("--pytest-arg", action="append", default=[])
+    parser.add_argument(
+        "--requirement",
+        action="append",
+        default=[],
+        help="Run only the tests mapped to this RTM id, plus the chain smoke test. Repeatable.",
+    )
     args = parser.parse_args(argv)
     try:
         root = checkout_root(args.repo_root)
@@ -54,6 +62,20 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
+    subset = [item.strip() for item in args.requirement if item.strip()]
+    selected: list[str] = []
+    if subset:
+        try:
+            matrix = load_rtm(root / "docs" / "verification" / "rtm.yaml")
+        except (OSError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        known = {item.get("id") for item in matrix["requirements"]}
+        for ident in subset:
+            if ident not in known:
+                print(f"unknown requirement: {ident}", file=sys.stderr)
+                return 2
+        selected = tests_for(matrix, subset)
     command = [
         sys.executable,
         "-m",
@@ -64,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         "--cov=mcp_glp_audit_proxy",
         "--cov-report=term-missing",
         "--cov-report=json:" + str(args.coverage_json),
-        *args.pytest_arg,
+        *(selected if subset else args.pytest_arg),
     ]
     # The nested suite must not write into this process's coverage data.
     env = os.environ.copy()
@@ -78,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         pytest_exit=completed.returncode,
         coverage_path=coverage_path,
         root=root,
+        requirement_subset=subset,
     )
     args.markdown.parent.mkdir(parents=True, exist_ok=True)
     args.json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,16 +114,39 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def tests_for(rtm: dict[str, Any], identifiers: list[str]) -> list[str]:
+    """Mapped tests for the named RTM ids, plus the chain smoke test."""
+    wanted = set(identifiers)
+    nodes: list[str] = []
+    for item in rtm["requirements"]:
+        if item.get("id") not in wanted:
+            continue
+        for test_id in item.get("tests") or []:
+            if test_id not in nodes:
+                nodes.append(test_id)
+    if CHAIN_SMOKE not in nodes:
+        nodes.append(CHAIN_SMOKE)
+    return nodes
+
+
 def build_report(
     junit_path: Path,
     *,
     pytest_exit: int,
     coverage_path: Path | None = None,
     root: Path | None = None,
+    requirement_subset: list[str] | None = None,
 ) -> dict[str, Any]:
     results = junit_results(junit_path) if junit_path.is_file() else {}
     cases = _cases(junit_path) if junit_path.is_file() else []
     rtm = load_rtm()
+    subset = list(requirement_subset or [])
+    if subset:
+        wanted = set(subset)
+        rtm = {
+            **rtm,
+            "requirements": [item for item in rtm["requirements"] if item.get("id") in wanted],
+        }
     problems = community_gaps(rtm, results) if results else ["junit file missing"]
     passed = sum(1 for case in cases if case["status"] == "pass")
     failed = sum(1 for case in cases if case["status"] != "pass")
@@ -124,6 +170,7 @@ def build_report(
         },
         "coverage_percent": _coverage_percent(coverage_path),
         "cases": cases,
+        "requirement_subset": subset,
         "traceability_problems": problems,
     }
     digest = hashlib.sha256(_canonical(body)).hexdigest()
@@ -140,22 +187,28 @@ def render_markdown(report: dict[str, Any]) -> str:
         report["statement"],
         "",
         f"- Generated at: {report['generated_at']}",
-        f"- Package: mcp-glp-audit-proxy {env['package_version']}",
-        f"- Python: {env['python']}",
-        f"- OS: {env['os']}",
-        f"- Git sha: {env['git_sha']}",
-        f"- Tests: {counts['passed']} passed, {counts['failed']} failed, {counts['tests']} total",
-        f"- Requirements: {counts['requirements_community']} community, "
-        f"{counts['requirements_pro']} out of scope (Pro), "
-        f"{counts['requirements_customer']} customer responsibility, "
-        f"{counts['requirements_gap']} gap",
-        f"- Line coverage: {report['coverage_percent']}",
-        "",
-        "## Cases",
-        "",
-        "| Test | Expected | Actual | Time |",
-        "|---|---|---|---|",
     ]
+    if report.get("requirement_subset"):
+        lines.append("- Requirement subset: " + ", ".join(report["requirement_subset"]))
+    lines.extend(
+        [
+            f"- Package: mcp-glp-audit-proxy {env['package_version']}",
+            f"- Python: {env['python']}",
+            f"- OS: {env['os']}",
+            f"- Git sha: {env['git_sha']}",
+            f"- Tests: {counts['passed']} passed, {counts['failed']} failed, {counts['tests']} total",
+            f"- Requirements: {counts['requirements_community']} community, "
+            f"{counts['requirements_pro']} out of scope (Pro), "
+            f"{counts['requirements_customer']} customer responsibility, "
+            f"{counts['requirements_gap']} gap",
+            f"- Line coverage: {report['coverage_percent']}",
+            "",
+            "## Cases",
+            "",
+            "| Test | Expected | Actual | Time |",
+            "|---|---|---|---|",
+        ]
+    )
     for case in report["cases"]:
         lines.append(
             f"| `{case['id']}` | pass | {case['status']} | {case['time']} |"

@@ -102,12 +102,23 @@ class ListenIdentity:
 
 
 @dataclass
+class AuthFailureLimit:
+    """Optional HTTPS lockout. Absent means the limit is not configured."""
+
+    max_failures: int
+    window_seconds: int
+    block_seconds: int
+    key: str
+
+
+@dataclass
 class ListenConfig:
     bind: str
     port: int
     cert_file: str
     key_file: str
     identity: ListenIdentity
+    auth_failure_limit: AuthFailureLimit | None = None
 
 
 @dataclass
@@ -211,6 +222,7 @@ class Settings:
                     )
                 _check_route_path(endpoint.path, f"upstream {upstream.name} endpoint")
         _validate_listen(self.listen)
+        _validate_auth_limit(None if self.listen is None else self.listen.auth_failure_limit)
         seen: set[tuple[str, str]] = set()
         for route in self.routes:
             if route.flow not in {"api2api", "api2mcp", "api2llm"}:
@@ -548,7 +560,7 @@ def _routes(value: object) -> list[RouteConfig]:
 def _listen(value: object, base: Path) -> ListenConfig:
     if not isinstance(value, dict):
         raise ConfigurationError("listen must be an object")
-    unknown = set(value) - {"bind", "port", "cert_file", "key_file", "identity"}
+    unknown = set(value) - {"bind", "port", "cert_file", "key_file", "identity", "auth_failure_limit"}
     if unknown:
         raise ConfigurationError(f"unknown listen fields: {sorted(unknown)}")
     port = value.get("port")
@@ -567,6 +579,7 @@ def _listen(value: object, base: Path) -> ListenConfig:
         cert_file=cert,
         key_file=key,
         identity=_identity(value.get("identity"), base),
+        auth_failure_limit=_auth_failure_limit(value.get("auth_failure_limit")),
     )
 
 
@@ -630,6 +643,43 @@ def _mapped(value: object, *, fingerprint: bool) -> MappedPrincipal:
             raise ConfigurationError("client certificate fingerprint must be 64 hex characters")
         digest = raw
     return MappedPrincipal(id=ident, name=name, role=role, fingerprint=digest)
+
+
+def _auth_failure_limit(value: object) -> AuthFailureLimit | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ConfigurationError("listen.auth_failure_limit must be an object")
+    unknown = set(value) - {"max_failures", "window_seconds", "block_seconds", "key"}
+    if unknown:
+        raise ConfigurationError(f"unknown auth_failure_limit fields: {sorted(unknown)}")
+    return AuthFailureLimit(
+        max_failures=_positive_int(value.get("max_failures"), "auth_failure_limit.max_failures"),
+        window_seconds=_positive_int(value.get("window_seconds"), "auth_failure_limit.window_seconds"),
+        block_seconds=_positive_int(value.get("block_seconds"), "auth_failure_limit.block_seconds"),
+        key=_auth_key(value.get("key")),
+    )
+
+
+def _positive_int(value: object, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ConfigurationError(f"{label} must be an integer >= 1")
+    return value
+
+
+def _auth_key(value: object) -> str:
+    if value not in {"address", "identity", "both"}:
+        raise ConfigurationError("auth_failure_limit.key must be address, identity, or both")
+    return str(value)
+
+
+def _validate_auth_limit(limit: AuthFailureLimit | None) -> None:
+    if limit is None:
+        return
+    _positive_int(limit.max_failures, "auth_failure_limit.max_failures")
+    _positive_int(limit.window_seconds, "auth_failure_limit.window_seconds")
+    _positive_int(limit.block_seconds, "auth_failure_limit.block_seconds")
+    _auth_key(limit.key)
 
 
 def _validate_listen(listen: ListenConfig | None) -> None:

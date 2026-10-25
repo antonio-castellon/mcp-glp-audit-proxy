@@ -84,6 +84,15 @@ def test_regulatory_wording_and_archiving_page() -> None:
     assert "high-risk" in readme and "high-risk" in coverage
     assert "minimum 6-month retention" not in readme
     assert "docs/ARCHIVING.md" in readme
+    assert "docs/OPERATIONS.md" in readme
+    operations = (ROOT / "docs" / "OPERATIONS.md").read_text(encoding="utf-8")
+    operations.encode("ascii")
+    assert "OPERATIONS.md" in archiving
+    assert "no lockout by default" in operations.lower() or "No lockout by default" in operations
+    assert "visible only at restart" in operations.lower() or "visible only at restart" in readme.lower()
+    assert "not a distributed or independent ledger" in operations
+    for banned in ("immutable", "compliant", "certified", "compliance", "anonymous"):
+        assert banned not in operations.lower()
     assert "tamper-evident" in archiving
     assert archiving.count("tamper-proof") == 1
     assert "not tamper-proof" in archiving

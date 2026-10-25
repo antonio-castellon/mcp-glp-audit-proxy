@@ -18,7 +18,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import quote, urlparse
 
+from ..alerts import write_warning_alert
 from ..approvals import load_approvals
+from ..authlimit import AuthGate
 from ..bodyutil import filter_headers, prepare_body
 from ..canonical import args_hash
 from ..config import ListenConfig, RouteConfig, Settings
@@ -240,8 +242,47 @@ def handle_http(proxy: Any, settings: Settings, handler: BaseHTTPRequestHandler)
     if identity is None:
         proxy._dead = True
         return _unavailable()
+    address = _client_address(handler)
+    label = _identity_label(identity, handler)
+    gate = _auth_gate(proxy, settings)
+    state = gate.begin(address, label)
+    if state == "unblocked":
+        _auth_event(
+            proxy,
+            method="audit/auth_unblock",
+            rule="auth:unblock",
+            reason="failed authentication block ended",
+            arguments={"client_address": address, "identity": label, "key": _limit_key(settings)},
+        )
+    if state == "blocked":
+        return 429, "application/json", _json_bytes({"error": "authentication blocked"})
     principal, rule = _authenticate(identity, handler)
     if principal is None:
+        if gate.fail(address, label):
+            limit = settings.listen.auth_failure_limit if settings.listen else None
+            _auth_event(
+                proxy,
+                method="audit/auth_block",
+                rule="auth:block",
+                reason="failed authentication limit reached",
+                arguments={
+                    "block_seconds": None if limit is None else limit.block_seconds,
+                    "client_address": address,
+                    "failure_count": None if limit is None else limit.max_failures,
+                    "identity": label,
+                    "key": None if limit is None else limit.key,
+                    "until": _block_until_text(proxy, limit),
+                    "window_seconds": None if limit is None else limit.window_seconds,
+                },
+            )
+            try:
+                write_warning_alert(
+                    settings.audit_path,
+                    {"identity": label, "key": None if limit is None else limit.key, "kind": "auth_block"},
+                    command=tuple(getattr(settings, "alert_command", ()) or ()),
+                )
+            except OSError:
+                pass
         return _deny_http(
             proxy,
             settings,
@@ -256,7 +297,9 @@ def handle_http(proxy: Any, settings: Settings, handler: BaseHTTPRequestHandler)
             principal=_system_principal(),
             kind=None,
             headers=inbound_headers,
+            client_address=address,
         )
+    gate.success(address, label)
     if path == _LOCAL_APPROVE:
         return _approve(proxy, settings, principal, raw, inbound_headers)
     route, params = _match(settings.routes, method, path)
@@ -857,6 +900,7 @@ def _deny_http(
     principal: dict[str, Any],
     kind: str | None,
     headers: dict[str, str] | None = None,
+    client_address: str | None = None,
 ) -> tuple[int, str, bytes]:
     prepared = prepare_body(raw, mode=settings.body_mode, redact_paths=settings.redact_paths)
     if rule in {"body:size", "body:short", "body:length", "body:chunked"}:
@@ -870,7 +914,7 @@ def _deny_http(
             status="denied",
             server="proxy",
             tool=f"http:{method} {route}",
-            arguments={"path": path},
+            arguments={"client_address": client_address or "", "path": path},
             result=None,
             error={"message": message},
             policy_action="deny",
@@ -1073,6 +1117,68 @@ def _kind_for(flow: str) -> str:
 
 def _system_principal() -> dict[str, Any]:
     return {"id": "unauthenticated", "name": None, "role": "system"}
+
+
+def _client_address(handler: BaseHTTPRequestHandler) -> str:
+    raw = getattr(handler, "client_address", None)
+    if isinstance(raw, tuple) and raw:
+        return str(raw[0])
+    return ""
+
+
+def _identity_label(identity: Any, handler: BaseHTTPRequestHandler) -> str:
+    """A stable label for the limit. Never the bearer token."""
+    if identity.mode == "bearer":
+        return "bearer"
+    peer = _peer_der(handler)
+    if peer:
+        return cert_fingerprint(peer)
+    return str(identity.mode)
+
+
+def _auth_gate(proxy: Any, settings: Settings) -> AuthGate:
+    gate = getattr(proxy, "_auth_gate", None)
+    limit = settings.listen.auth_failure_limit if settings.listen else None
+    if gate is None or getattr(gate, "limit", None) is not limit:
+        gate = AuthGate(limit)
+        proxy._auth_gate = gate
+    return gate
+
+
+def _limit_key(settings: Settings) -> str | None:
+    limit = settings.listen.auth_failure_limit if settings.listen else None
+    return None if limit is None else limit.key
+
+
+def _block_until_text(proxy: Any, limit: Any) -> str | None:
+    if limit is None:
+        return None
+    moment = proxy._now() + timedelta(seconds=limit.block_seconds)
+    return format_timestamp(moment)
+
+
+def _auth_event(proxy: Any, *, method: str, rule: str, reason: str, arguments: dict[str, Any]) -> None:
+    try:
+        _append(
+            proxy,
+            principal=_system_principal(),
+            method=method,
+            record_class="access",
+            status="ok",
+            server="proxy",
+            tool=None,
+            arguments=arguments,
+            result={"auditing": "enabled"},
+            error=None,
+            policy_action="deny",
+            policy_rule=rule,
+            reason=reason,
+            approval=None,
+            flow=None,
+            http=None,
+        )
+    except AuditStoreError:
+        proxy._dead = True
 
 
 def _bearer_token(listen: ListenConfig) -> str | None:

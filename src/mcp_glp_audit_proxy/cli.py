@@ -7,12 +7,15 @@ A broken chain is not exported.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
 from pathlib import Path
 
 from .anchor import verify_anchored
+from .chain import verify_bytes
+from .runlog import append_run_log, build_run, input_record, read_only_bytes, utc_z
 from .segments import verify_segments
 from .checkpoints import check_log
 from .features import FeatureSet
@@ -83,6 +86,17 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Write the dated manifest check report here. Requires --manifest.",
     )
+    parser.add_argument(
+        "--received-by",
+        default=None,
+        help="On a successful manifest check, record this name on the receipt.",
+    )
+    parser.add_argument(
+        "--run-log",
+        type=Path,
+        default=None,
+        help="Append this offline run to a separate hash-chained run log. The audit log is not written.",
+    )
     parser.add_argument("--json-export", type=Path, default=None)
     parser.add_argument("--record-class", default=None)
     parser.add_argument("--tool", default=None)
@@ -126,6 +140,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Customer id for the licence fingerprint. GLP_CLIENT_ID is the fallback.",
     )
     args = parser.parse_args(argv)
+    started = utc_z()
+    code = _verify(args)
+    _finish_verify_run(args, started, code)
+    return code
+
+
+def _verify(args: argparse.Namespace) -> int:
+    if args.received_by is not None and not str(args.received_by).strip():
+        print("--received-by is empty", file=sys.stderr)
+        return 2
     if args.report_out is not None and args.manifest is None:
         print("--report-out requires --manifest", file=sys.stderr)
         return 2
@@ -140,6 +164,7 @@ def main(argv: list[str] | None = None) -> int:
             args.manifest,
             report_out=args.report_out,
             segments=list(args.segments) if args.segments else None,
+            received_by=str(args.received_by).strip() if args.received_by else None,
         )
     if args.segments:
         ok, notes = verify_segments(list(args.segments))
@@ -239,3 +264,59 @@ def main(argv: list[str] | None = None) -> int:
         args.json_export.write_text(dumps_document(document), encoding="utf-8")
         print(f"wrote {args.json_export}", file=sys.stderr)
     return 0
+
+
+def _finish_verify_run(args: argparse.Namespace, started: str, code: int) -> None:
+    inputs = []
+    seen: set[Path] = set()
+    for path in [args.audit_file, args.manifest, *(args.segments or [])]:
+        if path is None or not path.is_file():
+            continue
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        inputs.append(input_record(path))
+    head = _head_from_audit(args.audit_file) if args.audit_file is not None else None
+    block = build_run(
+        tool="verify-manifest" if args.manifest is not None else "verify",
+        started_at=started,
+        inputs=inputs,
+        head=head,
+        arguments={
+            "json_export": args.json_export is not None,
+            "manifest": args.manifest is not None,
+            "received_by": bool(args.received_by),
+        },
+        exit_code=code,
+    )
+    for path in (args.json_export, args.report_out):
+        if path is not None and path.is_file():
+            _inject_run(path, block)
+    if args.run_log is not None:
+        append_run_log(args.run_log, block)
+    print("run " + json.dumps(block, ensure_ascii=True, sort_keys=True), file=sys.stderr)
+
+
+def _head_from_audit(path: Path) -> dict[str, object] | None:
+    if not path.is_file():
+        return None
+    report = verify_bytes(read_only_bytes(path))
+    if not report.ok or not report.entries:
+        return None
+    last = report.entries[-1]
+    if not last.get("entry_hash"):
+        return None
+    return {"entry_hash": last.get("entry_hash"), "seq": last.get("seq")}
+
+
+def _inject_run(path: Path, block: dict[str, object]) -> None:
+    text = path.read_text(encoding="utf-8")
+    try:
+        loaded = json.loads(text)
+    except json.JSONDecodeError:
+        path.write_text(text + "\n" + json.dumps({"run": block}, ensure_ascii=True) + "\n", encoding="ascii")
+        return
+    if isinstance(loaded, dict):
+        loaded["run"] = block
+        path.write_text(json.dumps(loaded, ensure_ascii=True, indent=2, sort_keys=True) + "\n", encoding="ascii")

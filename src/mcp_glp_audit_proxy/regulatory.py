@@ -16,6 +16,7 @@ from typing import Any
 
 from .config import Settings, load_settings
 from .errors import ConfigurationError
+from .runlog import append_run_log, attach_json, build_run, input_record, utc_z
 
 HEADER = (
     "This report reads the configuration only. It does not assess the customer's "
@@ -32,7 +33,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", default=None)
     parser.add_argument("--applies", default="glp,part11,ai_high_risk,gdpr_bodies")
     parser.add_argument("--fail-on-gap", action="store_true")
+    parser.add_argument("--run-log", type=Path, default=None)
     args = parser.parse_args(argv)
+    started = utc_z()
     applies = tuple(part.strip() for part in str(args.applies).split(",") if part.strip())
     try:
         raw = args.config.read_bytes()
@@ -51,6 +54,18 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    code = 0
+    if args.fail_on_gap and any(row["status"].startswith("not supported") for row in document["rows"]):
+        code = 1
+    block = build_run(
+        tool="regulatory-report",
+        started_at=started,
+        inputs=[input_record(args.config)],
+        head=None,
+        arguments={"applies": list(applies), "format": args.format, "profile": document["profile"]},
+        exit_code=code,
+    )
+    attach_json(document, block)
     text = render_markdown(document) if args.format == "md" else _dumps(document)
     lowered = text.lower()
     if any(word in lowered for word in _BANNED):
@@ -63,9 +78,9 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(text)
     else:
         args.out.write_text(text, encoding="ascii" if args.format == "md" else "utf-8")
-    if args.fail_on_gap and any(row["status"].startswith("not supported") for row in document["rows"]):
-        return 1
-    return 0
+    if args.run_log is not None:
+        append_run_log(args.run_log, block)
+    return code
 
 
 def load_map() -> dict[str, Any]:
@@ -122,9 +137,12 @@ def render_markdown(document: dict[str, Any]) -> str:
                     "| --- | --- | --- | --- | --- | --- | --- |",
                 ]
             )
+        shown = dict(row)
+        if row.get("source_id"):
+            shown["instrument"] = f"{row['instrument']} ({row['source_id']})"
         lines.append(
             "| {instrument} | {clause} | {status} | {parameter} | {current} | {expected} | {consequence} |".format(
-                **{key: _cell(row[key]) for key in (
+                **{key: _cell(shown[key]) for key in (
                     "instrument",
                     "clause",
                     "status",
@@ -136,6 +154,8 @@ def render_markdown(document: dict[str, Any]) -> str:
             )
         )
     lines.append("")
+    if document.get("run"):
+        lines.extend(["## Run", "", _dumps(document["run"]), ""])
     return "\n".join(lines)
 
 
@@ -145,6 +165,7 @@ def _rows_for(entry: dict[str, Any], settings: Settings, selected: set[str]) -> 
         "group": entry.get("group") or "Other",
         "id": entry.get("id"),
         "instrument": entry.get("instrument") or "",
+        "source_id": entry.get("source_id") or "",
     }
     applies_when = str(entry.get("applies_when") or "always")
     if applies_when != "always" and applies_when not in selected:
@@ -193,6 +214,16 @@ def _evaluate(check: dict[str, Any], settings: Settings) -> dict[str, Any]:
     expect = check.get("expect") or {}
     consequence = str(check.get("consequence_if_changed") or "")
     current = _current(settings, param)
+    if expect.get("not_configured_is_finding") is True:
+        if current == "not configured":
+            return {
+                "consequence": consequence,
+                "current": "not configured",
+                "expected": "configured, or left for the customer's QA",
+                "parameter": param,
+                "status": "not configured",
+            }
+        return _result(param, current, "configured", consequence, current == "configured")
     if expect.get("tradeoff") is True:
         return _result(param, current, "hash_only or redacted, and full or redacted", consequence, True, tradeoff=True)
     if expect.get("optional") is True:
@@ -269,6 +300,9 @@ def _current(settings: Settings, param: str) -> Any:
         return _identity(settings)
     if param == "listen.tls":
         return "tls1.3" if settings.listen is not None else "tls1.3-when-listen-is-set"
+    if param == "listen.auth_failure_limit":
+        limit = None if settings.listen is None else settings.listen.auth_failure_limit
+        return "configured" if limit is not None else "not configured"
     raise ConfigurationError(f"unknown regulatory parameter {param}")
 
 

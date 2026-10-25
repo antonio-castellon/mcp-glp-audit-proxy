@@ -36,6 +36,18 @@ def main() -> None:
         from .segments_cli import main as segment_main
 
         raise SystemExit(segment_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "review":
+        from .review import main as review_main
+
+        raise SystemExit(review_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "archive-transfer":
+        from .archive import transfer_main
+
+        raise SystemExit(transfer_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "verify-run-log":
+        from .runlog import main as runlog_main
+
+        raise SystemExit(runlog_main(sys.argv[2:]))
     from .server import main as run
 
     run()

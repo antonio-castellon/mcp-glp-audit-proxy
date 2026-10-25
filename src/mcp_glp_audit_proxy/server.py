@@ -24,6 +24,15 @@ from .upstream import HttpsTransport, JsonRpcUpstream, StdioTransport
 from .wiring import apply_identity, build_components
 
 
+def resolve_change_reason(flag: str | None) -> str | None:
+    """Prefer --change-reason. An omitted flag falls back to GLP_CHANGE_REASON."""
+    raw = flag if flag is not None else os.environ.get("GLP_CHANGE_REASON")
+    if raw is None:
+        return None
+    text = raw.strip()
+    return text or None
+
+
 def build_proxy(settings: Settings, features: FeatureSet | None = None) -> AuditProxy:
     flags = features or FeatureSet.load(settings.licence_path, client_id=settings.client_id)
     settings.validate()
@@ -120,11 +129,17 @@ def main(argv: list[str] | None = None) -> None:
         default=os.environ.get("GLP_CONFIG", "config.json"),
         help="Path to the JSON config file",
     )
+    parser.add_argument(
+        "--change-reason",
+        default=None,
+        help="Reason stored on audit/startup when the configuration changed. GLP_CHANGE_REASON is the fallback.",
+    )
     args = parser.parse_args(argv)
     try:
         assert_mcp_floor()
         settings = load_settings(args.config)
         proxy = build_proxy(settings)
+        proxy.change_reason = resolve_change_reason(args.change_reason)
     except (ConfigurationError, OSError, ValueError, RuntimeError) as exc:
         print(f"mcp-glp-audit-proxy: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc

@@ -134,6 +134,52 @@ def test_offline_unwritable_log_directory(tmp_path: Path, capsys) -> None:
     capsys.readouterr()
 
 
+def test_fifth_pass_ids_and_auth_limit_not_configured(tmp_path: Path, capsys) -> None:
+    config = tmp_path / "config.json"
+    _write(config)
+    assert main(["--config", str(config), "--format", "md"]) == 0
+    text = capsys.readouterr().out
+    for ident in (
+        "OECD-15-7.5/7.7",
+        "OECD-25-14",
+        "OECD-17S1-11b",
+        "EMA-GCP-5.4",
+        "EMA-GCP-6.2.1-export",
+        "MHRA-6.13-exception",
+        "AGIT-CHG-5.3",
+    ):
+        assert ident in text
+    assert "not configured" in text
+    assert "OECD No. 25" in text
+    assert "11.7" in text
+    text.encode("ascii")
+    loaded = json.loads(config.read_text(encoding="utf-8"))
+    loaded["listen"] = {
+        "bind": "127.0.0.1",
+        "port": 9,
+        "cert_file": "cert.pem",
+        "key_file": "key.pem",
+        "identity": {
+            "mode": "bearer",
+            "bearer_token_file": "token",
+            "bearer_principal": {"id": "gateway", "name": "Gateway", "role": "operator"},
+        },
+        "auth_failure_limit": {
+            "max_failures": 3,
+            "window_seconds": 60,
+            "block_seconds": 30,
+            "key": "address",
+        },
+    }
+    config.write_text(json.dumps(loaded), encoding="utf-8")
+    out = tmp_path / "report.json"
+    assert main(["--config", str(config), "--format", "json", "--out", str(out)]) == 0
+    document = json.loads(out.read_text(encoding="utf-8"))
+    row = next(item for item in document["rows"] if item.get("source_id") == "OECD-25-14")
+    assert row["status"] == "supported by current config"
+    assert "not configured" not in row["status"]
+
+
 def test_banned_words_invalid_config_and_fail_on_gap(tmp_path: Path, capsys) -> None:
     root = Path(__file__).resolve().parents[1]
     mapping = (root / "src" / "mcp_glp_audit_proxy" / "data" / "regulatory_map.json").read_text(encoding="utf-8")

@@ -85,6 +85,8 @@ def test_manifest_lists_segments_head_and_hashes(tmp_path: Path) -> None:
     second.pop("created_at")
     first.pop("created_by")
     second.pop("created_by")
+    first.pop("run", None)
+    second.pop("run", None)
     assert first == second
     names = {item["name"] for item in first["files"]}
     assert audit.name in names

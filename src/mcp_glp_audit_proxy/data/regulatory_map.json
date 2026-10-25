@@ -1006,7 +1006,106 @@
       "instrument": "Switzerland / AGIT Acquisition V3.0",
       "procedural": "customer procedure, see ARCHIVING.md",
       "requirement": ""
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "7.5 / 7.7",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 79,
+      "instrument": "OECD No. 15",
+      "procedural": "customer procedure: archive-transfer and verify --manifest --received-by, see ARCHIVING.md",
+      "requirement": "",
+      "source_id": "OECD-15-7.5/7.7"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [
+        {
+          "consequence_if_changed": "not configured: the failed-authentication limit is optional and off by default. OECD No. 25 para 14 is guidance. Annex 11 draft 2025 11.7 is not in force. The customer's QA decides whether to enable it.",
+          "expect": {
+            "not_configured_is_finding": true
+          },
+          "param": "listen.auth_failure_limit"
+        }
+      ],
+      "clause": "14",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 80,
+      "instrument": "OECD No. 25",
+      "procedural": "customer procedure, see OPERATIONS.md",
+      "requirement": "",
+      "source_id": "OECD-25-14"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "11.b",
+      "edition": "Community",
+      "group": "OECD",
+      "id": 81,
+      "instrument": "OECD No. 17 Suppl. 1",
+      "procedural": "customer procedure: keep the head pin off the gateway host and run verify --expect-head-file, see OPERATIONS.md",
+      "requirement": "",
+      "source_id": "OECD-17S1-11b"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "5.4",
+      "edition": "Community",
+      "group": "EMA",
+      "id": 82,
+      "instrument": "EMA GCP 2023",
+      "procedural": "customer procedure: audit/startup records identities, roles, and config_changed. A change is visible at the next start.",
+      "requirement": "",
+      "source_id": "EMA-GCP-5.4"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "6.2.1",
+      "edition": "Community",
+      "group": "EMA",
+      "id": 83,
+      "instrument": "EMA GCP 2023",
+      "procedural": "customer procedure: gateway exports are in the live trail; offline runs are in the run log, see OPERATIONS.md",
+      "requirement": "",
+      "source_id": "EMA-GCP-6.2.1-export"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "6.13",
+      "edition": "Community",
+      "group": "MHRA",
+      "id": 84,
+      "instrument": "MHRA GxP DI 2018",
+      "procedural": "customer procedure: review lists exceptions and writes a CSV copy, see OPERATIONS.md",
+      "requirement": "",
+      "source_id": "MHRA-6.13-exception"
+    },
+    {
+      "applies_when": "glp",
+      "authority": "guidance",
+      "checks": [],
+      "clause": "5.3",
+      "edition": "Community",
+      "group": "AGIT",
+      "id": 85,
+      "instrument": "AGIT Change Management V2.0",
+      "procedural": "customer procedure: CHANGELOG names the RTM ids and oq --requirement runs that subset",
+      "requirement": "",
+      "source_id": "AGIT-CHG-5.3"
     }
   ],
-  "mapping_version": "1.3.0"
+  "mapping_version": "1.4.0"
 }

@@ -4,9 +4,18 @@
 
 The commercial name is GxP Gateway Audit. The package name, the command names, the entry-point groups, and the MCP Registry id stay `mcp-glp-audit-proxy`.
 
+Requirements affected: COV-SHUTDOWN, COV-MCP-BODY, COV-INTEGRITY, COV-SEGMENT, COV-REGULATORY, COV-ARCHIVE, COV-MIXED-SCHEMA, COV-STARTUP, COV-REVIEW, COV-RUNLOG, COV-AUTH-LIMIT, COV-TRANSFER, COV-CHANGE.
+Effect on existing records: records already in a log are not rewritten and still verify. New records stay on schema 1.3.0. Offline verify, export, archive-manifest, regulatory-report, and review do not append to the live log.
+
 ### Behaviour change
 
 - `audit.body_mode` now also applies to MCP tool-call arguments and results. With the default `hash_only` these are no longer stored in plaintext, only their SHA-256. Set `audit.body_mode` to `full` (or `redacted` with `redact_paths`) to keep storing them. Re-run the OQ after upgrading.
+- `audit/startup` now records body_mode, listen, identities, the principal, and a SHA-256 of the effective configuration with secret values replaced. `config_changed` lists what differs from the previous startup. Pass `--change-reason` or `GLP_CHANGE_REASON` when a reason is required. A missing reason does not refuse startup. Re-run the OQ after upgrading.
+- `review` writes a review-by-exception report and a CSV copy of the selected records. It does not copy bodies. Re-run the OQ after upgrading.
+- Offline verify, JSON export, archive-manifest, regulatory-report, and review write a `run` block on their output and, with `--run-log`, a separate hash-chained run log. They do not append to the live audit log. Check the run log with `verify-run-log`. Re-run the OQ after upgrading.
+- `listen.auth_failure_limit` can block an HTTPS client after repeated failed authentication. It is off unless configured. regulatory-report shows it as not configured. Re-run the OQ after upgrading.
+- `archive-transfer` records custody of a manifest. `verify --manifest --received-by` adds a receipt only when the package matches. Re-run the OQ after upgrading.
+- `mcp-glp-audit-proxy-oq --requirement` runs the tests mapped to the named RTM ids plus the chain smoke test. Re-run the OQ after upgrading.
 - A POST, PUT, PATCH, or DELETE without `Content-Length`, or with `Transfer-Encoding`, is refused with 411 and logged. It is not forwarded. Re-run the OQ after upgrading.
 - The process writes one `audit/shutdown` record on stdin EOF, on SIGTERM or SIGINT, and when the HTTPS server stops. `verify` reports a gap warning when a startup has no later shutdown. Old logs that have no shutdown records report the same warning. The hash chain still exits 0. Re-run the OQ after upgrading.
 - A broken hash chain or head sidecar refuses startup and, at runtime, stops the process with exit code 3. A critical alert is written beside the log. This does not depend on `fail_closed`. Disk and permission errors keep the previous fail-closed latch. Re-run the OQ after upgrading.

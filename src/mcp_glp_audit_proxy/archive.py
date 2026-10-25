@@ -20,6 +20,7 @@ from . import __version__
 from .alerts import alert_path
 from .anchor import assess, head_path
 from .chain import VerifyReport, verify_bytes
+from .runlog import append_run_log, build_run, input_record, utc_z
 from .segments import verify_segments
 
 MANIFEST_VERSION = "1"
@@ -31,18 +32,73 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--segments", nargs="+", type=Path, default=None)
     parser.add_argument("--format", choices=("json", "md"), default="json")
+    parser.add_argument("--run-log", type=Path, default=None)
     args = parser.parse_args(argv)
+    started = utc_z()
+    inputs = [args.audit_file, *(args.segments or [])]
     try:
         document = build_manifest(args.audit_file, segments=args.segments)
     except ArchiveError as exc:
         print(str(exc), file=sys.stderr)
+        _record_archive_run(args, started, inputs, None, 1)
         return 1
+    head = _head_of(_log_order(args.audit_file, args.segments)[-1])
+    block = build_run(
+        tool="archive-manifest",
+        started_at=started,
+        inputs=[input_record(path) for path in inputs if path.is_file()],
+        head=head,
+        arguments={"format": args.format},
+        exit_code=0,
+    )
+    document["run"] = block
     text = render_markdown(document) if args.format == "md" else dumps(document)
     if any(ord(char) > 127 for char in text):
         print("manifest is not ASCII", file=sys.stderr)
         return 1
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(text, encoding="ascii")
+    if args.run_log is not None:
+        append_run_log(args.run_log, block)
+    print(f"wrote {args.out}", file=sys.stderr)
+    return 0
+
+
+def transfer_main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="mcp-glp-audit-proxy archive-transfer")
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("--from", dest="sender", required=True)
+    parser.add_argument("--to", dest="recipient", required=True)
+    parser.add_argument("--by", required=True)
+    parser.add_argument("--method", required=True)
+    parser.add_argument("--out", type=Path, required=True)
+    args = parser.parse_args(argv)
+    for label, value in (
+        ("--from", args.sender),
+        ("--to", args.recipient),
+        ("--by", args.by),
+        ("--method", args.method),
+    ):
+        if not str(value).strip():
+            print(f"{label} is empty", file=sys.stderr)
+            return 2
+    if not args.manifest.is_file():
+        print(f"missing manifest: {args.manifest}", file=sys.stderr)
+        return 2
+    raw = _read_only(args.manifest)
+    record = {
+        "at": _now(),
+        "by": args.by,
+        "from": args.sender,
+        "manifest_sha256": hashlib.sha256(raw).hexdigest(),
+        "method": args.method,
+        "to": args.recipient,
+    }
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(dumps(record), encoding="ascii")
+    if _read_only(args.manifest) != raw:
+        print("manifest changed while writing the transfer record", file=sys.stderr)
+        return 2
     print(f"wrote {args.out}", file=sys.stderr)
     return 0
 
@@ -118,6 +174,7 @@ def verify_manifest(
     *,
     report_out: Path | None = None,
     segments: list[Path] | None = None,
+    received_by: str | None = None,
 ) -> int:
     """Check a copied package against its manifest. Writes nothing in the log directory."""
     errors: list[dict[str, Any]] = []
@@ -168,6 +225,13 @@ def verify_manifest(
         "manifest_sha256": manifest_hash,
         "ok": not errors,
     }
+    if received_by and not errors:
+        document["receipt"] = {
+            "manifest_sha256": manifest_hash,
+            "received_at": _now(),
+            "received_by": received_by,
+            "result": "complete and unaltered",
+        }
     if report_out is not None:
         report_out.parent.mkdir(parents=True, exist_ok=True)
         report_out.write_text(dumps(document), encoding="ascii")
@@ -216,7 +280,35 @@ def render_markdown(document: dict[str, Any]) -> str:
             f"{link['reason']} | {link['approved_by']} |"
         )
     lines.append("")
+    if document.get("run"):
+        lines.extend(["## Run", "", dumps(document["run"]), ""])
     return "\n".join(lines)
+
+
+def _record_archive_run(args: Any, started: str, inputs: list[Path], head: dict[str, Any] | None, code: int) -> None:
+    if args.run_log is None:
+        return
+    block = build_run(
+        tool="archive-manifest",
+        started_at=started,
+        inputs=[input_record(path) for path in inputs if path.is_file()],
+        head=head,
+        arguments={"format": args.format},
+        exit_code=code,
+    )
+    append_run_log(args.run_log, block)
+
+
+def _head_of(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    report = verify_bytes(_read_only(path))
+    if not report.ok or not report.entries:
+        return None
+    last = report.entries[-1]
+    if not last.get("entry_hash"):
+        return None
+    return {"entry_hash": last.get("entry_hash"), "seq": last.get("seq")}
 
 
 def _log_order(audit_file: Path, segments: list[Path] | None) -> list[Path]:

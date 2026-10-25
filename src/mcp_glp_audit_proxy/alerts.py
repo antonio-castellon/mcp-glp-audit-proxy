@@ -71,6 +71,42 @@ def write_critical_alert(
     return path
 
 
+def write_warning_alert(
+    log: Path,
+    payload: dict[str, Any],
+    *,
+    command: tuple[str, ...] = (),
+) -> Path:
+    """Write ``<log>.warning.json``. Severity is warning. The process keeps running.
+
+    The file names the condition. It does not copy bodies, tokens, or secrets.
+    """
+    body = {
+        "detected_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        "host": socket.gethostname(),
+        "log_path": str(log),
+        "severity": "warning",
+        "version": __version__,
+    }
+    for key, value in payload.items():
+        if key in {"body", "token", "authorization", "headers", "arguments", "result"}:
+            continue
+        body[key] = value
+    path = log.with_name(log.name + ".warning.json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.chmod(path, 0o600)
+    tighten_path(path)
+    if os.name == "nt":
+        from .channels.winacl import protect_owner_file
+
+        protect_owner_file(path)
+    _LOG.warning("audit warning kind=%s", body.get("kind"))
+    if command:
+        subprocess.run([*command, str(path)], shell=False, check=False)  # noqa: S603
+    return path
+
+
 def _head_values(log: Path) -> dict[str, Any] | None:
     try:
         head = read_head(log)

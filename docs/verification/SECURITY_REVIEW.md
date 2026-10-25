@@ -30,3 +30,4 @@ On Python 3.11, 3.12 and 3.13:
 - Stdio identity is the environment of the host process. The proxy does not run an identity provider.
 - Tool arguments are stored in full. Secrets must not be placed in arguments. `_meta` credential keys are stripped.
 - The size limit is 1 MiB per JSON-RPC message, including a stream that never sends a newline. The session ends. The body is not stored.
+- The bearer token file is private. POSIX requires mode 0600. Windows reads the NTFS DACL through the standard-library Win32 calls and refuses to start unless the only principals with access are the current user, SYSTEM, and BUILTIN\Administrators. The error prints the icacls command.

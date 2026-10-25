@@ -71,7 +71,7 @@ A JSON object. Unknown `policy` keys and unknown `plugins` keys refuse startup. 
 | `policy.http_deny` | Same shape. A match denies the route even when `http_allow` also matches |
 | `audit.path` | Default `./data/audit.jsonl`, relative to the config file. Overridden by `GLP_AUDIT_PATH` |
 | `audit.fail_closed` | Default true |
-| `audit.body_mode` | `hash_only` (default), `redacted`, or `full`. The raw body SHA-256 is always stored. `full` stores the body in the 0600 log |
+| `audit.body_mode` | `hash_only` (default), `redacted`, or `full`. The customer's and QA's decision. The raw body SHA-256 is always stored. `full` stores the request body and the response text in the 0600 log |
 | `audit.redact_paths` | JSON paths starting with `$`, used when `body_mode` is `redacted`. The replacement text is `***` |
 | `audit.max_body_bytes` | Default 1048576. Maximum 8388608. Over the limit: status 413, no forward, `body_sha256` null |
 | `audit.checkpoint_every` | Default 100. A missing or zero value is stored as 100, because the loader treats 0 as unset |
@@ -106,7 +106,7 @@ Each upstream object:
 
 `listen` turns on the HTTPS listener. The server CLI stays `--config` only. The fields are `bind`, `port` (0 to 65535; 0 picks a free port), `cert_file`, `key_file`, and `identity`. Paths are resolved next to the config file. The file does not have to exist at `config check`; it has to exist when the process binds.
 
-`listen.identity.mode` is `mtls`, `bearer`, or `mtls_and_bearer`. Any other value, including an empty mode, is refused. `mtls` needs `client_ca_file` and `principals` (each with a 64 hex SHA-256 `fingerprint`, plus `id`, `name`, and `role`). A `sha256:` prefix on the fingerprint is accepted and stripped. `bearer` needs `bearer_token_file` (mode 0600, one line) and `bearer_principal`. `mtls_and_bearer` needs both. `end_user_header` plus `end_users` records that configured id after the gate succeeds. The header value is not free text. A shared bearer is a gate, not a unique user id.
+`listen.identity.mode` is `mtls`, `bearer`, or `mtls_and_bearer`. Any other value, including an empty mode, is refused. `mtls` needs `client_ca_file` and `principals` (each with a 64 hex SHA-256 `fingerprint`, plus `id`, `name`, and `role`). A `sha256:` prefix on the fingerprint is accepted and stripped. `bearer` needs `bearer_token_file` (one line; mode 0600 on Linux and macOS; on Windows an NTFS ACL that grants access only to the current user, SYSTEM, and BUILTIN\Administrators) and `bearer_principal`. The Windows fix is `icacls <file> /inheritance:r /grant:r "%USERNAME%:R" SYSTEM:F Administrators:F`. `mtls_and_bearer` needs both. `end_user_header` plus `end_users` records that configured id after the gate succeeds. The header value is not free text. A shared bearer is a gate, not a unique user id.
 
 One audit record is written per request. Credential headers (names containing `authorization`, `cookie`, `token`, `secret`, `api-key`, `apikey`, `password`, or `passwd`) are dropped. Their names are listed. Their values are not stored. `X-Audit-Reason`, `X-Audit-Approval`, and `X-Audit-End-User` are not copied into the stored header map. The reason is stored in `reason`. HTTPS writes require `X-Audit-Reason` when reasons are on. `POST /_glp/approve` is the local approval route for an `approver` principal and is not subject to `http_allow`.
 

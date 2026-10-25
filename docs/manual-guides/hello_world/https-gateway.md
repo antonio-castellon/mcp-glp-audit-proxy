@@ -158,11 +158,11 @@ Step 6. Save this file as `config.json`. Replace the 64 zeros with the fingerpri
 
 What the new fields mean:
 
-- `audit.body_mode` `hash_only` stores the SHA-256 of the body and no body bytes. That is the default. `redacted` stores JSON with the paths in `redact_paths` replaced by `***`. `full` stores the body in the log. The log is mode 0600. The hash is stored in every mode.
+- `audit.body_mode` `hash_only` stores the SHA-256 of the body and no body bytes. That is the default. `redacted` stores JSON with the paths in `redact_paths` replaced by `***`. `full` stores the request body in the log and also stores the response text as `response_body`. Which value to use is the customer's and QA's decision. The log is mode 0600. The hash is stored in every mode.
 - `policy.http_allow` is `METHOD` then a space then a path glob. Empty denies every HTTPS route. It does not deny an MCP tool call.
 - `policy.http_deny` wins over allow. `GET /v1/studies/hidden` is denied even if the allow glob matches.
 - `listen` is what opens the socket. The command line is still only `--config`. `port` 8443 is the base URL the client uses.
-- `identity.mode` `mtls` requires a client certificate. `bearer` reads one token from a mode 0600 file. `mtls_and_bearer` requires both. There is no open mode.
+- `identity.mode` `mtls` requires a client certificate. `bearer` reads one token from a private file. `mtls_and_bearer` requires both. There is no open mode.
 - `routes` `flow` `api2api` forwards an HTTPS call to an HTTPS API. `upstream_path` is the path on that API. `{study}` is copied from the request path.
 - `kind` `api` means the upstream is an HTTPS API. `kind` `llm` is the same transport with record kind `llm`. `kind` `mcp` is a JSON-RPC MCP server.
 
@@ -190,7 +190,21 @@ If the fingerprint is not 64 hex characters, the check prints a plain-language e
 
 ## Hardened config
 
-Step 8. You can skip this step and keep the file from step 6. This file adds a bearer token, redacted bodies, and the other inbound flows. Save it over `config.json` only if you want that. Create `bearer.token` first, one line, no quotes. On Linux or macOS run `chmod 600 bearer.token`. Windows cannot store that mode bit; keep the file in a folder only that person can read.
+Step 8. You can skip this step and keep the file from step 6. This file adds a bearer token, redacted bodies, and the other inbound flows. Save it over `config.json` only if you want that. Create `bearer.token` first, one line, no quotes.
+
+Linux or macOS:
+
+```bash
+chmod 600 bearer.token
+```
+
+Windows (Command Prompt or PowerShell). This removes inherited access and grants read to the current user and full control to SYSTEM and Administrators:
+
+```text
+icacls bearer.token /inheritance:r /grant:r "%USERNAME%:R" SYSTEM:F Administrators:F
+```
+
+If the path contains a space, put quotes around the file. Startup allows access only for the current user, SYSTEM, and BUILTIN\Administrators. If Everyone, Users, Authenticated Users, or another account has access, the process refuses to start and prints that command.
 
 ```json proxy
 {
@@ -497,7 +511,7 @@ A `GET /v1/studies/hidden` row has `"status":"denied"` and a policy rule that st
 
 ## Pitfalls
 
-- The bearer file must be mode 0600 on Linux and macOS. Mode 0644 makes the process print `refusing to start` and exit 1. The token is never written to the log. Do not put it in the config.
+- On Linux and macOS the bearer file must be mode 0600. Mode 0644 makes the process print `refusing to start` and exit 1. On Windows the NTFS ACL may grant access only to the current user, SYSTEM, and BUILTIN\Administrators. Another principal makes the process refuse to start and print `icacls bearer.token /inheritance:r /grant:r "%USERNAME%:R" SYSTEM:F Administrators:F`. The token is never written to the log. Do not put it in the config.
 - A fingerprint that does not match the client certificate returns 401. The row principal id is `unauthenticated` and the role is `system`. A failed TLS handshake is not a row, because there was no HTTP request.
 - `POST` without `X-Audit-Reason` returns 403 and is not forwarded. The row rule is `write:reason-missing`.
 - A body larger than `max_body_bytes` returns 413. `http.body_sha256` is null. The upstream is not called.
@@ -511,6 +525,6 @@ If it does not work:
 - `config check` exits 1: read the one error line. The usual causes are a short fingerprint, a route flow that does not match the upstream `kind`, or `api2mcp` with no `tool`.
 - The client says the certificate is not trusted: `call.py` must load `ca.crt`, and the server certificate must list `127.0.0.1`.
 - The client says the handshake failed: the client has to offer TLS 1.3 and, for `mtls`, the client certificate.
-- The proxy prints `refusing to start` and the bearer file is the cause: set mode 0600 and put exactly one line in the file.
+- The proxy prints `refusing to start` and the bearer file is the cause: on Linux or macOS set mode 0600. On Windows run the `icacls` command printed in the error (`icacls bearer.token /inheritance:r /grant:r "%USERNAME%:R" SYSTEM:F Administrators:F`). Put exactly one line in the file.
 - You see 404 `no route for this request`: the method or the path does not match a `routes` entry. The path in the record is the concrete path. The route field is the template.
 - You see 403 `allow:none`: add the method and path to `http_allow`, or remove a matching `http_deny` line.

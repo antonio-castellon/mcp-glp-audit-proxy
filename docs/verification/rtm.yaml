@@ -499,9 +499,9 @@ requirements:
   - id: VER-HTTPS
     source: "HTTPS gateway"
     scope: community
-    statement: "One hash-chained record per MCP or HTTPS call, with route policy, a body hash, and mTLS or bearer identity. Plain HTTP is refused."
-    modules: [src/mcp_glp_audit_proxy/channels/https_inbound.py, src/mcp_glp_audit_proxy/channels/https_outbound.py, src/mcp_glp_audit_proxy/policy.py]
-    tests: [tests/test_https_gateway.py::test_six_flows_policy_body_and_identity, tests/test_https_gateway.py::test_bearer_and_mtls_modes, tests/test_https_gateway.py::test_tls_verification_cannot_be_disabled, tests/test_https_gateway.py::test_mixed_schema_chain_verifies]
+    statement: "One hash-chained record per MCP or HTTPS call, with route policy, a body hash, and mTLS or bearer identity. On Windows the bearer file ACL allows only the current user, SYSTEM, and Administrators. Plain HTTP is refused."
+    modules: [src/mcp_glp_audit_proxy/channels/https_inbound.py, src/mcp_glp_audit_proxy/channels/https_outbound.py, src/mcp_glp_audit_proxy/channels/identity.py, src/mcp_glp_audit_proxy/channels/winacl.py, src/mcp_glp_audit_proxy/policy.py]
+    tests: [tests/test_https_gateway.py::test_six_flows_policy_body_and_identity, tests/test_https_gateway.py::test_bearer_and_mtls_modes, tests/test_https_gateway.py::test_tls_verification_cannot_be_disabled, tests/test_https_gateway.py::test_mixed_schema_chain_verifies, tests/test_bearer_acl.py::test_other_principals_are_refused_with_the_icacls_command, tests/test_bearer_acl.py::test_posix_bearer_file_must_be_mode_0600]
   - id: CUST-CSV
     source: "docs/COVERAGE.md section 3"
     scope: customer

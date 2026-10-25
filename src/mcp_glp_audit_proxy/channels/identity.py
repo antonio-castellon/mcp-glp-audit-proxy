@@ -1,9 +1,12 @@
 """HTTPS identity for the Community edition.
 
 A request is accepted only after mTLS, a static bearer token, or both.
-The bearer is read from a mode 0600 file and compared without putting it
-in a log line. OIDC and SSO are not implemented. A licensed plugin can
-register in ``mcp_glp_audit_proxy.auth``; this module does not call one.
+The bearer is read from a private file and compared without putting it
+in a log line. POSIX requires mode 0600. Windows requires an NTFS ACL
+that grants access only to the current user, SYSTEM, and
+BUILTIN\\Administrators. OIDC and SSO are not implemented. A licensed
+plugin can register in ``mcp_glp_audit_proxy.auth``; this module does
+not call one.
 """
 
 from __future__ import annotations
@@ -29,7 +32,7 @@ def same_secret(presented: str, expected: str) -> bool:
 
 
 def read_bearer(path: Path) -> str:
-    """Return the single-line token. Refuse a file that is not mode 0600."""
+    """Return the single-line token. Refuse a file that is not private."""
     assert_mode_0600(path)
     text = path.read_text(encoding="utf-8")
     if text.endswith("\r\n"):
@@ -42,10 +45,16 @@ def read_bearer(path: Path) -> str:
 
 
 def assert_mode_0600(path: Path) -> None:
+    """Refuse a bearer file the current account does not exclusively control.
+
+    POSIX requires mode 0600. Windows reads the NTFS DACL.
+    """
     if not path.is_file():
         raise ConfigurationError(f"bearer token file not found: {path}")
     if os.name == "nt":
-        # Windows cannot store a POSIX 0600 mode. The open still does not log the bytes.
+        from .winacl import assert_windows_bearer_acl
+
+        assert_windows_bearer_acl(path)
         return
     mode = path.stat().st_mode & 0o777
     if mode != 0o600:

@@ -21,7 +21,10 @@
   "audit": {
     "path": "./data/audit.jsonl",
     "fail_closed": true,
-    "checkpoint_every": 100
+    "checkpoint_every": 100,
+    "body_mode": "hash_only",
+    "redact_paths": [],
+    "max_body_bytes": 1048576
   },
   "approval_ttl_seconds": 3600,
   "require_ntp": false,

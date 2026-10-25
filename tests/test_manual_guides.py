@@ -294,7 +294,7 @@ def test_airgap_wheel_builds_without_deps(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr
     wheels = list(tmp_path.glob("mcp_glp_audit_proxy-*.whl"))
     assert len(wheels) == 1
-    assert "0.3.2" in wheels[0].name
+    assert "0.4.0" in wheels[0].name
     with zipfile.ZipFile(wheels[0]) as archive:
         names = archive.namelist()
     assert any(name.endswith("mcp_glp_audit_proxy/release_trust.json") for name in names)
@@ -327,6 +327,8 @@ def _prepare(raw: dict, directory: Path) -> dict:
 
 def _exercise(raw: dict, directory: Path) -> None:
     config = _prepare(raw, directory)
+    if config.get("listen"):
+        return
     https = any(item.get("transport") == "https" for item in config.get("upstreams") or [])
     path = directory / "config.json"
     path.write_text(json.dumps(config), encoding="utf-8")

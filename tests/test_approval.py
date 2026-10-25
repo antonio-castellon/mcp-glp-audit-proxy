@@ -93,7 +93,7 @@ def test_reviewed_and_rejected_do_not_authorise(build) -> None:
     assert reviewed["status"] == "reviewed"
     assert reviewed["approval"]["status"] == "reviewed"
     assert reviewed["approval"]["meaning"] == "reviewed"
-    assert reviewed["schema_version"] == SCHEMA_VERSION == "1.1.0"
+    assert reviewed["schema_version"] == SCHEMA_VERSION == "1.2.0"
     jsonschema.validate(reviewed, SCHEMA)
     approved = call_tool(
         stack["proxies"]["qa"],
@@ -203,7 +203,7 @@ def test_legacy_reviewed_approval_still_verifies_and_does_not_authorise(build) -
     store.append_event(decision)
     report = verify_file(store.path)
     assert report.ok, report.errors
-    assert report.entries[0]["schema_version"] == "1.1.0"
+    assert report.entries[0]["schema_version"] == "1.2.0"
     on_disk = [entry for entry in report.entries if entry["method"] == "glp_approve"][-1]
     assert on_disk["schema_version"] == "1.0.0"
     assert on_disk["status"] == "approved"

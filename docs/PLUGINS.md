@@ -20,6 +20,8 @@ Each factory declares `licence_feature`, a string such as `storage.sql`. Communi
 
 Community does not add an identity provider. `IdentityProvider` is the contract, and `env` is the default: it returns the principal `load_settings` already took from `GLP_PRINCIPAL_*` or `config.json`. `resolve()` returns `{"id", "name", "role"}`. Another auth plugin uses the same `(settings, options=)` factory signature and the same method, and it declares its own `licence_feature`. This repository does not implement one.
 
+HTTPS listener identity is not this plugin. It is `listen.identity` in the config: `mtls`, `bearer`, or `mtls_and_bearer`. OIDC and SSO stay a plugin point on `mcp_glp_audit_proxy.auth`. This repository does not ship that plugin.
+
 `load_group` in `mcp_glp_audit_proxy.plugins` returns `{name: loaded object}`. A missing group is an empty dict.
 
 ## Selection

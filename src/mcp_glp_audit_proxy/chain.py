@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .canonical import CANON, GENESIS, HASH_ALGO, canonicalize
+from .canonical import ACCEPTED_SCHEMA_VERSIONS, CANON, GENESIS, HASH_ALGO, canonicalize
 from .permissions import tighten_path
 
 
@@ -79,6 +79,10 @@ def verify_bytes(data: bytes) -> VerifyReport:
         if parsed.get("canonicalization") != CANON:
             errors.append(
                 f"line {index}: unsupported canonicalization {parsed.get('canonicalization')!r}"
+            )
+        if parsed.get("schema_version") not in ACCEPTED_SCHEMA_VERSIONS:
+            errors.append(
+                f"line {index}: unsupported schema_version {parsed.get('schema_version')!r}"
             )
         prev = claimed if isinstance(claimed, str) else ""
         entries.append(parsed)

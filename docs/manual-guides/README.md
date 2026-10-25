@@ -1,6 +1,6 @@
 # Manual guides
 
-Usage and configuration for the Community edition of mcp-glp-audit-proxy (v0.3.2). The package is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Your own SOPs, reviews, and the systems around the proxy still decide whether a deployment meets those rules.
+Usage and configuration for the Community edition of mcp-glp-audit-proxy (v0.4.0). The commercial name is GxP Gateway Audit. The package is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Your own SOPs, reviews, and the systems around the proxy still decide whether a deployment meets those rules.
 
 Every sample below was taken from the command line and the config loader in this repository. The proxy accepts no flags that are not listed here.
 
@@ -11,16 +11,16 @@ The host must start `mcp-glp-audit-proxy` and must not also register the upstrea
 If the host can call the upstream directly, calls never reach the audit log. Do not publish the upstream on a port the host can open. Do not add it as a second MCP server next to the proxy.
 
 ```
-host (editor, desktop app, or Python agent)
-        |  stdio JSON-RPC only
+host or HTTPS client
+        |  stdio JSON-RPC, or HTTPS when listen is set
         v
-mcp-glp-audit-proxy          <-- the only MCP server the host configures
+mcp-glp-audit-proxy          <-- the only server the host configures
         |  stdio child, or HTTPS (TLS 1.3)
         v
-upstream MCP server          <-- not configured in the host
+upstream MCP, HTTPS API, or LLM API
 ```
 
-There is no HTTP listener in this edition. The proxy reads newline-delimited JSON-RPC on stdin and writes it on stdout. Logs from the process go to stderr.
+With no `listen` object the proxy reads newline-delimited JSON-RPC on stdin and writes it on stdout, and it does not open a socket. With `listen` the same command serves HTTPS (TLS 1.3 only) and does not read stdio. There is no plaintext listener. Logs from the process go to stderr.
 
 ## What the process accepts
 
@@ -67,8 +67,13 @@ A JSON object. Unknown `policy` keys and unknown `plugins` keys refuse startup. 
 | `policy.write_tools` | Globs that count as writes |
 | `policy.require_approval_for_writes` | Default false |
 | `policy.require_reason_for_writes` | Default true |
+| `policy.http_allow` | List of `METHOD /path` globs. Empty denies every HTTPS route. It does not deny MCP tools. Deny wins |
+| `policy.http_deny` | Same shape. A match denies the route even when `http_allow` also matches |
 | `audit.path` | Default `./data/audit.jsonl`, relative to the config file. Overridden by `GLP_AUDIT_PATH` |
 | `audit.fail_closed` | Default true |
+| `audit.body_mode` | `hash_only` (default), `redacted`, or `full`. The raw body SHA-256 is always stored. `full` stores the body in the 0600 log |
+| `audit.redact_paths` | JSON paths starting with `$`, used when `body_mode` is `redacted`. The replacement text is `***` |
+| `audit.max_body_bytes` | Default 1048576. Maximum 8388608. Over the limit: status 413, no forward, `body_sha256` null |
 | `audit.checkpoint_every` | Default 100. A missing or zero value is stored as 100, because the loader treats 0 as unset |
 | `approval_ttl_seconds` | Default 3600. A missing or zero value is stored as 3600 |
 | `require_ntp` | Default false. When true, startup refuses unless `timedatectl` reports `NTPSynchronized=yes` |
@@ -92,7 +97,20 @@ Each upstream object:
 | `protocol` | `auto` (default), `legacy`, or `modern` |
 | `command`, `args`, `env`, `cwd` | stdio. `command` is required for stdio. `env` is merged onto the SDK allow-list. It is the only place for that upstream's own credentials |
 | `url`, `headers` | https. `url` must be `https://`. TLS 1.3 only. `headers` are that backend's own credentials. The host's token is never copied here |
-| `timeout` | Positive number. Applied to stdio. Omitted stdio uses 60 seconds. Community 0.3.2 does not pass this field into the HTTPS client, which uses 30 seconds |
+| `kind` | `mcp` (default), `api`, or `llm`. `api` and `llm` require `transport` `https`. `llm` is an HTTPS LLM API. Records use kind `llm` |
+| `ca_file` | PEM trust anchor for that upstream. When set, it replaces the system trust store for that connection. Verification stays on |
+| `endpoints` | For `api` and `llm`. Each item is `tool`, `method`, and `path`. The exposed MCP tool is `name__tool`. `{name}` in the path is a required string argument |
+| `timeout` | Positive number. Omitted stdio uses 60 seconds. Omitted HTTPS uses 30 seconds. When the field is set, that value is passed to the client |
+
+`routes` is the inbound HTTPS table. Each item has `flow` (`api2api`, `api2mcp`, or `api2llm`), `methods`, `path` (a template such as `/v1/studies/{study}`), `upstream`, and optionally `upstream_path` or `tool` (`api2mcp` requires `tool`). `mcp2mcp`, `mcp2api`, and `mcp2llm` are chosen from the upstream `kind` when the client is MCP. They are not rows in `routes`.
+
+`listen` turns on the HTTPS listener. The server CLI stays `--config` only. The fields are `bind`, `port` (0 to 65535; 0 picks a free port), `cert_file`, `key_file`, and `identity`. Paths are resolved next to the config file. The file does not have to exist at `config check`; it has to exist when the process binds.
+
+`listen.identity.mode` is `mtls`, `bearer`, or `mtls_and_bearer`. Any other value, including an empty mode, is refused. `mtls` needs `client_ca_file` and `principals` (each with a 64 hex SHA-256 `fingerprint`, plus `id`, `name`, and `role`). A `sha256:` prefix on the fingerprint is accepted and stripped. `bearer` needs `bearer_token_file` (mode 0600, one line) and `bearer_principal`. `mtls_and_bearer` needs both. `end_user_header` plus `end_users` records that configured id after the gate succeeds. The header value is not free text. A shared bearer is a gate, not a unique user id.
+
+One audit record is written per request. Credential headers (names containing `authorization`, `cookie`, `token`, `secret`, `api-key`, `apikey`, `password`, or `passwd`) are dropped. Their names are listed. Their values are not stored. `X-Audit-Reason`, `X-Audit-Approval`, and `X-Audit-End-User` are not copied into the stored header map. The reason is stored in `reason`. HTTPS writes require `X-Audit-Reason` when reasons are on. `POST /_glp/approve` is the local approval route for an `approver` principal and is not subject to `http_allow`.
+
+Streaming is not part of 0.4.0. A missing `Content-Length` is an empty body. The body is not read past `max_body_bytes`.
 
 `protocol` `auto` tries `server/discover` and falls back to `initialize` at protocol `2025-11-25`. `legacy` skips discovery. `modern` requires discovery.
 
@@ -118,7 +136,7 @@ Flags: `--json-export`, `--record-class`, `--tool`, `--status`, `--principal`, `
 | `glp_search_audit` | `record_class`, `tool`, `principal_id`, `status`, `method`, `server`, `since`, `until` |
 | `glp_export_audit` | those filters, plus `path` and `format` (`json` or `text` in Community) |
 | `glp_approve` | `approval_id`, `meaning` (`approved`, `reviewed`, or `rejected`) |
-| `glp_update_policy` | `reason` required, plus any of `allow`, `deny`, `write_tools`, `require_approval_for_writes`, `require_reason_for_writes`, `audit_enabled` |
+| `glp_update_policy` | `reason` required, plus any of `allow`, `deny`, `write_tools`, `http_allow`, `http_deny`, `require_approval_for_writes`, `require_reason_for_writes`, `audit_enabled` |
 
 `audit_enabled: false` is denied. A write reason is `_meta["io.github.antonio-castellon/reason"]` or the argument `_glp_reason` (removed before the upstream call and before the approval hash). The approval id on a later write is `_meta["io.github.antonio-castellon/approvalId"]`.
 
@@ -149,5 +167,6 @@ A message larger than 1048576 bytes (1 MiB) with no newline ends the session. Th
 | [hello_world/README.md](hello_world/README.md) | Which hello-world page covers each transport |
 | [hello_world/stdio-to-proxy-to-stdio.md](hello_world/stdio-to-proxy-to-stdio.md) | Numbered first run: PyPI, init, one allowed call, one blocked call, a stdio target |
 | [hello_world/stdio-to-proxy-to-https.md](hello_world/stdio-to-proxy-to-https.md) | The same first run with an HTTPS (TLS 1.3) target |
+| [hello_world/https-gateway.md](hello_world/https-gateway.md) | HTTPS listener, the six flows, body storage, and mTLS or bearer |
 
 [QUICKSTART.md](QUICKSTART.md) is the terminal audit from a checkout. [hello_world/README.md](hello_world/README.md) is the coverage matrix for a PyPI install. Each walkthrough, and each other guide except QUICKSTART.md and that matrix, has prerequisites, install, a minimal config, a hardened config, a verification step, and pitfalls. The host guides also have a hello world that uses `examples/config.json` with the approval gate off.

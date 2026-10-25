@@ -26,7 +26,7 @@ def build_proxy(settings: Settings, features: FeatureSet | None = None) -> Audit
     settings.validate()
     apply_identity(settings, flags)
     store, reporters = build_components(settings, flags)
-    upstreams = [_build_upstream(item) for item in settings.upstreams or []]
+    upstreams = [_build_upstream(item, settings) for item in settings.upstreams or []]
     return AuditProxy(settings, store, upstreams, features=flags, reporters=reporters)
 
 
@@ -104,6 +104,11 @@ def main(argv: list[str] | None = None) -> None:
     except (ConfigurationError, OSError, ValueError, RuntimeError) as exc:
         print(f"mcp-glp-audit-proxy: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
+    if settings.listen is not None:
+        from .channels.https_inbound import serve_https
+
+        serve_https(proxy, settings)
+        return
     serve_stdio(proxy)
 
 
@@ -119,11 +124,33 @@ def _end_unbounded(proxy: AuditProxy) -> None:
         _write(response)
 
 
-def _build_upstream(item: Any) -> JsonRpcUpstream:
+def _build_upstream(item: Any, settings: Any | None = None) -> Any:
+    kind = getattr(item, "kind", "mcp")
+    if kind in {"api", "llm"}:
+        from .channels.api_upstream import ApiUpstream
+
+        if not item.url:
+            raise ConfigurationError(f"upstream {item.name}: https transport requires url")
+        body_mode = getattr(settings, "body_mode", "hash_only")
+        redact_paths = getattr(settings, "redact_paths", ())
+        max_body = getattr(settings, "max_body_bytes", 1_048_576)
+        return ApiUpstream(
+            name=item.name,
+            kind=kind,
+            url=item.url,
+            ca_file=item.ca_file,
+            headers=item.headers,
+            timeout=item.timeout if item.timeout is not None else 30.0,
+            endpoints=list(item.endpoints),
+            body_mode=body_mode,
+            redact_paths=redact_paths,
+            max_body_bytes=max_body,
+        )
     if item.transport == "https":
         if not item.url:
             raise ConfigurationError(f"upstream {item.name}: https transport requires url")
-        transport = HttpsTransport(item.url, item.headers)
+        timeout = item.timeout if item.timeout is not None else 30.0
+        transport = HttpsTransport(item.url, item.headers, timeout=timeout, ca_file=item.ca_file)
     else:
         if not item.command:
             raise ConfigurationError(f"upstream {item.name}: stdio transport requires command")

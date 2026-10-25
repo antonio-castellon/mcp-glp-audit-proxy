@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcp-glp-audit-proxy"
-version = "0.3.2"
-description = "Local MCP proxy that writes a tamper-evident audit trail. Designed to support GLP traceability."
+version = "0.4.0"
+description = "GxP Gateway Audit. Audits MCP and HTTPS calls with a tamper-evident trail."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"

@@ -15,9 +15,11 @@ import rfc8785
 HASH_ALGO = "sha-256"
 CANON = "rfc8785"
 GENESIS = "0" * 64
-# New records use 1.1.0. 1.0.0 lines stay valid: verify_bytes accepts both.
+# New records use 1.2.0. 1.0.0 and 1.1.0 lines stay valid in the same chain.
 # 1.1.0 adds record status "reviewed" and approval.status "reviewed".
-SCHEMA_VERSION = "1.1.0"
+# 1.2.0 adds transport, channel, flow, and the http object.
+SCHEMA_VERSION = "1.2.0"
+ACCEPTED_SCHEMA_VERSIONS = frozenset({"1.0.0", "1.1.0", "1.2.0"})
 
 
 def canonicalize(value: Any) -> bytes:

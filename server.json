@@ -1,19 +1,19 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.antonio-castellon/mcp-glp-audit-proxy",
-  "title": "GLP Audit Proxy",
-  "description": "Local MCP proxy with a tamper-evident audit trail for GLP traceability.",
+  "title": "GxP Gateway Audit",
+  "description": "Audits MCP and HTTPS calls. Tamper-evident trail for GLP.",
   "repository": {
     "url": "https://github.com/antonio-castellon/mcp-glp-audit-proxy",
     "source": "github"
   },
-  "version": "0.3.2",
+  "version": "0.4.0",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "mcp-glp-audit-proxy",
-      "version": "0.3.2",
+      "version": "0.4.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

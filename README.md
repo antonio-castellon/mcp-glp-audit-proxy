@@ -14,7 +14,9 @@ mcp-name: io.github.antonio-castellon/mcp-glp-audit-proxy
 
 # mcp-glp-audit-proxy
 
-Local MCP proxy that sits between an MCP host and your MCP servers and writes a tamper-evident audit trail. Community edition, v0.3.2. Changes since 0.2.0 are in `CHANGELOG.md`.
+GxP Gateway Audit (package mcp-glp-audit-proxy) audits MCP and HTTP(S) APIs, gateways, and LLM endpoints. Community edition, v0.4.0. The package name, the command names, and the MCP Registry id stay `mcp-glp-audit-proxy`. Changes since 0.2.0 are in `CHANGELOG.md`.
+
+The listener and every remote URL are HTTPS with TLS 1.3. Plain HTTP is refused. With no `listen` object the process is still the stdio MCP proxy between a host and its MCP servers.
 
 It is designed to support GLP / 21 CFR Part 11 / EU GMP Annex 11 workflows. Data stays on the customer's infrastructure. This package is the open core. Signed checkpoints, WORM storage, PDF/CSV reports, the IQ/OQ pack and SSO/OAuth are Pro features and are not in this repository. Personal Part 11 e-signatures are out of scope. Community is tamper-evident via the hash chain. It is not signed. Signing is Pro.
 
@@ -48,7 +50,7 @@ export GLP_PRINCIPAL_ROLE=operator
 mcp-glp-audit-proxy --config config.json
 ```
 
-Stdio identity comes from the environment. There is no HTTP listener. A Cursor snippet is in `mcp.json`. A full config is in `config.example.json`.
+Stdio identity comes from the environment (`GLP_PRINCIPAL_ID`, `GLP_PRINCIPAL_NAME`, `GLP_PRINCIPAL_ROLE`). When the config has no `listen` object, the process reads newline-delimited JSON-RPC on stdin and writes it on stdout, and it does not open a socket. When `listen` is set, the same command serves HTTPS and does not read stdio. A Cursor snippet is in `mcp.json`. A full config is in `config.example.json`. The config reference is [`docs/manual-guides/README.md`](docs/manual-guides/README.md).
 
 `plugins.storage`, `plugins.signer`, `plugins.reporters` and `plugins.auth` select entry points. The defaults are `jsonl`, `unsigned`, `json` plus `text`, and `env`. `env` returns the principal from `GLP_PRINCIPAL_*` or the config file. It is not an identity provider. An unknown plugin, or a plugin whose declared licence feature is not enabled, refuses to start. The factory is not called. The proxy does not fall back to another backend. See `docs/PLUGINS.md`.
 
@@ -90,6 +92,8 @@ Every mediated call, including denials and failures, is one JSON object on an ap
 
 Fields include who (`principal` id, name, role), which tool, inputs, outputs, UTC timestamp plus `utc_offset`, protocol version, optional session id, record class (`gxp_data`, `access`, `technical`, `config`), reason for writes, and the previous hash.
 
+Schema 1.2.0 also stores `transport` (`stdio` or `https`), `channel` (`mcp` or `https`), `flow` (`mcp2mcp`, `mcp2api`, `api2mcp`, `api2api`, `mcp2llm`, `api2llm`, or null on local records), and `http`. The `http` object holds the method, the route template, the path with the query string removed, the kept headers, the names of stripped credential headers, the body SHA-256, `body_mode`, the stored body, the status, `latency_ms`, and `kind` (`api`, `llm`, or `mcp`). The query string is forwarded and is not stored. 1.0.0 and 1.1.0 lines omit those four keys and stay valid in the same chain.
+
 The GxP trail is that file. The Python `logging` logger `mcp_glp_audit_proxy.technical` writes method, status and record class to stderr. It is not the record. Arguments are not written there.
 
 ## Policy
@@ -99,6 +103,10 @@ The GxP trail is that file. The Python `logging` logger `mcp_glp_audit_proxy.tec
 - Auditing cannot be switched off. `glp_update_policy` with `audit_enabled: false` is denied and logged.
 - Write tools (names matching `write_tools`) require a reason by default. The reason is `_meta["io.github.antonio-castellon/reason"]` or the argument `_glp_reason` (stripped before the upstream call).
 - Optional human approval holds the write until a different person in the `approver` role records meaning `approved`. `reviewed` is stored with status `reviewed` and does not authorise the write. A log written before schema 1.1.0 may show that decision as status `approved` with meaning `reviewed`; those lines still verify and still do not authorise the write. `rejected` rejects it. An approval is single-use, bound to the SHA-256 of the canonical `{tool, arguments}`, and expires (default 3600 seconds). A successful write that presents a matching approval records it as consumed even if `require_approval_for_writes` was turned off before that call. A failed upstream call does not consume it. The record label is `approval`. It is not an electronic signature.
+- HTTP routes use a second pair of lists, `http_allow` and `http_deny`. Each entry is `METHOD /path` with a shell-style glob on the path (`GET /v1/studies/*`). Deny wins. An empty `http_allow` denies every HTTPS route. It does not deny MCP tool calls. Only `operator` may call an HTTPS route.
+- `audit.body_mode` is `hash_only` (the default for a new config), `redacted`, or `full`. The SHA-256 of the raw request body is always recorded. `hash_only` stores no body bytes. `redacted` stores JSON with the paths in `audit.redact_paths` replaced by `***` (a non-JSON body stores no plaintext). `full` stores the parsed JSON, or the UTF-8 text, inside the hash-chained record. The log file is mode 0600. Binary that is not UTF-8 is hashed and not stored. The response body is returned to the client. It is stored in the record only when `body_mode` is `full`, as `response_body`, next to `response_sha256`.
+- The default body limit is 1048576 bytes. `audit.max_body_bytes` may be raised up to 8388608. A larger body is refused with status 413, is not forwarded, and is recorded with `body_sha256` null. Streaming is not part of 0.4.0. A request with no `Content-Length` is treated as an empty body.
+- HTTPS writes (`POST`, `PUT`, `PATCH`, `DELETE`) require the header `X-Audit-Reason` when `require_reason_for_writes` is true. Optional approval reuses the same engine. The bound hash is the canonical `{tool, arguments}` where `tool` is `http:METHOD /route-template` and `arguments` are `body_sha256` plus the concrete path. The approver calls `glp_approve` or `POST /_glp/approve`. `reviewed` and `rejected` do not authorise the write.
 - Fail closed is the default. The store is checked before a call is forwarded. If the append after a successful upstream call fails, the upstream payload is not returned to the host. Denied and failed calls are still logged. If the upstream may already have applied a write, follow `docs/RECONCILIATION_SOP.md`.
 
 ## Protocol
@@ -109,7 +117,11 @@ Exposed tool names are `server__tool`. Resource URIs are prefixed `server:`. Cre
 
 ## Regulatory coverage
 
-mcp-glp-audit-proxy is designed to support the audit-trail requirements below. Meeting them still depends on your validated use, SOPs and reviews. The clause-by-clause matrix is `docs/COVERAGE.md`. The norms and the verification log are `docs/STANDARDS.md`.
+mcp-glp-audit-proxy is designed to support the audit-trail requirements below. Meeting them still depends on your SOPs and reviews. The clause-by-clause matrix is `docs/COVERAGE.md`. The norms and the verification log are `docs/STANDARDS.md`.
+
+HTTPS identity is one of three modes. `mtls` maps the SHA-256 fingerprint of the client certificate to a principal. `bearer` reads one static token from a mode 0600 file and compares it without writing the token to a log or to the record. `mtls_and_bearer` requires both. There is no unauthenticated mode and no plaintext listener. A shared bearer is a gate. It is not a unique user id. An optional `end_user_header` is accepted only after that gate, and only when the header value is a configured user id.
+
+[To be verified against the official source before you cite it.] 21 CFR Part 11 11.10(d) and 11.300, and EU GMP Annex 11 sections 12 and 14, are the clauses this project treats as requiring attributable, unique user identification and controlled access. `docs/STANDARDS.md` records a check on 2026-10-18: 11.10(d) limits system access to authorised individuals, and 11.300 covers identification codes and passwords. This paraphrase is not a quotation. Uniqueness of electronic signatures is 11.100(a) and stays out of scope. The mode that fits those expectations is per-user attribution: one client certificate per person, or the end-user header from an authenticated gateway. The package is designed to support that attribution. A shared bearer plus a client-supplied header is only as strong as the gateway that checked the person.
 
 | Framework | What the proxy helps with | Edition |
 |---|---|---|
@@ -146,6 +158,13 @@ A mark means that edition includes the capability. Pro includes every Community 
 | DE / FR / EN report templates | :x: | :white_check_mark: |
 | Old/new value capture for write tools | :x: | :white_check_mark: |
 | Tool allowlist / denylist | :white_check_mark: | :white_check_mark: |
+| HTTP method and route policy | :white_check_mark: | :white_check_mark: |
+| HTTPS listener (TLS 1.3, no plaintext) | :white_check_mark: | :white_check_mark: |
+| mTLS client-certificate identity | :white_check_mark: | :white_check_mark: |
+| Static bearer token from a 0600 file | :white_check_mark: | :white_check_mark: |
+| Request body SHA-256, optional redacted or full body | :white_check_mark: | :white_check_mark: |
+| Gateway flows across MCP, HTTPS APIs, and LLM APIs | :white_check_mark: | :white_check_mark: |
+| OIDC for the HTTPS listener | :x: | :white_check_mark: |
 | Local roles (operator, approver, qa, admin) | :white_check_mark: | :white_check_mark: |
 | Human approval before writes | :white_check_mark: | :white_check_mark: |
 | Ed25519 / ECDSA signed checkpoints | :x: | :white_check_mark: |
@@ -162,7 +181,7 @@ A mark means that edition includes the capability. Pro includes every Community 
 | Offline licence file, no phone-home | :white_check_mark: | :white_check_mark: reads the same file |
 | Config wizard and config check | :white_check_mark: | :white_check_mark: |
 
-Checked against this repository on 2026-10-22. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py`, the offline licence loader (LM1 and LM2), and `init` / `config check`. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. The licence shapes are described under Configure. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Personal Part 11 e-signatures are out of scope for both editions. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
+Checked against this repository on 2026-10-25. Community marks match the code: JSONL store, `verify` CLI, JSON and text reporters, `glp_search_audit` / `glp_export_audit`, allow and deny lists, HTTP method and route policy, the four local roles, `glp_approve` stored as `approval`, unsigned checkpoints, TLS 1.3 in `tlsutil.py` and on the HTTPS listener, mTLS and the static bearer file, `body_mode`, the offline licence loader (LM1 and LM2), and `init` / `config check`. OIDC for the HTTPS listener is not in this tree. Pro marks follow the edition column in `docs/COVERAGE.md`. A plugin outside this tree declares `licence_feature`. Community enables that feature when the licence fingerprint matches this install's `client_id` and licensed plugins. The licence shapes are described under Configure. The fingerprint is not a machine id. PostgreSQL, MSSQL, S3 Object Lock, PDF/CSV, Ed25519/ECDSA, RFC 3161, the IQ/OQ pack, and SSO/OAuth are not implemented in this tree. Personal Part 11 e-signatures are out of scope for both editions. Syslog, KMS/HSM, and review flags/sign-off are Pro in `docs/COVERAGE.md` and are not in this tree. DE/FR/EN templates, the Merkle log, old/new value capture, and OpenTelemetry spans are marked for Pro. FIPS 140-3 mode is on request. The open OQ runner (`mcp-glp-audit-proxy-oq`) is not the IQ/OQ validation pack.
 
 Plugin entry points, the `AuditStore` / `Signer` / `Reporter` contracts, and the licence file are described in `docs/PLUGINS.md`.
 

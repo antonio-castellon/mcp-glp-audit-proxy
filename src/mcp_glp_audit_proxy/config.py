@@ -63,6 +63,54 @@ class Retention:
 
 
 @dataclass
+class EndpointConfig:
+    tool: str
+    method: str
+    path: str
+
+
+@dataclass
+class RouteConfig:
+    flow: str
+    methods: tuple[str, ...]
+    path: str
+    upstream: str
+    upstream_path: str | None = None
+    tool: str | None = None
+
+
+@dataclass
+class MappedPrincipal:
+    id: str
+    name: str
+    role: str
+    fingerprint: str | None = None
+
+    def as_dict(self) -> dict[str, str]:
+        return {"id": self.id, "name": self.name, "role": self.role}
+
+
+@dataclass
+class ListenIdentity:
+    mode: str
+    client_ca_file: str | None = None
+    principals: tuple[MappedPrincipal, ...] = ()
+    bearer_token_file: str | None = None
+    bearer_principal: MappedPrincipal | None = None
+    end_user_header: str | None = None
+    end_users: tuple[MappedPrincipal, ...] = ()
+
+
+@dataclass
+class ListenConfig:
+    bind: str
+    port: int
+    cert_file: str
+    key_file: str
+    identity: ListenIdentity
+
+
+@dataclass
 class UpstreamConfig:
     name: str
     transport: str
@@ -74,6 +122,9 @@ class UpstreamConfig:
     headers: dict[str, str] | None = None
     cwd: str | None = None
     timeout: float | None = None
+    kind: str = "mcp"
+    ca_file: str | None = None
+    endpoints: list[EndpointConfig] = field(default_factory=list)
 
 
 @dataclass
@@ -95,6 +146,11 @@ class Settings:
     reporters: tuple[str, ...] = _DEFAULT_REPORTERS
     auth: str = "env"
     plugin_options: dict[str, Any] = field(default_factory=dict)
+    body_mode: str = "hash_only"
+    redact_paths: tuple[str, ...] = ()
+    max_body_bytes: int = 1_048_576
+    listen: ListenConfig | None = None
+    routes: list[RouteConfig] = field(default_factory=list)
 
     def validate(self) -> None:
         if self.principal.role not in ROLES:
@@ -106,19 +162,73 @@ class Settings:
         self.retention.validate()
         if self.fail_closed is not True and self.fail_closed is not False:
             raise ConfigurationError("fail_closed must be a boolean")
+        if self.body_mode not in {"hash_only", "redacted", "full"}:
+            raise ConfigurationError("audit.body_mode must be hash_only, redacted, or full")
+        for path in self.redact_paths:
+            if not path.startswith("$"):
+                raise ConfigurationError(f"redact path must start with $: {path}")
+        if not isinstance(self.max_body_bytes, int) or not 1 <= self.max_body_bytes <= 8_388_608:
+            raise ConfigurationError("audit.max_body_bytes must be from 1 to 8388608")
+        names = set()
         for upstream in self.upstreams or []:
             if not _NAME.match(upstream.name) or "__" in upstream.name:
                 raise ConfigurationError(
                     f"upstream name {upstream.name!r} must be a short token without '__'"
                 )
+            names.add(upstream.name)
             if upstream.transport not in {"stdio", "https"}:
                 raise ConfigurationError(
                     f"upstream {upstream.name}: transport must be stdio or https"
+                )
+            if upstream.kind not in {"mcp", "api", "llm"}:
+                raise ConfigurationError(
+                    f"upstream {upstream.name}: kind must be mcp, api, or llm"
+                )
+            if upstream.kind in {"api", "llm"} and upstream.transport != "https":
+                raise ConfigurationError(
+                    f"upstream {upstream.name}: kind {upstream.kind} requires transport https"
                 )
             if upstream.protocol not in {"auto", "legacy", "modern"}:
                 raise ConfigurationError(
                     f"upstream {upstream.name}: protocol must be auto, legacy or modern"
                 )
+            for endpoint in upstream.endpoints:
+                if not _NAME.match(endpoint.tool):
+                    raise ConfigurationError(
+                        f"upstream {upstream.name}: endpoint tool {endpoint.tool!r} is not a short token"
+                    )
+                if endpoint.method not in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"}:
+                    raise ConfigurationError(
+                        f"upstream {upstream.name}: endpoint method must be an HTTP method"
+                    )
+                _check_route_path(endpoint.path, f"upstream {upstream.name} endpoint")
+        _validate_listen(self.listen)
+        seen: set[tuple[str, str]] = set()
+        for route in self.routes:
+            if route.flow not in {"api2api", "api2mcp", "api2llm"}:
+                raise ConfigurationError(
+                    f"route flow must be api2api, api2mcp, or api2llm; got {route.flow!r}"
+                )
+            if route.upstream not in names:
+                raise ConfigurationError(f"route upstream {route.upstream!r} is not configured")
+            upstream = next(item for item in self.upstreams or [] if item.name == route.upstream)
+            expected = {"api2api": "api", "api2llm": "llm", "api2mcp": "mcp"}[route.flow]
+            if upstream.kind != expected:
+                raise ConfigurationError(
+                    f"route flow {route.flow} requires upstream kind {expected}"
+                )
+            if route.flow == "api2mcp" and not route.tool:
+                raise ConfigurationError("api2mcp route requires tool")
+            _check_route_path(route.path, "route path")
+            if route.upstream_path:
+                _check_route_path(route.upstream_path, "route upstream_path")
+            for method in route.methods:
+                if method not in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"}:
+                    raise ConfigurationError(f"route method {method!r} is not an HTTP method")
+                key = (method, route.path)
+                if key in seen:
+                    raise ConfigurationError(f"duplicate route {method} {route.path}")
+                seen.add(key)
         _check_plugin_name(self.storage, "plugins.storage")
         _check_plugin_name(self.signer, "plugins.signer")
         if not isinstance(self.reporters, tuple) or not self.reporters:
@@ -191,8 +301,16 @@ def load_settings(path: str | Path) -> Settings:
     if not export_dir.is_absolute():
         export_dir = (config_path.parent / export_dir).resolve()
 
-    upstreams = [_upstream(item) for item in raw.get("upstreams") or []]
+    base = config_path.parent
+    upstreams = [_upstream(item, base) for item in raw.get("upstreams") or []]
     storage, signer, reporters, auth, plugin_options = _plugins(raw)
+    body_mode = str(audit_raw.get("body_mode") or "hash_only")
+    redact_raw = audit_raw.get("redact_paths") or []
+    if not isinstance(redact_raw, list) or not all(isinstance(item, str) for item in redact_raw):
+        raise ConfigurationError("audit.redact_paths must be a list of strings")
+    max_body = audit_raw.get("max_body_bytes", 1_048_576)
+    if isinstance(max_body, bool) or not isinstance(max_body, int):
+        raise ConfigurationError("audit.max_body_bytes must be an integer")
     settings = Settings(
         principal=principal,
         retention=retention,
@@ -211,6 +329,11 @@ def load_settings(path: str | Path) -> Settings:
         reporters=reporters,
         auth=auth,
         plugin_options=plugin_options,
+        body_mode=body_mode,
+        redact_paths=tuple(redact_raw),
+        max_body_bytes=max_body,
+        listen=_listen(raw.get("listen"), base) if raw.get("listen") is not None else None,
+        routes=_routes(raw.get("routes") or []),
     )
     settings.validate()
     return settings
@@ -305,7 +428,7 @@ def _check_plugin_name(name: object, label: str) -> None:
         raise ConfigurationError(f"{label} must be a plugin name")
 
 
-def _upstream(item: object) -> UpstreamConfig:
+def _upstream(item: object, base: Path | None = None) -> UpstreamConfig:
     if not isinstance(item, dict):
         raise ConfigurationError("upstream entries must be objects")
     env = item.get("env") or {}
@@ -324,6 +447,9 @@ def _upstream(item: object) -> UpstreamConfig:
         headers={str(key): str(value) for key, value in headers.items()},
         cwd=item.get("cwd"),
         timeout=timeout,
+        kind=str(item.get("kind") or "mcp"),
+        ca_file=_abs(base, item.get("ca_file")),
+        endpoints=_endpoints(item.get("endpoints") or []),
     )
 
 
@@ -346,6 +472,171 @@ def _client_id(value: Any) -> str | None:
     if not isinstance(value, str) or not _CLIENT_ID.fullmatch(value):
         raise ConfigurationError("client_id must be a printable token")
     return value
+
+
+def _abs(base: Path | None, value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ConfigurationError("file path must be a string")
+    path = Path(value)
+    if base is not None and not path.is_absolute():
+        path = (base / path).resolve()
+    return str(path)
+
+
+def _endpoints(value: object) -> list[EndpointConfig]:
+    if not isinstance(value, list):
+        raise ConfigurationError("upstream endpoints must be a list")
+    found: list[EndpointConfig] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ConfigurationError("upstream endpoint must be an object")
+        unknown = set(item) - {"tool", "method", "path"}
+        if unknown:
+            raise ConfigurationError(f"unknown endpoint fields: {sorted(unknown)}")
+        found.append(
+            EndpointConfig(
+                tool=str(item.get("tool") or ""),
+                method=str(item.get("method") or "").upper(),
+                path=str(item.get("path") or ""),
+            )
+        )
+    return found
+
+
+def _routes(value: object) -> list[RouteConfig]:
+    if not isinstance(value, list):
+        raise ConfigurationError("routes must be a list")
+    found: list[RouteConfig] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise ConfigurationError("route must be an object")
+        unknown = set(item) - {"flow", "methods", "path", "upstream", "upstream_path", "tool"}
+        if unknown:
+            raise ConfigurationError(f"unknown route fields: {sorted(unknown)}")
+        methods = item.get("methods")
+        if not isinstance(methods, list) or not methods or not all(isinstance(m, str) for m in methods):
+            raise ConfigurationError("route methods must be a non-empty list of strings")
+        found.append(
+            RouteConfig(
+                flow=str(item.get("flow") or ""),
+                methods=tuple(method.upper() for method in methods),
+                path=str(item.get("path") or ""),
+                upstream=str(item.get("upstream") or ""),
+                upstream_path=item.get("upstream_path"),
+                tool=item.get("tool"),
+            )
+        )
+    return found
+
+
+def _listen(value: object, base: Path) -> ListenConfig:
+    if not isinstance(value, dict):
+        raise ConfigurationError("listen must be an object")
+    unknown = set(value) - {"bind", "port", "cert_file", "key_file", "identity"}
+    if unknown:
+        raise ConfigurationError(f"unknown listen fields: {sorted(unknown)}")
+    port = value.get("port")
+    if isinstance(port, bool) or not isinstance(port, int) or not 0 <= port <= 65535:
+        raise ConfigurationError("listen.port must be an integer from 0 to 65535")
+    bind = value.get("bind")
+    if not isinstance(bind, str) or not bind:
+        raise ConfigurationError("listen.bind is required")
+    cert = _abs(base, value.get("cert_file"))
+    key = _abs(base, value.get("key_file"))
+    if not cert or not key:
+        raise ConfigurationError("listen.cert_file and listen.key_file are required")
+    return ListenConfig(
+        bind=bind,
+        port=port,
+        cert_file=cert,
+        key_file=key,
+        identity=_identity(value.get("identity"), base),
+    )
+
+
+def _identity(value: object, base: Path) -> ListenIdentity:
+    if not isinstance(value, dict):
+        raise ConfigurationError("listen.identity is required")
+    unknown = set(value) - {
+        "mode",
+        "client_ca_file",
+        "principals",
+        "bearer_token_file",
+        "bearer_principal",
+        "end_user_header",
+        "end_users",
+    }
+    if unknown:
+        raise ConfigurationError(f"unknown listen.identity fields: {sorted(unknown)}")
+    mode = value.get("mode")
+    if mode not in {"mtls", "bearer", "mtls_and_bearer"}:
+        raise ConfigurationError("listen.identity.mode must be mtls, bearer, or mtls_and_bearer")
+    principals = tuple(_mapped(item, fingerprint=True) for item in value.get("principals") or [])
+    end_users = tuple(_mapped(item, fingerprint=False) for item in value.get("end_users") or [])
+    bearer_principal = None
+    if value.get("bearer_principal") is not None:
+        bearer_principal = _mapped(value.get("bearer_principal"), fingerprint=False)
+    header = value.get("end_user_header")
+    if header is not None and (not isinstance(header, str) or not header.strip()):
+        raise ConfigurationError("end_user_header must be a header name")
+    return ListenIdentity(
+        mode=str(mode),
+        client_ca_file=_abs(base, value.get("client_ca_file")),
+        principals=principals,
+        bearer_token_file=_abs(base, value.get("bearer_token_file")),
+        bearer_principal=bearer_principal,
+        end_user_header=header,
+        end_users=end_users,
+    )
+
+
+def _mapped(value: object, *, fingerprint: bool) -> MappedPrincipal:
+    if not isinstance(value, dict):
+        raise ConfigurationError("principal map entries must be objects")
+    allowed = {"id", "name", "role"}
+    if fingerprint:
+        allowed = allowed | {"fingerprint"}
+    unknown = set(value) - allowed
+    if unknown:
+        raise ConfigurationError(f"unknown principal fields: {sorted(unknown)}")
+    role = str(value.get("role") or "")
+    if role not in ROLES:
+        raise ConfigurationError(f"role must be one of {sorted(ROLES)}")
+    ident = str(value.get("id") or "")
+    name = str(value.get("name") or "")
+    if not ident or not name:
+        raise ConfigurationError("principal id and name are required")
+    digest = None
+    if fingerprint:
+        raw = str(value.get("fingerprint") or "").lower().removeprefix("sha256:")
+        raw = raw.replace(":", "")
+        if not re.fullmatch(r"[0-9a-f]{64}", raw):
+            raise ConfigurationError("client certificate fingerprint must be 64 hex characters")
+        digest = raw
+    return MappedPrincipal(id=ident, name=name, role=role, fingerprint=digest)
+
+
+def _validate_listen(listen: ListenConfig | None) -> None:
+    if listen is None:
+        return
+    identity = listen.identity
+    if identity.mode in {"mtls", "mtls_and_bearer"}:
+        if not identity.client_ca_file:
+            raise ConfigurationError("mTLS requires listen.identity.client_ca_file")
+        if not identity.principals:
+            raise ConfigurationError("mTLS requires at least one fingerprint principal")
+    if identity.mode in {"bearer", "mtls_and_bearer"}:
+        if not identity.bearer_token_file or identity.bearer_principal is None:
+            raise ConfigurationError("bearer identity requires bearer_token_file and bearer_principal")
+    if identity.end_user_header and not identity.end_users:
+        raise ConfigurationError("end_user_header requires end_users")
+
+
+def _check_route_path(path: str, label: str) -> None:
+    if not path.startswith("/") or path.startswith("//") or " " in path or ".." in path:
+        raise ConfigurationError(f"{label} must be a single absolute path")
 
 
 def _parse_bool(value: str, label: str) -> bool:

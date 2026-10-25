@@ -49,6 +49,10 @@ def build_event(
     traceparent: str | None = None,
     timestamp: str | None = None,
     record_id: str | None = None,
+    transport: str = "stdio",
+    channel: str = "mcp",
+    flow: str | None = None,
+    http: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "approval": approval,
@@ -61,7 +65,10 @@ def build_event(
             "version": client.get("version"),
         },
         "error": error,
+        "channel": channel,
+        "flow": flow,
         "hash_algo": HASH_ALGO,
+        "http": http,
         "method": method,
         "policy_decision": {"action": policy_action, "rule": policy_rule},
         "principal": {
@@ -82,6 +89,7 @@ def build_event(
         "timestamp": timestamp or format_timestamp(utc_now()),
         "tool": tool,
         "traceparent": traceparent,
+        "transport": transport,
         "upstream_protocol_version": upstream_protocol_version,
         "upstream_session_id": upstream_session_id,
         "utc_offset": "+00:00",

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 - 2026-10-25
+
+The commercial name is GxP Gateway Audit. The package name, the command names, the entry-point groups, and the MCP Registry id stay `mcp-glp-audit-proxy`.
+
+- New records use schema 1.2.0. Each line adds `transport`, `channel`, `flow`, and `http`. A 1.0.0 or 1.1.0 line in the same file still verifies. The verifier accepts all three.
+- The process audits MCP and HTTPS calls. With no `listen` object it stays a stdio MCP proxy. With `listen` it serves HTTPS, TLS 1.3 only, and does not open a plaintext port. The client keeps its request and changes the base URL.
+- Six flows: `mcp2mcp`, `mcp2api`, `api2mcp`, `api2api`, `mcp2llm`, `api2llm`. An LLM upstream is an HTTPS API whose records use kind `llm`.
+- `audit.body_mode` is `hash_only` (the default), `redacted`, or `full`. The SHA-256 of the raw body is always stored. `full` stores the body inside the hash-chained record. The log file stays mode 0600. A body over the limit is not forwarded and the hash is null.
+- HTTPS identity is `mtls`, `bearer`, or `mtls_and_bearer`. The bearer is one line in a mode 0600 file and is compared without being logged. There is no unauthenticated mode. OIDC and SSO stay a Pro plugin point.
+- `policy.http_allow` and `policy.http_deny` match `METHOD /path`. Deny wins. An empty HTTP allow list denies every HTTPS route and does not change the MCP tool lists. `POST`, `PUT`, `PATCH`, and `DELETE` require `X-Audit-Reason` when reasons are required. An approval is bound to the method, the route template, the body hash, and the path.
+- If the audit record cannot be written, the upstream body is not returned.
+
 ## 0.3.2 - 2026-10-22
 
 - The JSON licence format is removed. LM2 supersedes it. A file that is not LM1 or LM2 text is rejected. With no licence file, Community features stay on.

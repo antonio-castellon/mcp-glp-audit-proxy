@@ -28,7 +28,7 @@ Confirm the script and the one server flag:
 mcp-glp-audit-proxy --help
 ```
 
-The help text is the `--config` option. The server does not listen on a port and it has no HTTP switch. Stdio is the only transport.
+The help text is the `--config` option. A socket is opened only when the config file contains a listen object. This page's config does not. The client on this page is stdio.
 
 ## Minimal config
 

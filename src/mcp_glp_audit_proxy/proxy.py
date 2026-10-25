@@ -8,6 +8,7 @@ result. If the audit store cannot be written, the result is not returned.
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -105,6 +106,8 @@ LOCAL_TOOLS: dict[str, dict[str, Any]] = {
                 "write_tools": {"type": "array", "items": {"type": "string"}},
                 "require_approval_for_writes": {"type": "boolean"},
                 "require_reason_for_writes": {"type": "boolean"},
+                "http_allow": {"type": "array", "items": {"type": "string"}},
+                "http_deny": {"type": "array", "items": {"type": "string"}},
                 "reason": {"type": "string"},
                 "audit_enabled": {"type": "boolean"},
             },
@@ -148,6 +151,13 @@ class AuditProxy:
         self._clock_probe = clock_probe
         self._dead = False
         self._transport_session_id: str | None = None
+        self._record_transport = "stdio"
+        self._record_channel = "mcp"
+        self._record_flow: str | None = None
+        self._record_http: dict[str, Any] | None = None
+        # Set by the HTTPS adapter when it already applied the HTTP approval gate.
+        self._http_preauthorized = False
+        self._inbound_approval: dict[str, Any] | None = None
 
     def startup(self) -> dict[str, Any]:
         from .clockutil import probe_clock
@@ -751,6 +761,45 @@ class AuditProxy:
     ) -> dict[str, Any]:
         server_name, tool_name = _split_tool(name)
         reason = _reason(message)
+        upstream = self.upstreams.get(server_name)
+        kind = getattr(upstream, "kind", "mcp")
+        previous_flow = self._record_flow
+        previous_http = self._record_http
+        if self._record_flow is None:
+            self._record_flow = {"api": "mcp2api", "llm": "mcp2llm"}.get(kind, "mcp2mcp")
+        endpoint = None
+        if kind in {"api", "llm"} and upstream is not None:
+            endpoint = getattr(upstream, "endpoints", {}).get(tool_name)
+        try:
+            return self._upstream_call_locked(
+                message,
+                name,
+                arguments,
+                server_name,
+                tool_name,
+                reason,
+                upstream,
+                kind,
+                endpoint,
+                previous_http,
+            )
+        finally:
+            self._record_flow = previous_flow
+            self._record_http = previous_http
+
+    def _upstream_call_locked(
+        self,
+        message: dict[str, Any],
+        name: str,
+        arguments: dict[str, Any],
+        server_name: str,
+        tool_name: str,
+        reason: str | None,
+        upstream: Any,
+        kind: str,
+        endpoint: Any,
+        previous_http: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         decision = self.settings.policy.decide(name, self.settings.principal.role)
         if decision.action == "deny":
             return self._deny(
@@ -764,7 +813,9 @@ class AuditProxy:
                 text=f"denied by policy ({decision.rule})",
                 reason=reason,
             )
-        is_write = self.settings.policy.is_write(name)
+        is_write = self.settings.policy.is_write(name) or (
+            endpoint is not None and self.settings.policy.is_http_write(endpoint.method)
+        )
         if is_write and self.settings.policy.require_reason_for_writes and not reason:
             return self._deny(
                 message,
@@ -777,7 +828,11 @@ class AuditProxy:
                 text="a reason is required for write tools",
                 reason=None,
             )
-        if is_write and self.settings.policy.require_approval_for_writes:
+        if (
+            is_write
+            and self.settings.policy.require_approval_for_writes
+            and not self._http_preauthorized
+        ):
             gate = self._approval_gate(message, name, arguments, reason)
             if gate is not None:
                 return gate
@@ -797,7 +852,11 @@ class AuditProxy:
         try:
             upstream.ensure()
             response = upstream.call_tool(tool_name, arguments, _meta(message))
+            if kind in {"api", "llm"} and previous_http is None:
+                self._record_http = getattr(upstream, "last_http", None)
         except Exception as exc:  # upstream transport or negotiation
+            if kind in {"api", "llm"} and previous_http is None:
+                self._record_http = getattr(upstream, "last_http", None)
             self._audit_simple(
                 message,
                 method="tools/call",
@@ -924,6 +983,15 @@ class AuditProxy:
         )
         return _result(message, client_result)
 
+    def _call_is_write(self, name: str) -> bool:
+        if self.settings.policy.is_write(name):
+            return True
+        server_name, tool_name = _split_tool(name)
+        upstream = self.upstreams.get(server_name)
+        endpoints = getattr(upstream, "endpoints", None)
+        endpoint = endpoints.get(tool_name) if isinstance(endpoints, dict) else None
+        return endpoint is not None and self.settings.policy.is_http_write(endpoint.method)
+
     def _consumed_approval(
         self,
         message: dict[str, Any],
@@ -931,7 +999,7 @@ class AuditProxy:
         arguments: dict[str, Any],
     ) -> dict[str, Any] | None:
         approval_id = _meta(message).get("io.github.antonio-castellon/approvalId")
-        if not approval_id or not self.settings.policy.is_write(name):
+        if not approval_id or not self._call_is_write(name):
             return None
         # Single-use does not depend on require_approval_for_writes. Turning
         # the gate off must not leave a presented, still-valid approval reusable.
@@ -1296,6 +1364,8 @@ class AuditProxy:
                 "write_tools",
                 "require_approval_for_writes",
                 "require_reason_for_writes",
+                "http_allow",
+                "http_deny",
             )
             if key in arguments
         }
@@ -1383,7 +1453,10 @@ class AuditProxy:
                 "error": error,
             }
         payload = response.get("result")
+        stored = response.get("_audit_result", payload) if isinstance(response, dict) else payload
         status = "failed" if isinstance(payload, dict) and payload.get("isError") else "ok"
+        if status == "ok" and approval is None:
+            approval = self._inbound_approval
         if status != "ok":
             approval = None
         self._audit_simple(
@@ -1393,9 +1466,9 @@ class AuditProxy:
             status=status,
             server=server,
             tool=tool,
-            arguments=arguments,
-            result=payload,
-            error={"message": "tool error"} if status == "failed" else None,
+                arguments=arguments,
+                result=stored,
+                error={"message": "tool error"} if status == "failed" else None,
             policy_action="allow",
             policy_rule=policy_rule,
             reason=reason,
@@ -1482,8 +1555,16 @@ class AuditProxy:
     ) -> dict[str, Any]:
         meta = _meta(message) if message else {}
         _cleaned, stripped = split_meta(meta)
+        record_method = method
+        if (
+            method == "tools/call"
+            and self._record_transport == "https"
+            and isinstance(self._record_http, dict)
+            and isinstance(self._record_http.get("method"), str)
+        ):
+            record_method = self._record_http["method"]
         event = build_event(
-            method=method,
+            method=record_method,
             record_class=record_class,
             status=status,
             server=server,
@@ -1504,6 +1585,10 @@ class AuditProxy:
             stripped_credential_fields=stripped,
             traceparent=meta.get("traceparent") if isinstance(meta.get("traceparent"), str) else None,
             timestamp=format_timestamp(self._now()),
+            transport=self._record_transport,
+            channel=self._record_channel,
+            flow=self._record_flow,
+            http=_http_for_record(self._record_http),
         )
         # Technical logs stay on stderr via the logging module. The GxP record
         # is only the store append below.
@@ -1607,6 +1692,15 @@ class AuditProxy:
         if path != root and root not in path.parents:
             raise AuditStoreError("export path escapes the export directory")
         return path
+
+
+def _http_for_record(http: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(http, dict) or "_started" not in http:
+        return http
+    view = dict(http)
+    started = view.pop("_started")
+    view["latency_ms"] = max(0, int((time.perf_counter() - float(started)) * 1000))
+    return view
 
 
 def _default_now() -> Any:

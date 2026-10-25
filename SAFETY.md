@@ -28,6 +28,8 @@ Do not log the JSONL file into a system that can rewrite lines. The Community ba
 
 On stdio the principal is the environment: `GLP_PRINCIPAL_ID`, `GLP_PRINCIPAL_NAME`, `GLP_PRINCIPAL_ROLE`, or the same fields in `config.json` when those variables are unset. The `auth` plugin defaults to `env` and returns that principal. It does not contact an identity provider. `plugins.auth` set to another name refuses to start unless that entry point is installed and the signed licence includes the feature it declares. Those plugins are not in this repository. The host process must set the environment to the authenticated human. A shared service account for operators is a bad fit for attribution.
 
+On the HTTPS listener the mode is `mtls`, `bearer`, or `mtls_and_bearer`. There is no unauthenticated mode and no plaintext listener. mTLS maps the SHA-256 fingerprint of the client certificate to a configured principal. The bearer is one line in a mode 0600 file. It is compared without being written to the log or to the record. A shared bearer is a gate, not a unique user id. `end_user_header` is trusted only after that gate, and only when the value is a configured id. Per-user attribution (one certificate per person, or an end-user header from an authenticated gateway) is the mode that fits the expectations described in the README. OIDC and SSO are not in this repository.
+
 Roles are split on purpose. An operator cannot verify, search, export, approve or change policy. An approver, a QA reviewer and an admin cannot call upstream tools.
 
 ## Secrets
@@ -35,6 +37,8 @@ Roles are split on purpose. An operator cannot verify, search, export, approve o
 `_meta` keys that look like credentials (`authorization`, `token`, `access_token`, `api_key`, `api-key`, `password`, `secret`, `cookie`) are removed before storage and before the upstream call. The field names are stored in `stripped_credential_fields`. The values are not.
 
 Tool arguments are stored in full. That is the original record. Do not put passwords or tokens in tool arguments.
+
+`audit.body_mode` chooses what is stored next to the body SHA-256. The default is `hash_only`, which stores the hash and no body bytes. `redacted` stores a JSON copy with the configured paths replaced by `***`. `full` stores the plaintext inside the hash-chained record. The log file is mode 0600. Pick `hash_only` unless a procedure says the body itself has to be in the trail. Credential header values are not stored in any mode. Streaming is not part of 0.4.0. A request with no `Content-Length` is an empty body. A body over `max_body_bytes` (default 1 MiB, config ceiling 8 MiB) is not forwarded.
 
 Upstream stdio processes receive the MCP SDK environment allow-list (`HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM`, `USER` on POSIX) plus the `env` object in that upstream's config. They do not inherit `GLP_*` or other parent secrets.
 

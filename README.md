@@ -284,3 +284,14 @@ CI runs the same suite on Python 3.11, 3.12 and 3.13 (`.github/workflows/ci.yml`
 MIT. Copyright (c) 2026 Antonio Castellon / Castellon.CH. See `LICENSE`.
 
 How to contribute is in `CONTRIBUTING.md`. The conduct note is `CODE_OF_CONDUCT.md`. Vulnerability reports go through `SECURITY.md`, not an open issue.
+
+## Notice and Disclaimer
+
+NOTICE AND DISCLAIMER: This software automatically retrieves, accesses or interacts with external materials. Those retrieved materials are not distributed with this software and are governed solely by separate terms, conditions and licenses. You are solely responsible for finding, reviewing and complying with all applicable terms, conditions, and licenses, and for verifying the security, integrity and suitability of any retrieved materials for your specific use case. This software is provided "AS IS", without warranty of any kind. The author makes no representations or warranties regarding any retrieved materials, and assumes no liability for any losses, damages, liabilities or legal consequences from your use or inability to use this software or any retrieved materials. Use this software and the retrieved materials at your own risk.
+
+External materials mcp-glp-audit-proxy interacts with at run time:
+
+- The upstream MCP servers you configure, and any services or data they reach, under their own terms and licenses.
+- Your MCP host and models, under their own terms.
+
+This software supports traceability work, but it does not by itself make a system meet GLP, 21 CFR Part 11 or EU Annex 11 requirements.

@@ -294,4 +294,4 @@ External materials mcp-glp-audit-proxy interacts with at run time:
 - The upstream MCP servers you configure, and any services or data they reach, under their own terms and licenses.
 - Your MCP host and models, under their own terms.
 
-This software supports traceability work, but it does not by itself make a system compliant with GLP, 21 CFR Part 11 or EU Annex 11.
+This software supports traceability work, but it does not by itself make a system meet GLP, 21 CFR Part 11 or EU Annex 11 requirements.
